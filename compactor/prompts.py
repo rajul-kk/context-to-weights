@@ -8,25 +8,24 @@ COMPACTION_INSTRUCTION = """Numbered spans from a conversation:
 
 {spans}
 
-Select the spans worth keeping verbatim. Keep a span only if losing it would make a later
-question unanswerable: concrete decisions, names, versions, identifiers, numeric limits,
-ownership, commitments. Drop chit-chat, restatements, generic advice, and anything
-recoverable from the rest.
+Select the {budget} spans out of {n_spans} that are most worth keeping verbatim. Rank by how
+badly a later question would suffer if the span were lost: concrete decisions, names,
+versions, identifiers, numeric limits, ownership and commitments matter most; chit-chat,
+restatements and generic advice matter least.
 
-Keep at most {budget} of the {n_spans} spans above.
+You must select exactly {budget} span numbers. Selecting none is not an answer.
 
 Reply with exactly two lines and nothing else. Do not repeat the spans.
 
-KEEP: <comma-separated span numbers, or NONE>
-SUMMARY: <one or two sentences covering the dropped spans>
+KEEP: <{budget} comma-separated span numbers between 0 and {last}>
+SUMMARY: <one or two sentences describing what the dropped spans were about>
 
-Both prefixes are required. Write your own summary; do not copy this shape's wording.
-
-Now give your answer for the {n_spans} spans above.
+Now answer for the {n_spans} spans above.
 """
 
 
 def build_compaction_prompt(span_texts, budget):
     numbered = "\n".join(f"[{i}] {t}" for i, t in enumerate(span_texts))
     return COMPACTION_INSTRUCTION.format(budget=budget, spans=numbered,
-                                         n_spans=len(span_texts))
+                                         n_spans=len(span_texts),
+                                         last=len(span_texts) - 1)

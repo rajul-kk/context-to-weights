@@ -75,9 +75,9 @@ class ModelCompactor(Compactor):
     def fallback_rate(self):
         return self.fallbacks / self.calls if self.calls else 0.0
 
-    def _fall_back(self, spans, budget, raw):
+    def _fall_back(self, spans, budget, raw, tag="heuristic-fallback"):
         self.fallbacks += 1
-        self.last_decided_by = "heuristic-fallback"
+        self.last_decided_by = tag
         if raw is not None and len(self.failed_replies) < 20:
             self.failed_replies.append(raw)
         if self.strict:
@@ -98,6 +98,7 @@ class ModelCompactor(Compactor):
             return self._fall_back(spans, budget, raw)
         if not kept:
             self.empty_keeps += 1
+            return self._fall_back(spans, budget, raw, tag="model-empty")
         if not summary:
             summary = _extractive_summary([spans[i]["text"] for i in range(len(spans)) if i not in set(kept)])
         return kept, summary
