@@ -71,6 +71,7 @@ only `latest/` plus `metrics.jsonl` are worth keeping if the dataset gets large.
 
 | Session | Work | Budget |
 |---|---|---|
+| 0 | `scripts/check_compactor.py` — salience lift per model. Stop here if nothing clears 1.0 | ~1 h |
 | 1 | compaction over both splits, span report, floor/ceiling contexts, reflections | ~2 h |
 | 2 | sleep runs for ours + uniform | ~4 h |
 | 3 | sleep runs for reflection + mask-head ablation | ~4 h |

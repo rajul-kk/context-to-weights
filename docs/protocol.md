@@ -99,6 +99,12 @@ The 360M model is **worse than random** — it keeps chit-chat and drops every p
 The heuristic's 4.47x is not evidence either, since it scores on the same cue words the fact
 templates use.
 
+`scripts/check_compactor.py` runs this check across models and prints the table above:
+
+```bash
+python scripts/check_compactor.py --config configs/kaggle.yaml
+```
+
 So the first GPU session must establish salience lift for Qwen2.5-0.5B-Instruct and
 Qwen2.5-1.5B-Instruct before any consolidation runs. If 0.5B does not clear 1.0, the
 compactor and the consolidation target have to be decoupled: use 1.5B as the compactor and
