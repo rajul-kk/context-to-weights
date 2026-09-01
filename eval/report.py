@@ -157,7 +157,18 @@ def main():
         plot_ce_curves(run_dirs, fig_dir / "ce_curves.png")
 
     table = to_markdown(rows)
-    body = ["# Results", "", "## Retention", "", table, ""]
+    body = ["# Results", ""]
+    cfg_path = Path(args.run_root) / "cascading" / "config.json"
+    if cfg_path.exists():
+        run_cfg = read_json(cfg_path)
+        body += [
+            f"Backbone `{run_cfg['model']['base']}`, compactor "
+            f"`{run_cfg['compaction']['backend']}`, keep_frac "
+            f"{run_cfg['compaction']['keep_frac']}, context budget "
+            f"{run_cfg['compaction']['context_budget']}.",
+            "",
+        ]
+    body += ["## Retention", "", table, ""]
     casc = next((r for r in rows if r["label"] == "cascading"), None)
     if casc is not None and casc.get("n_evicted", 0) == 0:
         warning = ("The compactor evicted no probed fact, so `acc(evicted)` is undefined and "
