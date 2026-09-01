@@ -71,6 +71,12 @@ def main():
     for k, v in report["per_fact_keep_rate"].items():
         print(f"  {k:<16} {v:.3f}")
 
+    if report["fact_spans"] and report["salience_lift"] <= 1.0:
+        print("\nWARNING: salience lift is at or below 1.0. This compactor keeps probed facts "
+              "no more often than filler,\nso its keep/drop decision carries no supervision. "
+              "Compaction-supervised consolidation cannot\nbeat uniform replay under this "
+              "compactor. Use a stronger compactor model before running the\nmain comparison.")
+
     if args.show and events:
         print("\nsample kept spans:")
         shown = 0

@@ -141,6 +141,16 @@ more slowly than uniform replay as ρ falls.
 
 ## 6. Limitations
 
+**The method inherits the compactor's judgment, and small compactors have none.** Salience
+lift — the ratio of the fact-span keep rate to the filler-span keep rate — measures whether
+the keep/drop decision carries supervision at all. SmolLM2-360M-Instruct scores 0.00x on our
+trajectories: it keeps chit-chat and drops every planted fact, which is worse than random.
+At that scale there is no signal to be supervised by, and the method reduces to uniform
+replay. The compactor must clear a lift of 1.0 before any of this is worth running, and
+establishing that threshold across model scales is a precondition we report rather than
+assume. If the consolidation target is too small to compact well, the compactor and the
+target must be decoupled.
+
 The synthetic generator plants facts with lexical cues that a keyword-based compactor can
 exploit; all reported results therefore use the model compactor, and the heuristic backend
 is documented as a debugging tool only. Trajectories are short relative to a real agent

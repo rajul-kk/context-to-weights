@@ -77,6 +77,34 @@ Reported per arm:
 - `mean_prompt_tokens` — inference-time token cost.
 - GPU-seconds per sleep phase, from `metrics.jsonl`.
 
+## Precondition: the compactor must carry signal
+
+Everything in this project rests on one assumption — that the compactor's keep/drop decision
+correlates with what a later question will need. That assumption is checkable directly, and
+it is not free.
+
+Run `eval/span_report.py` and read **salience lift**: the fact-span keep rate divided by the
+filler-span keep rate. Above 1.0 the compactor's decision carries supervision. At or below
+1.0 it carries none, and compaction-supervised consolidation has nothing to learn that
+uniform replay would not learn too. `span_report.py` warns when this happens.
+
+Measured so far:
+
+| Compactor | Fact keep | Filler keep | Salience lift |
+|---|---|---|---|
+| heuristic (debug) | 1.000 | 0.224 | 4.47x |
+| SmolLM2-360M-Instruct | 0.000 | 0.136 | 0.00x |
+
+The 360M model is **worse than random** — it keeps chit-chat and drops every planted fact.
+The heuristic's 4.47x is not evidence either, since it scores on the same cue words the fact
+templates use.
+
+So the first GPU session must establish salience lift for Qwen2.5-0.5B-Instruct and
+Qwen2.5-1.5B-Instruct before any consolidation runs. If 0.5B does not clear 1.0, the
+compactor and the consolidation target have to be decoupled: use 1.5B as the compactor and
+consolidate into 0.5B. That is still within scope — the brief permits a separate small model
+as the compactor — but it changes the story and must be stated in the paper.
+
 ## Sanity gate before trusting a comparison
 
 Check `n_evicted` in the cascading arm's summary. If it is 0, the compactor kept every
