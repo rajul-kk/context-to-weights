@@ -75,16 +75,20 @@ def collate(batch, pad_id):
 def _gather_slice(logits, starts, n_resp):
     rows = []
     for i, start in enumerate(starts.tolist()):
-        rows.append(logits[i, start: start + n_resp])
+        chunk = logits[i, start: start + n_resp]
+        if chunk.shape[0] < n_resp:
+            chunk = F.pad(chunk, (0, 0, 0, n_resp - chunk.shape[0]))
+        rows.append(chunk)
     return torch.stack(rows)
 
 
-def weighted_kl(teacher_logits, student_logits, weights, temperature):
+def weighted_kl(teacher_logits, student_logits, weights, temperature, valid):
     t_lp = F.log_softmax(teacher_logits / temperature, dim=-1)
     s_lp = F.log_softmax(student_logits / temperature, dim=-1)
     kl = (t_lp.exp() * (t_lp - s_lp)).sum(dim=-1)
-    denom = weights.sum().clamp(min=1e-6)
-    return (kl * weights).sum() / denom, kl
+    kl = torch.nan_to_num(kl, nan=0.0, posinf=0.0, neginf=0.0) * valid
+    denom = (weights * valid).sum().clamp(min=1e-6)
+    return (kl * weights * valid).sum() / denom, kl
 
 
 def run_group(model, tokenizer, cfg, rows, docs, run_dir, label, log_every=25):
@@ -120,7 +124,9 @@ def run_group(model, tokenizer, cfg, rows, docs, run_dir, label, log_every=25):
                           attention_mask=batch["student_mask"]).logits.float()
             student = _gather_slice(s_out, batch["student_start"], n_resp)
 
-            loss, kl = weighted_kl(teacher, student, batch["weights"], temperature)
+            positions = torch.arange(n_resp, device=device).unsqueeze(0)
+            valid = (positions < batch["resp_len"].unsqueeze(1)).float()
+            loss, kl = weighted_kl(teacher, student, batch["weights"], temperature, valid)
             (loss / accum).backward()
             if (step + 1) % accum == 0:
                 torch.nn.utils.clip_grad_norm_(params, 1.0)
@@ -130,9 +136,11 @@ def run_group(model, tokenizer, cfg, rows, docs, run_dir, label, log_every=25):
             step += 1
             if step % log_every == 0 or step == dc["steps"]:
                 kl_d = kl.detach()
-                gated = float((kl_d * batch["weights"]).sum() / batch["weights"].sum().clamp(min=1e-6))
+                gated = float((kl_d * batch["weights"] * valid).sum()
+                              / (batch["weights"] * valid).sum().clamp(min=1e-6))
+                all_mean = float((kl_d * valid).sum() / valid.sum().clamp(min=1e-6))
                 entry = {"step": step, "loss": float(loss.item()),
-                         "kl_all_mean": float(kl_d.mean().item()), "kl_gated_mean": gated}
+                         "kl_all_mean": all_mean, "kl_gated_mean": gated}
                 history.append(entry)
                 append_jsonl(Path(run_dir) / "metrics.jsonl", dict(entry, group=label))
 

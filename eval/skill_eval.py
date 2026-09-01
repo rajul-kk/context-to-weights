@@ -25,7 +25,6 @@ def passed(prediction, required):
 
 
 def eval_arm(model, tokenizer, skills, cfg, doc_mode, label, group_of, adapter_group):
-    order = [s["name"] for s in skills]
     pairs = []
     index = []
     for si, skill in enumerate(skills):
@@ -58,7 +57,6 @@ def eval_arm(model, tokenizer, skills, cfg, doc_mode, label, group_of, adapter_g
                 "prompt_tokens": len(tokenizer.encode(chat, add_special_tokens=False)),
             }
         )
-    del order
     return records
 
 
