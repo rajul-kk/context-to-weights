@@ -1,0 +1,50 @@
+[
+  {
+    "name": "veltrix-cache",
+    "category": "storage",
+    "n_demos": 9,
+    "n_tasks": 12
+  },
+  {
+    "name": "harrowdb",
+    "category": "storage",
+    "n_demos": 9,
+    "n_tasks": 12
+  },
+  {
+    "name": "pallas-http",
+    "category": "network",
+    "n_demos": 9,
+    "n_tasks": 12
+  },
+  {
+    "name": "sable-queue",
+    "category": "network",
+    "n_demos": 9,
+    "n_tasks": 12
+  },
+  {
+    "name": "quarrybuild",
+    "category": "tooling",
+    "n_demos": 9,
+    "n_tasks": 12
+  },
+  {
+    "name": "tessera-auth",
+    "category": "tooling",
+    "n_demos": 9,
+    "n_tasks": 12
+  },
+  {
+    "name": "obsidian-flags",
+    "category": "tooling",
+    "n_demos": 9,
+    "n_tasks": 12
+  },
+  {
+    "name": "cinder-metrics",
+    "category": "network",
+    "n_demos": 9,
+    "n_tasks": 12
+  }
+]

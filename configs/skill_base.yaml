@@ -1,0 +1,32 @@
+run_root: artifacts/runs_skill
+seed: 0
+
+skills:
+  root: skills/toy
+  grouping: category
+
+model:
+  base: Qwen/Qwen2.5-1.5B-Instruct
+  dtype: float16
+  max_length: 1024
+
+gate:
+  policy: kl_top
+  granularity: span
+  top_frac: 0.25
+  floor_weight: 0.0
+
+distill:
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  lr: 1.0e-4
+  steps: 300
+  batch_size: 2
+  grad_accum: 4
+  temperature: 1.0
+
+eval:
+  max_new_tokens: 96
+  batch_size: 8

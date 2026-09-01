@@ -1,0 +1,11 @@
+_base_: skill_base.yaml
+
+model:
+  base: HuggingFaceTB/SmolLM2-360M-Instruct
+  dtype: float32
+  max_length: 1024
+
+distill:
+  steps: 20
+  batch_size: 1
+  grad_accum: 2

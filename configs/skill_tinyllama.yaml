@@ -1,0 +1,9 @@
+_base_: skill_base.yaml
+
+model:
+  base: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+  dtype: float16
+  max_length: 1024
+
+distill:
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
