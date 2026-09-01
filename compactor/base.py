@@ -20,6 +20,7 @@ class Compactor:
 
     def __init__(self):
         self.last_decided_by = self.name
+        self.last_overselect = 0
 
     def select(self, spans, budget):
         raise NotImplementedError
@@ -27,8 +28,14 @@ class Compactor:
     def compact(self, spans, keep_frac):
         budget = max(1, math.ceil(len(spans) * keep_frac))
         kept_idx, summary = self.select(spans, budget)
-        kept_idx = sorted(set(i for i in kept_idx if 0 <= i < len(spans)))[:budget]
-        return kept_idx, summary
+        ranked = []
+        seen = set()
+        for i in kept_idx:
+            if 0 <= i < len(spans) and i not in seen:
+                seen.add(i)
+                ranked.append(i)
+        self.last_overselect = max(0, len(ranked) - budget)
+        return sorted(ranked[:budget]), summary
 
 
 class HeuristicCompactor(Compactor):
@@ -73,6 +80,7 @@ class ModelCompactor(Compactor):
         self.fallbacks = 0
         self.empty_keeps = 0
         self.prefix_answers = 0
+        self.overselects = 0
         self.last_raw = None
         self.failed_replies = []
 
@@ -114,6 +122,8 @@ class ModelCompactor(Compactor):
             return self._fall_back(spans, budget, raw, tag="model-empty")
         if sorted(shown) == list(range(len(shown))):
             self.prefix_answers += 1
+        if len(shown) > budget:
+            self.overselects += 1
         kept = [order[i] for i in shown]
         if not summary:
             summary = _extractive_summary([spans[i]["text"] for i in range(len(spans)) if i not in set(kept)])

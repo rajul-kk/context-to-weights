@@ -94,7 +94,7 @@ def main():
         print(f"compactor: {compactor.calls} calls, {compactor.fallbacks} heuristic fallbacks "
               f"({compactor.fallback_rate:.1%}), {compactor.empty_keeps} empty keeps "
               f"({empty_rate:.1%}), {compactor.prefix_answers} prefix answers "
-              f"({compactor.prefix_rate:.1%})")
+              f"({compactor.prefix_rate:.1%}), {compactor.overselects} overselects")
         if compactor.prefix_rate > 0.5:
             print("WARNING: the compactor mostly answered with a contiguous prefix of the span\n"
                   "numbers it was shown. With shuffling on this is harmless, but it means the\n"
