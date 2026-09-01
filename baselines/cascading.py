@@ -20,7 +20,14 @@ def build_compactor(cfg, tokenizer=None, model=None):
     if model is None:
         model, tokenizer = load_backbone(cfg)
     gen = make_generator(model, tokenizer)
-    return ModelCompactor(gen, max_new_tokens=cfg["compaction"]["max_new_tokens"]), tokenizer
+    compactor = ModelCompactor(
+        gen,
+        max_new_tokens=cfg["compaction"]["max_new_tokens"],
+        strict=cfg["compaction"].get("strict", False),
+        shuffle=cfg["compaction"].get("shuffle_spans", True),
+        seed=cfg["seed"],
+    )
+    return compactor, tokenizer
 
 
 def run_split(cfg, split, out_dir, tokenizer=None, compactor=None):
@@ -86,7 +93,12 @@ def main():
         empty_rate = compactor.empty_keeps / compactor.calls
         print(f"compactor: {compactor.calls} calls, {compactor.fallbacks} heuristic fallbacks "
               f"({compactor.fallback_rate:.1%}), {compactor.empty_keeps} empty keeps "
-              f"({empty_rate:.1%})")
+              f"({empty_rate:.1%}), {compactor.prefix_answers} prefix answers "
+              f"({compactor.prefix_rate:.1%})")
+        if compactor.prefix_rate > 0.5:
+            print("WARNING: the compactor mostly answered with a contiguous prefix of the span\n"
+                  "numbers it was shown. With shuffling on this is harmless, but it means the\n"
+                  "model is not ranking spans.")
         if empty_rate > 0.2:
             print("WARNING: the compactor kept nothing on a large share of events. An empty keep "
                   "set yields no\nSFT examples, so those events contribute no supervision at all. "

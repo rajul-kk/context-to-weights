@@ -50,6 +50,28 @@ def _div(a, b):
     return float(a) / b if b else 0.0
 
 
+def positional_lift(events):
+    fact_kept = fact_total = filler_kept = filler_total = 0
+    for ev in events:
+        spans = ev["spans"]
+        budget = sum(1 for s in spans if s["kept"])
+        for i, s in enumerate(spans):
+            hit = int(i < budget)
+            if s.get("carries_fact"):
+                fact_total += 1
+                fact_kept += hit
+            else:
+                filler_total += 1
+                filler_kept += hit
+    fact_rate = _div(fact_kept, fact_total)
+    filler_rate = _div(filler_kept, filler_total)
+    return {
+        "fact_keep_rate": fact_rate,
+        "filler_keep_rate": filler_rate,
+        "salience_lift": _div(fact_rate, max(1e-9, filler_rate)),
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--events", required=True)
@@ -78,6 +100,16 @@ def main():
     print("per-fact keep rate:")
     for k, v in report["per_fact_keep_rate"].items():
         print(f"  {k:<16} {v:.3f}")
+
+    pos = positional_lift(events)
+    report["positional_control"] = pos
+    print(f"\npositional control (keep the first N spans):")
+    print(f"  fact {pos['fact_keep_rate']:.3f}  filler {pos['filler_keep_rate']:.3f}  "
+          f"lift {pos['salience_lift']:.2f}x")
+    if report["fact_spans"] and report["salience_lift"] <= pos["salience_lift"] * 1.1:
+        print("\nWARNING: the compactor does not beat 'keep the first N spans'. Its lift is a\n"
+              "positional artifact of where facts sit in the trajectory, not judgment. Shuffle\n"
+              "the spans shown to the compactor and confirm the lift survives.")
 
     if report.get("by_provenance"):
         print("\nby decision source:")

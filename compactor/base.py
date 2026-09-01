@@ -1,4 +1,5 @@
 import math
+import random
 import re
 
 from compactor.prompts import COMPACTION_SYSTEM, build_compaction_prompt
@@ -59,17 +60,25 @@ class HeuristicCompactor(Compactor):
 class ModelCompactor(Compactor):
     name = "model"
 
-    def __init__(self, generator, fallback=None, max_new_tokens=192, strict=False):
+    def __init__(self, generator, fallback=None, max_new_tokens=192, strict=False,
+                 shuffle=True, seed=0):
         super().__init__()
         self.generator = generator
         self.fallback = fallback or HeuristicCompactor()
         self.max_new_tokens = max_new_tokens
         self.strict = strict
+        self.shuffle = shuffle
+        self.rng = random.Random(seed)
         self.calls = 0
         self.fallbacks = 0
         self.empty_keeps = 0
+        self.prefix_answers = 0
         self.last_raw = None
         self.failed_replies = []
+
+    @property
+    def prefix_rate(self):
+        return self.prefix_answers / self.calls if self.calls else 0.0
 
     @property
     def fallback_rate(self):
@@ -87,18 +96,25 @@ class ModelCompactor(Compactor):
     def select(self, spans, budget):
         self.calls += 1
         self.last_decided_by = "model"
-        prompt = build_compaction_prompt([s["text"] for s in spans], budget)
+
+        order = list(range(len(spans)))
+        if self.shuffle:
+            self.rng.shuffle(order)
+        prompt = build_compaction_prompt([spans[i]["text"] for i in order], budget)
         try:
             raw = self.generator(COMPACTION_SYSTEM, prompt, self.max_new_tokens)
         except Exception:
             return self._fall_back(spans, budget, None)
         self.last_raw = raw
-        kept, summary = parse_compaction_reply(raw, len(spans))
-        if kept is None:
+        shown, summary = parse_compaction_reply(raw, len(spans))
+        if shown is None:
             return self._fall_back(spans, budget, raw)
-        if not kept:
+        if not shown:
             self.empty_keeps += 1
             return self._fall_back(spans, budget, raw, tag="model-empty")
+        if sorted(shown) == list(range(len(shown))):
+            self.prefix_answers += 1
+        kept = [order[i] for i in shown]
         if not summary:
             summary = _extractive_summary([spans[i]["text"] for i in range(len(spans)) if i not in set(kept)])
         return kept, summary

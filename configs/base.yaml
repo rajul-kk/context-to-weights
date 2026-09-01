@@ -18,6 +18,8 @@ compaction:
   keep_frac: 0.25
   granularity: sentence
   max_new_tokens: 192
+  shuffle_spans: true
+  strict: false
 
 sleep:
   every_k_events: 2
