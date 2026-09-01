@@ -90,25 +90,47 @@ uniform replay would not learn too. `span_report.py` warns when this happens.
 
 Measured so far:
 
-| Compactor | Fallback | Empty keeps | Fact keep | Filler keep | Salience lift |
-|---|---|---|---|---|---|
-| heuristic (debug) | - | 0% | 1.000 | 0.224 | 4.47x |
-| SmolLM2-360M-Instruct | 0% | 0% | 0.000 | 0.136 | 0.00x |
-| Qwen2.5-0.5B-Instruct | 0% | 0% | 0.417 | 0.247 | 1.68x |
+| Compactor | Fallback | Empty | Prefix answers | Fact keep | Filler keep | Lift |
+|---|---|---|---|---|---|---|
+| heuristic (debug) | - | 0% | - | 1.000 | 0.224 | 4.47x |
+| SmolLM2-360M-Instruct | 0% | 0% | - | 0.000 | 0.136 | 0.00x |
+| Qwen2.5-0.5B-Instruct | 0% | 0% | 100% | 0.139 | 0.260 | 0.53x |
 
-Read all three columns together. A lift figure means nothing unless the fallback and
-empty-keep rates are both zero, because a heuristic fallback substitutes a cheating decision
-for the model's and an empty keep set contributes no supervision at all.
+**No model compactor tested so far carries any signal.** Qwen2.5-0.5B answers with a
+contiguous prefix of the span numbers it is shown on 100% of events — `0, 1, 2, ...` —
+regardless of what text sits at those positions. It is not ranking. Once spans are shuffled
+before presentation, that behaviour is exactly random selection, and the measured lift
+(0.53x, n=36 fact spans) is consistent with chance.
 
-The 360M model is **worse than random** — it keeps chit-chat and drops every planted fact.
-Qwen2.5-0.5B clears the gate at 1.68x but drops 58% of planted facts, and three fact types
-(`owner`, `timeout`, `version_pin`) it never keeps. That is a usable but thin signal. The
-heuristic's 4.47x is not evidence either, since it scores on the same cue words the fact
-templates use.
+Read the columns together. A lift figure is meaningless unless fallback and empty-keep rates
+are zero *and* the prefix-answer rate is low, and unless the lift beats the positional
+control printed alongside it.
 
-Getting 0.5B to that point took three prompt revisions. `keep at most N` let it answer
-`NONE` on every event; only `select exactly N, selecting none is not an answer` produced
-selections. Treat compactor prompt sensitivity as a first-class risk at this scale.
+Three earlier measurements on this row were wrong, each inflated by a different bug of ours:
+
+| Reported | Cause |
+|---|---|
+| 3.99x | 58% of decisions were silent heuristic fallbacks |
+| 1.68x | model answered with the first N spans; facts sit early in the trajectory |
+| 1.69x | `sorted(kept)[:budget]` restored positional bias after the shuffle |
+
+Every one of them erred in the favourable direction. Treat a positive lift as unproven until
+the positional control fails to reproduce it.
+
+## Consequences if no compactor clears the gate
+
+Compaction-supervised consolidation cannot beat uniform replay when the compactor selects at
+random, because the two methods then draw from the same distribution. Options, in order of
+preference:
+
+1. **A larger compactor.** Measure Qwen2.5-1.5B and up. The compaction pass is one-off and
+   offline, so a bigger compactor costs little even when consolidating into a small target.
+2. **Score-based selection instead of index listing.** Ask the compactor to score spans one
+   at a time, or read a per-span keep probability off the logits, rather than asking a small
+   model to emit a ranked index list — a format it evidently cannot produce.
+3. **Report the negative result.** "The compaction decision is free but only carries signal
+   above a model-scale threshold" is a publishable finding, and the infrastructure here
+   measures exactly that threshold.
 
 `scripts/check_compactor.py` runs this check across models and prints the table above:
 

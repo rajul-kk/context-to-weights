@@ -101,6 +101,13 @@ def main():
     for k, v in report["per_fact_keep_rate"].items():
         print(f"  {k:<16} {v:.3f}")
 
+    if 0 < report["fact_spans"] < 100:
+        print(f"\nNOTE: only {report['fact_spans']} fact spans. At a keep rate of "
+              f"{report['keep_rate']:.2f} the fact keep rate carries roughly "
+              f"+/-{(report['keep_rate'] * (1 - report['keep_rate']) / report['fact_spans']) ** 0.5:.3f} "
+              "of sampling noise.\nUse more eval trajectories before treating a lift near 1.0 "
+              "as a real effect.")
+
     pos = positional_lift(events)
     report["positional_control"] = pos
     print(f"\npositional control (keep the first N spans):")
