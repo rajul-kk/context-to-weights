@@ -14,9 +14,9 @@ python kl_gate/inspect_gate.py --scores artifacts/runs_skill/scores_debug.jsonl
 
 | | |
 |---|---|
-| median token KL | 1.016 |
-| mean token KL | 2.135 |
-| p90 token KL | 6.055 |
+| median token KL | 0.840 |
+| mean token KL | 2.078 |
+| p90 token KL | 6.303 |
 | required tokens inside top-25% of spans | 0.50 |
 
 The distribution is heavily right-skewed, which is what a useful gate needs: most tokens are
@@ -25,27 +25,26 @@ predictable without the skill doc, a small tail is not.
 ## Highest-KL spans
 
 ```
-3.354  [pallas-http]    'The rule is that deadline_ms defaults to nothing and must be set explicitly...'
-3.280  [pallas-http]    'deadline_ms defaults to nothing and must be set explicitly; retries require idem_key.'
-2.803  [veltrix-cache]  'ttl_s is mandatory and must not exceed 86400; Veltrix rejects a write without it.'
-2.697  [pallas-http]    'pallas_probe("internal", body=body, deadline_ms=250)'
-2.630  [veltrix-cache]  'It raises `VX_TTL_MISSING`.'
+3.334  [pallas-http]    'The rule is that deadline_ms defaults to nothing and must be set explicitly...'
+3.216  [pallas-http]    'deadline_ms defaults to nothing and must be set explicitly; retries require idem_key.'
+2.810  [veltrix-cache]  'ttl_s is mandatory and must not exceed 86400; Veltrix rejects a write without it.'
+2.715  [pallas-http]    'pallas_probe("internal", body=body, deadline_ms=250)'
 ```
 
 ## Lowest-KL spans
 
 ```
-0.233  '```python'
-0.204  '```\n\nNote:'
-0.185  '```\n\nNote:'
+0.165  '```python'
+0.154  '```\n\nNote:'
+0.126  '```\n\nNote:'
 ```
 
 ## Token level
 
 ```
-[veltrix-cache write] 'st':7.96  'rejects':7.62  'V':7.16  'x':6.98  't':5.76  'without':5.46
-[veltrix-cache read]  'rejects':8.21  'V':7.05  'fetch':6.93  'x':6.52  's':6.03
-[veltrix-cache rule]  'rejects':7.95  'X':7.91  'elt':6.74  'TT':6.24  'write':6.06
+[veltrix-cache write] 'st':8.25  'V':7.50  'rejects':7.45  'x':7.20  'write':5.90  'without':5.35
+[veltrix-cache read]  'rejects':7.94  'V':7.17  'fetch':7.00  'x':6.99  's':6.01
+[veltrix-cache rule]  'X':8.86  'rejects':7.53  'elt':6.97  'write':6.49  'TT':6.37
 ```
 
 The subword pieces of `vx_stash`, `vx_fetch` and `VX_TTL_MISSING` are the highest-scoring

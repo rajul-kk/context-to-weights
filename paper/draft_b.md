@@ -129,7 +129,7 @@ document.
 ## 5. Gate verification
 
 Before anything trains on the gate, it is checked by hand. On two skills and 1050 response
-tokens, token KL is heavily right-skewed (median 1.02, mean 2.13, p90 6.06). The
+tokens, token KL is heavily right-skewed (median 0.84, mean 2.08, p90 6.30). The
 highest-scoring spans are the API rule clauses, the literal call expressions and the error
 codes; the lowest are markdown scaffolding (` ```python `, ` ```\n\nNote: `). At the token
 level, the subword pieces of `vx_stash`, `vx_fetch` and `VX_TTL_MISSING` are the top scorers
