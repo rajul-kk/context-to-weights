@@ -82,6 +82,13 @@ def main():
             f"{split}: {len(contexts)} trajectories, {len(events)} compaction events, "
             f"mean ratio {sum(ratios) / len(ratios):.3f}"
         )
+    if getattr(compactor, "calls", 0):
+        print(f"compactor: {compactor.calls} calls, {compactor.fallbacks} heuristic fallbacks "
+              f"({compactor.fallback_rate:.1%}), {compactor.empty_keeps} empty keeps")
+        if compactor.fallback_rate > 0.0:
+            print("WARNING: the model compactor failed to parse and fell back to the heuristic.\n"
+                  "Results under this run are not purely model-decided. Last raw reply:\n"
+                  f"{(compactor.last_raw or '')[:400]!r}")
     print(f"wrote -> {out_dir}")
 
 

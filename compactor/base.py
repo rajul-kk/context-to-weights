@@ -57,16 +57,30 @@ class ModelCompactor(Compactor):
         self.generator = generator
         self.fallback = fallback or HeuristicCompactor()
         self.max_new_tokens = max_new_tokens
+        self.calls = 0
+        self.fallbacks = 0
+        self.empty_keeps = 0
+        self.last_raw = None
+
+    @property
+    def fallback_rate(self):
+        return self.fallbacks / self.calls if self.calls else 0.0
 
     def select(self, spans, budget):
+        self.calls += 1
         prompt = build_compaction_prompt([s["text"] for s in spans], budget)
         try:
             raw = self.generator(COMPACTION_SYSTEM, prompt, self.max_new_tokens)
         except Exception:
+            self.fallbacks += 1
             return self.fallback.select(spans, budget)
+        self.last_raw = raw
         kept, summary = parse_compaction_reply(raw, len(spans))
         if kept is None:
+            self.fallbacks += 1
             return self.fallback.select(spans, budget)
+        if not kept:
+            self.empty_keeps += 1
         if not summary:
             summary = _extractive_summary([spans[i]["text"] for i in range(len(spans)) if i not in set(kept)])
         return kept, summary
