@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+runs/
+checkpoints/
+artifacts/
+*.pt
+*.safetensors
+.ipynb_checkpoints/
+.DS_Store
