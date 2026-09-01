@@ -150,6 +150,13 @@ def main():
 
     table = to_markdown(rows)
     body = ["# Results", "", "## Retention", "", table, ""]
+    casc = next((r for r in rows if r["label"] == "cascading"), None)
+    if casc is not None and casc.get("n_evicted", 0) == 0:
+        warning = ("The compactor evicted no probed fact, so `acc(evicted)` is undefined and "
+                   "this table cannot separate the methods. Lower `compaction.keep_frac` or "
+                   "lengthen trajectories and rerun.")
+        body += [f"> **Configuration is degenerate.** {warning}", ""]
+        print(f"\nWARNING: {warning}")
     if costs:
         body += ["## Consolidation cost", "", "| method | phases | total GPU-s | GPU-s/phase |",
                  "|---|---|---|---|"]

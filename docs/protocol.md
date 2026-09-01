@@ -77,6 +77,17 @@ Reported per arm:
 - `mean_prompt_tokens` — inference-time token cost.
 - GPU-seconds per sleep phase, from `metrics.jsonl`.
 
+## Sanity gate before trusting a comparison
+
+Check `n_evicted` in the cascading arm's summary. If it is 0, the compactor kept every
+probed fact and `evicted_accuracy` is undefined — every method will look identical because
+nothing was ever consolidated away. `eval/retention.py` and `eval/report.py` both warn when
+this happens.
+
+This is the normal outcome of the CPU debug configuration: short trajectories plus the
+heuristic compactor plus `keep_frac 0.25` evicts nothing. Lower `keep_frac`, lengthen
+trajectories, or switch to the model compactor before reading any result off the table.
+
 ## Ablations
 
 | Ablation | How |

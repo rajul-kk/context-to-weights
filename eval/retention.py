@@ -92,6 +92,10 @@ def main():
     write_json(out.with_suffix(".summary.json"), summary)
     for k, v in summary.items():
         print(f"{k:<24} {v}")
+    if summary["n_evicted"] == 0:
+        print("\nWARNING: no probe was evicted from context, so evicted_accuracy is undefined.\n"
+              "The compactor kept every fact. Lower compaction.keep_frac or lengthen "
+              "trajectories before comparing methods.")
 
 
 if __name__ == "__main__":
