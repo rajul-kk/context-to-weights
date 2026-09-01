@@ -1,0 +1,90 @@
+# Compaction-Supervised Sleep Consolidation
+
+Using a context-compactor's keep/drop decision as a free supervised signal for what a LoRA
+"sleep" pass should internalise into weights. Pure SFT — no RL, no reward model, no LLM judge.
+
+## Idea
+
+Every time an agent compacts its context it already produces a decision: this span stays
+verbatim, that span gets dropped or summarised. That decision is a salience label, it is
+produced for free, and nobody trains on it. This project treats it as the target of a
+periodic offline consolidation pass:
+
+1. Run a trajectory until the context budget trips.
+2. A compactor (the same frozen backbone under a fixed prompt) picks spans to keep.
+3. Log `(span_text, kept: bool)` for every span — the free label.
+4. Every `K` compaction events, run a **sleep phase**: LoRA SFT with cross-entropy on the
+   kept spans, plus a small reservoir replay buffer of previously-kept spans.
+5. Keep the adapter across phases, so consolidation is cumulative.
+
+An auxiliary variant adds a binary mask-prediction head that learns to predict the
+keep/drop decision itself, testing whether learning salience helps beyond training on
+salient content.
+
+## What is new here
+
+| Prior work | What it does | How this differs |
+|---|---|---|
+| Beyond Inference-Only Deployment (2605.24657) | Nightly LoRA consolidation on *reflected/synthesised* facts written by an LLM | We consolidate on the compactor's raw keep/drop decision — no synthesis step, no second generation pass |
+| SCoL (2605.07076) | Learns *where* to write consolidated knowledge via meta-RL | We answer the *what/when* question, and as ordinary cross-entropy rather than RL |
+| What to Keep, What to Forget (2607.08032) | Frames compaction as rate-distortion | Proposes no downstream consolidation; we supply one and use their signal as the label |
+| CompactionRL (2607.05378) | Trains the compactor itself with RL | We leave the compactor frozen and train the *backbone* from its decisions |
+
+## Layout
+
+```
+common/     config, IO, dataclasses shared by every stage
+data/       CPU-only synthetic trajectory generator
+compactor/  fixed-prompt compactor, span segmentation, cascading runner
+sleep/      LoRA consolidation loop, replay buffer, mask head, checkpointing
+baselines/  cascading (c), full/no context (d + floor), reflection (b)
+eval/       retention QA, median/mean CE, span diagnostics, figures
+configs/    base (GPU) and cpu_debug (laptop) configs
+docs/       protocol notes and result tables
+```
+
+## Methods compared
+
+| Tag | Description | Entry point |
+|---|---|---|
+| ours | LoRA SFT on compactor-kept spans | `sleep/loop.py --method compaction` |
+| a | Uniform/reservoir replay over *all* spans | `sleep/loop.py --method uniform` |
+| b | Reflection/synthesis consolidation | `baselines/reflection.py` then `--method reflection` |
+| c | Cascading compaction, no weight update | `baselines/cascading.py` |
+| d | Full-context ceiling | `baselines/full_context.py --mode full` |
+| floor | No context at all | `baselines/full_context.py --mode none` |
+
+## Metrics
+
+- **Retention accuracy** on held-out probes about *early* trajectory content, asked after
+  that content has been compacted away.
+- **Median per-token validation cross-entropy** — the trustworthy signal. Mean CE is logged
+  too, but per Beyond Inference-Only median CE tracks judged accuracy at r=+0.99 while mean
+  CE moves the wrong way (r=-0.51). Read the median.
+- **Inference token cost** — prompt tokens needed to answer post-compaction.
+- **Consolidation cost** — GPU-seconds per sleep phase, per method.
+
+## Quick start
+
+```bash
+pip install -r requirements.txt
+
+python data/generate_synthetic.py --n-train 48 --n-eval 16
+python baselines/cascading.py --config configs/base.yaml --split both
+python eval/span_report.py --events artifacts/runs/cascading/train_events.jsonl
+
+python sleep/loop.py --config configs/base.yaml --method compaction \
+  --events artifacts/runs/cascading/train_events.jsonl \
+  --val-events artifacts/runs/cascading/eval_events.jsonl
+
+python eval/retention.py --config configs/base.yaml \
+  --contexts artifacts/runs/cascading/eval_contexts.jsonl \
+  --adapter artifacts/runs/sleep_compaction/latest/adapter \
+  --label ours --out artifacts/runs/report/ours
+```
+
+`configs/cpu_debug.yaml` swaps in SmolLM2-360M, fp32, a heuristic compactor and 20 training
+steps so the whole pipeline runs on a laptop without a GPU.
+
+See [docs/protocol.md](docs/protocol.md) for the experiment protocol and
+[docs/kaggle.md](docs/kaggle.md) for the session/resume workflow.
