@@ -1,4 +1,22 @@
-# Compaction-Supervised Sleep Consolidation
+# Consolidation signals for LoRA
+
+Two research prototypes asking the same question — *what should a consolidation pass
+internalise into weights?* — and answering it with two different free supervision signals.
+
+| | Project A | Project B |
+|---|---|---|
+| name | Compaction-Supervised Sleep Consolidation | [Context-Gap Distillation](docs/context_gap.md) |
+| signal | the compactor's keep/drop decision | with-vs-without-context KL divergence |
+| source | external, an agent already emits it | internal, two forward passes of one backbone |
+| loss | cross-entropy on kept spans | importance-weighted KL distillation |
+| paper | [paper/draft.md](paper/draft.md) | [paper/draft_b.md](paper/draft_b.md) |
+
+They share `common/`, `sleep/lm.py`, `sleep/trainer.py` and the config machinery. Project A
+is the reference implementation; Project B was built on top of it.
+
+---
+
+# Project A: Compaction-Supervised Sleep Consolidation
 
 Using a context-compactor's keep/drop decision as a free supervised signal for what a LoRA
 "sleep" pass should internalise into weights. Pure SFT — no RL, no reward model, no LLM judge.
@@ -29,19 +47,6 @@ salient content.
 | SCoL (2605.07076) | Learns *where* to write consolidated knowledge via meta-RL | We answer the *what/when* question, and as ordinary cross-entropy rather than RL |
 | What to Keep, What to Forget (2607.08032) | Frames compaction as rate-distortion | Proposes no downstream consolidation; we supply one and use their signal as the label |
 | CompactionRL (2607.05378) | Trains the compactor itself with RL | We leave the compactor frozen and train the *backbone* from its decisions |
-
-## Layout
-
-```
-common/     config, IO, dataclasses shared by every stage
-data/       CPU-only synthetic trajectory generator
-compactor/  fixed-prompt compactor, span segmentation, cascading runner
-sleep/      LoRA consolidation loop, replay buffer, mask head, checkpointing
-baselines/  cascading (c), full/no context (d + floor), reflection (b)
-eval/       retention QA, median/mean CE, span diagnostics, figures
-configs/    base (GPU) and cpu_debug (laptop) configs
-docs/       protocol notes and result tables
-```
 
 ## Methods compared
 
@@ -88,3 +93,46 @@ steps so the whole pipeline runs on a laptop without a GPU.
 
 See [docs/protocol.md](docs/protocol.md) for the experiment protocol and
 [docs/kaggle.md](docs/kaggle.md) for the session/resume workflow.
+
+---
+
+# Project B: Context-Gap Distillation
+
+Internalising skill documents into LoRA by using the KL divergence between the model's
+predictions with the skill text in context (teacher) and without it (student) as both the
+importance signal and the training loss. Self-supervised — no RL, no judge.
+
+```bash
+python skills/generate_toy_skills.py
+
+python kl_gate/score.py --config configs/skill_base.yaml \
+  --granularity span --out artifacts/runs_skill/scores_span.jsonl
+python kl_gate/inspect_gate.py --scores artifacts/runs_skill/scores_span.jsonl
+
+python scripts/run_skills.py --config configs/skill_base.yaml
+python scripts/sweep_kl.py --config configs/skill_base.yaml
+```
+
+The gate is verified by hand before anything trains on it —
+[docs/kl_gate_check.md](docs/kl_gate_check.md) records that check. Full design in
+[docs/context_gap.md](docs/context_gap.md).
+
+---
+
+## Repository map
+
+```
+common/     config, IO, dataclasses shared by both projects
+data/       A: synthetic trajectory generator (CPU-only)
+compactor/  A: fixed-prompt compactor and cascading runner
+sleep/      A: consolidation loop; shared LM layer and LoRA trainer
+skills/     B: toy skill specs and generator (CPU-only)
+kl_gate/    B: dual-forward-pass scoring and manual inspection
+distill/    B: gate policies and weighted KL training
+baselines/  A: cascading, full/no context, reflection
+eval/       both: retention, skill eval, reports and figures
+configs/    base and cpu_debug configs for both projects
+scripts/    orchestrators and ablation sweeps
+docs/       protocol, Kaggle workflow, gate check, results
+paper/      workshop drafts
+```
