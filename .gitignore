@@ -10,3 +10,5 @@ artifacts/
 *.safetensors
 .ipynb_checkpoints/
 .DS_Store
+docs/results.md
+docs/results_*.md
