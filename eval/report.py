@@ -29,6 +29,10 @@ COLUMNS = [
 ]
 
 
+def _is_nan(v):
+    return v is None or (isinstance(v, float) and v != v)
+
+
 def collect(report_dir):
     rows = []
     for path in sorted(Path(report_dir).glob("*.summary.json")):
@@ -78,7 +82,10 @@ def plot_headline(rows, out_path):
     import matplotlib.pyplot as plt
 
     labels = [PRETTY.get(r["label"], r["label"]) for r in rows]
-    acc = [r.get("evicted_accuracy") or 0.0 for r in rows]
+    key = "evicted_accuracy"
+    if all(_is_nan(r.get("evicted_accuracy")) for r in rows):
+        key = "retention_accuracy"
+    acc = [0.0 if _is_nan(r.get(key)) else r.get(key, 0.0) for r in rows]
     fig, ax = plt.subplots(figsize=(9, 4.2))
     bars = ax.bar(range(len(rows)), acc, color="#4c72b0")
     for i, r in enumerate(rows):
@@ -86,7 +93,8 @@ def plot_headline(rows, out_path):
             bars[i].set_color("#c44e52")
     ax.set_xticks(range(len(rows)))
     ax.set_xticklabels(labels, rotation=20, ha="right", fontsize=8)
-    ax.set_ylabel("retention accuracy on evicted facts")
+    ax.set_ylabel("retention accuracy on evicted facts" if key == "evicted_accuracy"
+                  else "retention accuracy (no fact was evicted)")
     ax.set_ylim(0, 1)
     ax.grid(axis="y", alpha=0.25)
     fig.tight_layout()

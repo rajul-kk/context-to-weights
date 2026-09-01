@@ -86,6 +86,9 @@ class ModelCompactor(Compactor):
         return kept, summary
 
 
+_NUMBER_LINE = re.compile(r"^[\s\[\]\d,]+$")
+
+
 def parse_compaction_reply(raw, n_spans):
     kept = None
     summary = ""
@@ -100,6 +103,13 @@ def parse_compaction_reply(raw, n_spans):
                 kept = [int(m) for m in re.findall(r"\d+", payload) if int(m) < n_spans]
         elif upper.startswith("SUMMARY:"):
             summary = line.split(":", 1)[1].strip()
+
+    if kept is None:
+        for line in raw.splitlines():
+            line = line.strip()
+            if line and _NUMBER_LINE.match(line) and re.search(r"\d", line):
+                kept = [int(m) for m in re.findall(r"\d+", line) if int(m) < n_spans]
+                break
     return kept, summary
 
 
