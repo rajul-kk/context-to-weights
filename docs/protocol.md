@@ -90,14 +90,25 @@ uniform replay would not learn too. `span_report.py` warns when this happens.
 
 Measured so far:
 
-| Compactor | Fact keep | Filler keep | Salience lift |
-|---|---|---|---|
-| heuristic (debug) | 1.000 | 0.224 | 4.47x |
-| SmolLM2-360M-Instruct | 0.000 | 0.136 | 0.00x |
+| Compactor | Fallback | Empty keeps | Fact keep | Filler keep | Salience lift |
+|---|---|---|---|---|---|
+| heuristic (debug) | - | 0% | 1.000 | 0.224 | 4.47x |
+| SmolLM2-360M-Instruct | 0% | 0% | 0.000 | 0.136 | 0.00x |
+| Qwen2.5-0.5B-Instruct | 0% | 0% | 0.417 | 0.247 | 1.68x |
+
+Read all three columns together. A lift figure means nothing unless the fallback and
+empty-keep rates are both zero, because a heuristic fallback substitutes a cheating decision
+for the model's and an empty keep set contributes no supervision at all.
 
 The 360M model is **worse than random** — it keeps chit-chat and drops every planted fact.
-The heuristic's 4.47x is not evidence either, since it scores on the same cue words the fact
+Qwen2.5-0.5B clears the gate at 1.68x but drops 58% of planted facts, and three fact types
+(`owner`, `timeout`, `version_pin`) it never keeps. That is a usable but thin signal. The
+heuristic's 4.47x is not evidence either, since it scores on the same cue words the fact
 templates use.
+
+Getting 0.5B to that point took three prompt revisions. `keep at most N` let it answer
+`NONE` on every event; only `select exactly N, selecting none is not an answer` produced
+selections. Treat compactor prompt sensitivity as a first-class risk at this scale.
 
 `scripts/check_compactor.py` runs this check across models and prints the table above:
 
