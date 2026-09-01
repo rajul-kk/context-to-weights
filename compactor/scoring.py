@@ -27,8 +27,21 @@ class ScoringCompactor(Compactor):
         self.batch_size = batch_size
         self.max_length = max_length
         self.calls = 0
+        self.fallbacks = 0
+        self.empty_keeps = 0
+        self.prefix_answers = 0
+        self.overselects = 0
+        self.failed_replies = []
         self.yes_ids = self._variants(["Yes", " Yes", "yes", " yes"])
         self.no_ids = self._variants(["No", " No", "no", " no"])
+
+    @property
+    def fallback_rate(self):
+        return 0.0
+
+    @property
+    def prefix_rate(self):
+        return 0.0
 
     def _variants(self, words):
         ids = set()
