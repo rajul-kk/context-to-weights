@@ -24,12 +24,14 @@ def passed(prediction, required):
     return all(tok in prediction for tok in required)
 
 
-def eval_arm(model, tokenizer, skills, cfg, doc_mode, label, group_of, adapter_group):
+def eval_arm(model, tokenizer, skills, cfg, doc_mode, label, group_of, adapter_group,
+             limit_tasks=0):
     pairs = []
     index = []
     for si, skill in enumerate(skills):
         other = skills[(si + 1) % len(skills)]["doc"]
-        for task in skill["tasks"]:
+        tasks = skill["tasks"][:limit_tasks] if limit_tasks else skill["tasks"]
+        for task in tasks:
             prompt = build_prompt(skill, other, task["query"], doc_mode)
             pairs.append((SKILL_SYSTEM, prompt))
             index.append((skill, task, prompt))
@@ -85,6 +87,7 @@ def main():
     ap.add_argument("--doc-mode", default="none", choices=DOC_MODES)
     ap.add_argument("--label", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--limit-tasks", type=int, default=0)
     ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
 
@@ -99,7 +102,8 @@ def main():
     records = []
 
     if args.run_dir is None:
-        records = eval_arm(model, tokenizer, skills, cfg, args.doc_mode, args.label, None, None)
+        records = eval_arm(model, tokenizer, skills, cfg, args.doc_mode, args.label,
+                           group_of, None, args.limit_tasks)
     else:
         from peft import PeftModel
 
@@ -111,7 +115,7 @@ def main():
             peft_model = PeftModel.from_pretrained(model, str(run_dir / group / "adapter"))
             peft_model.eval()
             records.extend(eval_arm(peft_model, tokenizer, skills, cfg, args.doc_mode,
-                                    args.label, group_of, group))
+                                    args.label, group_of, group, args.limit_tasks))
             model = peft_model.unload()
 
     summary = summarize(records, args.label)

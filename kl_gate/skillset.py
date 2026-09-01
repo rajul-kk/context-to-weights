@@ -5,7 +5,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common.io import read_json, read_jsonl
 
-SKILL_SYSTEM = "You are a precise engineering assistant. Answer with the exact API usage."
+SKILL_SYSTEM = (
+    "You are a precise engineering assistant. Answer with the exact API usage: a single call "
+    "expression with every argument set explicitly. No imports, no wrapper functions."
+)
 
 
 def load_skill(root, name):
