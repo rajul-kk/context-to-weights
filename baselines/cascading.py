@@ -19,6 +19,16 @@ def build_compactor(cfg, tokenizer=None, model=None):
 
     if model is None:
         model, tokenizer = load_backbone(cfg)
+
+    if backend == "scoring":
+        from compactor.scoring import ScoringCompactor
+
+        return ScoringCompactor(
+            model, tokenizer,
+            batch_size=cfg["compaction"].get("score_batch_size", 16),
+            max_length=cfg["model"]["max_length"],
+        ), tokenizer
+
     gen = make_generator(model, tokenizer)
     compactor = ModelCompactor(
         gen,

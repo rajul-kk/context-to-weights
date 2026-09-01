@@ -20,6 +20,7 @@ compaction:
   max_new_tokens: 192
   shuffle_spans: true
   strict: false
+  score_batch_size: 16
 
 sleep:
   every_k_events: 2
