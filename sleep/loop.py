@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from common.io import (append_jsonl, ensure_dir, load_config, parse_overrides, read_jsonl,
                        set_seed, write_json)
 from common.schema import CompactionEvent
-from sleep.checkpoint import load_state, resume_adapter, save_phase
+from sleep.checkpoint import load_state, resume_adapter, resume_mask_head, save_phase
 from sleep.examples import ReplayBuffer, from_compaction, from_reflection, from_uniform
 from sleep.lm import load_backbone
 from sleep.trainer import MaskHead, load_or_attach, train_sleep_phase
@@ -93,6 +93,8 @@ def main():
     mask_head = None
     if use_mask:
         mask_head = MaskHead(model.config.hidden_size).to(next(model.parameters()).device)
+        if args.resume:
+            mask_head = resume_mask_head(run_dir, mask_head)
 
     k = cfg["sleep"]["every_k_events"]
     metrics_path = run_dir / "metrics.jsonl"
@@ -132,7 +134,8 @@ def main():
 
         save_phase(run_dir, phase, model,
                    {"phase": phase, "cursor": cursor, "method": args.method,
-                    "replay": replay.state_dict()})
+                    "replay": replay.state_dict()},
+                   mask_head=mask_head)
 
         if args.max_phases and phase >= args.max_phases:
             print("hit --max-phases, stopping")

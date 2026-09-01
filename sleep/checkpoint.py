@@ -15,13 +15,20 @@ def phase_dir(run_dir, phase):
     return Path(run_dir) / f"phase_{phase:04d}"
 
 
-def save_phase(run_dir, phase, model, state, keep_phase_copy=True):
+MASK_HEAD_FILE = "mask_head.pt"
+
+
+def save_phase(run_dir, phase, model, state, mask_head=None, keep_phase_copy=True):
     latest = ensure_dir(latest_dir(run_dir))
     adapter = latest / ADAPTER_DIR
     if adapter.exists():
         shutil.rmtree(adapter)
     model.save_pretrained(str(adapter))
     write_json(latest / STATE_FILE, state)
+    if mask_head is not None:
+        import torch
+
+        torch.save(mask_head.state_dict(), latest / MASK_HEAD_FILE)
 
     if keep_phase_copy:
         pdir = ensure_dir(phase_dir(run_dir, phase))
@@ -29,7 +36,19 @@ def save_phase(run_dir, phase, model, state, keep_phase_copy=True):
             shutil.rmtree(pdir / ADAPTER_DIR)
         shutil.copytree(adapter, pdir / ADAPTER_DIR)
         write_json(pdir / STATE_FILE, state)
+        if mask_head is not None:
+            shutil.copyfile(latest / MASK_HEAD_FILE, pdir / MASK_HEAD_FILE)
     return latest / ADAPTER_DIR
+
+
+def resume_mask_head(run_dir, mask_head):
+    path = latest_dir(run_dir) / MASK_HEAD_FILE
+    if mask_head is None or not path.exists():
+        return mask_head
+    import torch
+
+    mask_head.load_state_dict(torch.load(path, map_location="cpu"))
+    return mask_head
 
 
 def load_state(run_dir):

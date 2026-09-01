@@ -98,7 +98,7 @@ def per_token_ce(logits, labels):
 
 
 @torch.no_grad()
-def validate(model, loader, mask_head=None):
+def validate(model, loader):
     model.eval()
     all_ce = []
     for batch in loader:
@@ -186,7 +186,7 @@ def train_sleep_phase(model, tokenizer, cfg, train_examples, val_examples=None,
             if step % log_every == 0 or step == sc["steps"]:
                 entry = {"step": step, "train_loss": float(loss.item()), "aux_loss": float(aux.item())}
                 if val_loader is not None:
-                    entry.update(validate(model, val_loader, mask_head))
+                    entry.update(validate(model, val_loader))
                 history.append(entry)
                 if on_log:
                     on_log(entry)
