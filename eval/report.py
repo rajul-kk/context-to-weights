@@ -157,6 +157,14 @@ def main():
                    "lengthen trajectories and rerun.")
         body += [f"> **Configuration is degenerate.** {warning}", ""]
         print(f"\nWARNING: {warning}")
+
+    full = next((r for r in rows if r["label"] == "full"), None)
+    if casc is not None and full is not None and full["retention_accuracy"] < casc["retention_accuracy"]:
+        warning = ("The full-context arm scores below cascading, so it is not acting as a "
+                   "ceiling. The backbone is too small to use the long context; scale up "
+                   "before reading (d) as an upper bound.")
+        body += [f"> **Ceiling inverted.** {warning}", ""]
+        print(f"\nWARNING: {warning}")
     if costs:
         body += ["## Consolidation cost", "", "| method | phases | total GPU-s | GPU-s/phase |",
                  "|---|---|---|---|"]

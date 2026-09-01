@@ -88,6 +88,12 @@ This is the normal outcome of the CPU debug configuration: short trajectories pl
 heuristic compactor plus `keep_frac 0.25` evicts nothing. Lower `keep_frac`, lengthen
 trajectories, or switch to the model compactor before reading any result off the table.
 
+Second check: the full-context arm (d) must score at or above cascading (c). If it does not,
+the backbone is too small to use a long context and (d) is not functioning as a ceiling. The
+CPU debug run shows exactly this — SmolLM2-360M reaches 0.67 on a 990-token full context
+against 0.94 on a 481-token compacted one, because the compacted context puts the answer
+close to the question. Read (d) as a ceiling only once this ordering holds.
+
 ## Ablations
 
 | Ablation | How |
