@@ -59,6 +59,21 @@ salient content.
 | d | Full-context ceiling | `baselines/full_context.py --mode full` |
 | floor | No context at all | `baselines/full_context.py --mode none` |
 
+## Precondition
+
+The method only works if the compactor's keep/drop decision correlates with what a later
+question needs. Measure that first:
+
+```bash
+python scripts/check_compactor.py --config configs/kaggle.yaml
+```
+
+It reports **salience lift** — fact-span keep rate over filler-span keep rate — per model. At
+or below 1.0x the decision carries no supervision and this reduces to uniform replay.
+SmolLM2-360M-Instruct scores **0.00x**: it keeps chit-chat and drops every planted fact.
+Establish lift for the intended compactor before spending GPU hours on the comparison. See
+[docs/protocol.md](docs/protocol.md).
+
 ## Metrics
 
 - **Retention accuracy** on held-out probes about *early* trajectory content, asked after
