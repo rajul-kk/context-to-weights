@@ -54,4 +54,14 @@ def aggregate(records):
     probe = median_mean(per_probe_median)
     out["probe_ce_median"] = probe["median"]
     out["probe_ce_mean"] = probe["mean"]
+
+    evicted = [r for r in records if not r.get("fact_in_context", False)]
+    out["n_evicted"] = len(evicted)
+    out["evicted_accuracy"] = (
+        sum(int(r["correct"]) for r in evicted) / len(evicted) if evicted else float("nan")
+    )
+    evicted_ce = [c for r in evicted for c in (r.get("ce") or [])]
+    ev = median_mean(evicted_ce)
+    out["evicted_ce_median"] = ev["median"]
+    out["evicted_ce_mean"] = ev["mean"]
     return out

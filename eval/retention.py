@@ -49,6 +49,7 @@ def evaluate(model, tokenizer, contexts, cfg, adapter_label="none", compute_ce=T
                 "gold": probe["answer"],
                 "prediction": pred,
                 "correct": answer_match(pred, probe["answer"], probe.get("aliases")),
+                "fact_in_context": probe["answer"].lower() in prompt.lower(),
                 "prompt_tokens": len(tokenizer.encode(chat, add_special_tokens=False)),
                 "ce": ce,
             }
