@@ -54,7 +54,7 @@ def build_trajectory(traj_id, rng, n_facts, n_turns, early_window):
                     idx=idx,
                     role="assistant",
                     content=f"{body} One thing to lock in: {statement}",
-                    tags=["fact", tpl["key"]],
+                    tags=["fact", tpl["key"], value],
                 )
             )
             facts.append(Fact(key=tpl["key"], statement=statement, value=value, turn_idx=idx))

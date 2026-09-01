@@ -1,0 +1,19 @@
+_base_: base.yaml
+
+data:
+  dir: artifacts/data/synthetic
+
+model:
+  base: HuggingFaceTB/SmolLM2-360M-Instruct
+  dtype: float32
+  max_length: 512
+
+compaction:
+  backend: heuristic
+  context_budget: 512
+  keep_recent_turns: 6
+
+sleep:
+  steps: 20
+  batch_size: 2
+  grad_accum: 1

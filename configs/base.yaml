@@ -1,0 +1,41 @@
+run_root: artifacts/runs
+seed: 0
+
+data:
+  dir: artifacts/data/synthetic
+  train: train.jsonl
+  eval: eval.jsonl
+
+model:
+  base: Qwen/Qwen2.5-0.5B-Instruct
+  dtype: float16
+  max_length: 1024
+
+compaction:
+  backend: heuristic
+  context_budget: 1024
+  keep_recent_turns: 8
+  keep_frac: 0.25
+  granularity: sentence
+  max_new_tokens: 192
+
+sleep:
+  every_k_events: 2
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  lr: 1.0e-4
+  steps: 200
+  batch_size: 4
+  grad_accum: 2
+  replay:
+    enabled: true
+    capacity: 40
+  mask_head:
+    enabled: false
+    weight: 0.2
+
+eval:
+  max_new_tokens: 32
+  batch_size: 8
