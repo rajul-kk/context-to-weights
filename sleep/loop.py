@@ -5,7 +5,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common.io import append_jsonl, ensure_dir, load_config, read_jsonl, set_seed, write_json
+from common.io import (append_jsonl, ensure_dir, load_config, parse_overrides, read_jsonl,
+                       set_seed, write_json)
 from common.schema import CompactionEvent
 from sleep.checkpoint import load_state, resume_adapter, save_phase
 from sleep.examples import ReplayBuffer, from_compaction, from_reflection, from_uniform
@@ -49,9 +50,10 @@ def main():
     ap.add_argument("--val-limit", type=int, default=96)
     ap.add_argument("--log-every", type=int, default=25)
     ap.add_argument("--resume", action="store_true")
+    ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
 
-    cfg = load_config(args.config)
+    cfg = load_config(args.config, parse_overrides(args.set))
     set_seed(cfg["seed"])
     rng = random.Random(cfg["seed"])
 

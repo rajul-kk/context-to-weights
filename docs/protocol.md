@@ -1,0 +1,102 @@
+# Experiment protocol
+
+## Trajectories
+
+`data/generate_synthetic.py` builds multi-turn software-development conversations on CPU.
+Each trajectory plants `--n-facts` load-bearing facts inside the first `--early-window`
+exchange units — datastore choices, header names, rate limits, queue names, flag names,
+version pins — surrounded by filler exchanges that are topically plausible but carry no
+retrievable commitment. Every fact ships with a held-out probe question and gold answer.
+
+Facts land early on purpose: by the time the context budget trips, they are the first
+content a cascading compactor is asked to throw away.
+
+Defaults: 48 train / 16 eval trajectories, 120 turns, 6 facts each.
+
+## Compaction
+
+`compactor/runner.py` walks the trajectory turn by turn. When the running context exceeds
+`compaction.context_budget`, everything but the last `keep_recent_turns` turns is segmented
+into spans (sentence-level by default) and handed to the compactor, which keeps at most
+`ceil(keep_frac * n_spans)` of them verbatim and writes a summary of the rest. The new
+context is the kept spans plus the summary plus the recent turns.
+
+Two backends:
+
+- `model` — the frozen backbone under the fixed prompt in `compactor/prompts.py`, which
+  replies `KEEP: <indices>` / `SUMMARY: <text>`. Used for all reported results.
+- `heuristic` — a cue/identifier/number scorer. CPU-only debugging. It shares vocabulary
+  with the generator's fact templates, so it separates facts from filler almost perfectly.
+  Treat its numbers as a plumbing check, never as a result.
+
+Every event is logged as a `CompactionEvent` holding `(span_text, kept)` for every span.
+That log is the free supervision.
+
+## Sleep phases
+
+Every `sleep.every_k_events` compaction events, `sleep/loop.py` runs one phase:
+
+1. Build examples from the window under the chosen method.
+2. Draw up to `replay.capacity / 2` examples from the reservoir buffer.
+3. Train the LoRA adapter for `sleep.steps` steps of cross-entropy, loss on the target
+   span only.
+4. Add the window's examples to the reservoir.
+5. Checkpoint adapter, cursor and reservoir state.
+
+The adapter is never reset — consolidation is cumulative across phases, and the loop
+resumes mid-run from `latest/state.json`.
+
+## Methods
+
+| Tag | Training examples |
+|---|---|
+| ours | spans the compactor kept |
+| a, uniform | the same *number* of spans, drawn uniformly at random from the window |
+| b, reflection | one model-written reflection per event |
+| c, cascading | none — context only |
+| d, full | none — full trajectory in context |
+| floor | none — no context at all |
+
+Baseline (a) is the load-bearing control: it holds the consolidation machinery, the example
+budget and the compute fixed, and varies only whether the compactor chose the spans.
+
+## Evaluation
+
+Every arm is scored by `eval/retention.py` on the same eval trajectories. Arms (c), (a),
+(b) and ours all see the *post-compaction* context, so the only difference between them is
+the adapter. (d) sees everything, floor sees nothing.
+
+Reported per arm:
+
+- `retention_accuracy` — normalised containment match of the gold answer over all probes.
+- `evicted_accuracy` — the headline number. Restricted to probes whose gold answer is
+  **not** present in the retained context, i.e. the facts compaction actually removed. If
+  a method scores here, the knowledge is in the weights.
+- `token_ce_median` / `token_ce_mean` — per-token cross-entropy on the gold answer. Read
+  the **median**; mean CE is logged only to show it moving the wrong way.
+- `mean_prompt_tokens` — inference-time token cost.
+- GPU-seconds per sleep phase, from `metrics.jsonl`.
+
+## Ablations
+
+| Ablation | How |
+|---|---|
+| mask-prediction head | `sleep/loop.py --mask-head` |
+| no replay buffer | `sleep/loop.py --no-replay` |
+| compaction-ratio sweep | `scripts/sweep_ratio.py --fracs 0.1,0.25,0.5` |
+
+The sweep is the interesting one: as `keep_frac` falls the compactor evicts more facts, so
+(c) degrades. The claim to test is that compaction-supervised consolidation degrades more
+slowly than uniform replay does.
+
+## Budget
+
+| Stage | Cost |
+|---|---|
+| data generation | CPU, seconds |
+| compaction over 64 trajectories | ~0.3 GPU-h |
+| one sleep run (200 steps x ~28 phases) | ~1.5 GPU-h |
+| one eval arm | ~0.2 GPU-h |
+| main table, one model | ~6 GPU-h |
+| ratio sweep + ablations | ~6 GPU-h |
+| second and third model | ~6 GPU-h |

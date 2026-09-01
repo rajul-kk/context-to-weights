@@ -1,0 +1,6 @@
+_base_: kaggle.yaml
+
+model:
+  base: HuggingFaceTB/SmolLM2-360M-Instruct
+  dtype: float16
+  max_length: 1024

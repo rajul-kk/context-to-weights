@@ -36,6 +36,18 @@ def load_config(path, overrides=None):
     return cfg
 
 
+def parse_overrides(pairs):
+    out = {}
+    for pair in pairs or []:
+        key, _, raw = pair.partition("=")
+        node = out
+        parts = key.split(".")
+        for p in parts[:-1]:
+            node = node.setdefault(p, {})
+        node[parts[-1]] = yaml.safe_load(raw)
+    return out
+
+
 def deep_merge(a, b):
     out = dict(a)
     for k, v in b.items():

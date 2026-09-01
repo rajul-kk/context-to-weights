@@ -1,0 +1,14 @@
+_base_: base.yaml
+
+run_root: /kaggle/working/artifacts/runs
+
+data:
+  dir: artifacts/data/synthetic
+
+model:
+  base: Qwen/Qwen2.5-0.5B-Instruct
+  dtype: float16
+  max_length: 1024
+
+eval:
+  batch_size: 16

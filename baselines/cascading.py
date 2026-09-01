@@ -4,7 +4,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common.io import ensure_dir, load_config, read_jsonl, set_seed, write_json, write_jsonl
+from common.io import (ensure_dir, load_config, parse_overrides, read_jsonl, set_seed,
+                       write_json, write_jsonl)
 from common.schema import Trajectory
 from compactor.base import HeuristicCompactor, ModelCompactor
 from compactor.runner import CompactionRunner
@@ -64,9 +65,10 @@ def main():
     ap.add_argument("--config", default="configs/base.yaml")
     ap.add_argument("--split", default="eval", choices=["train", "eval", "both"])
     ap.add_argument("--out", default=None)
+    ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
 
-    cfg = load_config(args.config)
+    cfg = load_config(args.config, parse_overrides(args.set))
     set_seed(cfg["seed"])
     out_dir = Path(args.out or Path(cfg["run_root"]) / "cascading")
     write_json(out_dir / "config.json", cfg)
