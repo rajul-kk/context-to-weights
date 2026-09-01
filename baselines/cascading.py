@@ -83,8 +83,14 @@ def main():
             f"mean ratio {sum(ratios) / len(ratios):.3f}"
         )
     if getattr(compactor, "calls", 0):
+        empty_rate = compactor.empty_keeps / compactor.calls
         print(f"compactor: {compactor.calls} calls, {compactor.fallbacks} heuristic fallbacks "
-              f"({compactor.fallback_rate:.1%}), {compactor.empty_keeps} empty keeps")
+              f"({compactor.fallback_rate:.1%}), {compactor.empty_keeps} empty keeps "
+              f"({empty_rate:.1%})")
+        if empty_rate > 0.2:
+            print("WARNING: the compactor kept nothing on a large share of events. An empty keep "
+                  "set yields no\nSFT examples, so those events contribute no supervision at all. "
+                  "Check the keep budget and\nthe prompt before running the comparison.")
         if compactor.fallback_rate > 0.0:
             dump = out_dir / "failed_replies.jsonl"
             write_jsonl(dump, [{"reply": r} for r in compactor.failed_replies])

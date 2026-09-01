@@ -106,6 +106,12 @@ class ModelCompactor(Compactor):
 _NUMBER_LINE = re.compile(r"^[\s\[\]\d,]+$")
 
 
+def _parse_keep_payload(payload, n_spans):
+    if payload.upper().startswith("NONE"):
+        return []
+    return [int(m) for m in re.findall(r"\d+", payload) if int(m) < n_spans]
+
+
 def parse_compaction_reply(raw, n_spans):
     kept = None
     summary = ""
@@ -113,21 +119,20 @@ def parse_compaction_reply(raw, n_spans):
         line = line.strip()
         upper = line.upper()
         if upper.startswith("KEEP:"):
-            payload = line.split(":", 1)[1].strip()
-            if payload.upper().startswith("NONE"):
-                kept = []
-            else:
-                kept = [int(m) for m in re.findall(r"\d+", payload) if int(m) < n_spans]
+            kept = _parse_keep_payload(line.split(":", 1)[1].strip(), n_spans)
         elif upper.startswith("SUMMARY:"):
             summary = line.split(":", 1)[1].strip()
 
-    if kept is None:
-        for line in raw.splitlines():
-            line = line.strip()
-            if line and _NUMBER_LINE.match(line) and re.search(r"\d", line):
-                kept = [int(m) for m in re.findall(r"\d+", line) if int(m) < n_spans]
-                break
-    return kept, summary
+    if kept is not None:
+        return kept, summary
+
+    lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
+    if not lines:
+        return None, ""
+    head = lines[0]
+    if head.upper().startswith("NONE") or (_NUMBER_LINE.match(head) and re.search(r"\d", head)):
+        return _parse_keep_payload(head, n_spans), " ".join(lines[1:]).strip()
+    return None, ""
 
 
 def _extractive_summary(dropped, max_items=3):

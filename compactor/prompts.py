@@ -20,10 +20,7 @@ Reply with exactly two lines and nothing else. Do not repeat the spans.
 KEEP: <comma-separated span numbers, or NONE>
 SUMMARY: <one or two sentences covering the dropped spans>
 
-For example, if spans 2, 5 and 9 were the ones worth keeping:
-
-KEEP: 2, 5, 9
-SUMMARY: The rest was scheduling talk and a lint cleanup with no decisions attached.
+Both prefixes are required. Write your own summary; do not copy this shape's wording.
 
 Now give your answer for the {n_spans} spans above.
 """
