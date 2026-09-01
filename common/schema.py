@@ -88,6 +88,7 @@ class CompactionEvent:
     summary: str
     tokens_before: int
     tokens_after: int
+    decided_by: str = "unknown"
 
     @property
     def compaction_ratio(self):
@@ -104,6 +105,7 @@ class CompactionEvent:
             "summary": self.summary,
             "tokens_before": self.tokens_before,
             "tokens_after": self.tokens_after,
+            "decided_by": self.decided_by,
             "compaction_ratio": self.compaction_ratio,
         }
 
@@ -117,4 +119,5 @@ class CompactionEvent:
             summary=d["summary"],
             tokens_before=d["tokens_before"],
             tokens_after=d["tokens_after"],
+            decided_by=d.get("decided_by", "unknown"),
         )

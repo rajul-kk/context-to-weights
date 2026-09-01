@@ -67,6 +67,7 @@ class CompactionRunner:
                     summary=summary,
                     tokens_before=tokens_before,
                     tokens_after=tokens_after,
+                    decided_by=getattr(self.compactor, "last_decided_by", self.compactor.name),
                 )
             )
             event_id += 1

@@ -60,6 +60,14 @@ def main():
     events = read_jsonl(args.events)
     report = summarize(events)
 
+    provenance = Counter(e.get("decided_by", "unknown") for e in events)
+    report["provenance"] = dict(provenance)
+    if len(provenance) > 1:
+        report["by_provenance"] = {
+            src: summarize([e for e in events if e.get("decided_by") == src])
+            for src in provenance
+        }
+
     print(f"events                {report['n_events']}")
     print(f"spans                 {report['n_spans']}")
     print(f"keep rate             {report['keep_rate']:.3f}")
@@ -70,6 +78,17 @@ def main():
     print("per-fact keep rate:")
     for k, v in report["per_fact_keep_rate"].items():
         print(f"  {k:<16} {v:.3f}")
+
+    if report.get("by_provenance"):
+        print("\nby decision source:")
+        for src, sub in sorted(report["by_provenance"].items()):
+            print(f"  {src:<20} events {sub['n_events']:>4}  fact {sub['fact_keep_rate']:.3f}  "
+                  f"filler {sub['filler_keep_rate']:.3f}  lift {sub['salience_lift']:.2f}x")
+        model = report["by_provenance"].get("model")
+        if model and model["fact_spans"]:
+            print(f"\nModel-decided lift is {model['salience_lift']:.2f}x. "
+                  "This is the only honest number;\nthe aggregate above is contaminated by "
+                  "heuristic fallbacks.")
 
     if report["fact_spans"] and report["salience_lift"] <= 1.0:
         print("\nWARNING: salience lift is at or below 1.0. This compactor keeps probed facts "

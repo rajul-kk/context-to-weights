@@ -17,6 +17,9 @@ _VERSION = re.compile(r"\b\d+\.\d+(\.\d+)?\b")
 class Compactor:
     name = "base"
 
+    def __init__(self):
+        self.last_decided_by = self.name
+
     def select(self, spans, budget):
         raise NotImplementedError
 
@@ -29,6 +32,9 @@ class Compactor:
 
 class HeuristicCompactor(Compactor):
     name = "heuristic"
+
+    def __init__(self):
+        super().__init__()
 
     def score(self, text):
         s = 0.0
@@ -53,32 +59,43 @@ class HeuristicCompactor(Compactor):
 class ModelCompactor(Compactor):
     name = "model"
 
-    def __init__(self, generator, fallback=None, max_new_tokens=192):
+    def __init__(self, generator, fallback=None, max_new_tokens=192, strict=False):
+        super().__init__()
         self.generator = generator
         self.fallback = fallback or HeuristicCompactor()
         self.max_new_tokens = max_new_tokens
+        self.strict = strict
         self.calls = 0
         self.fallbacks = 0
         self.empty_keeps = 0
         self.last_raw = None
+        self.failed_replies = []
 
     @property
     def fallback_rate(self):
         return self.fallbacks / self.calls if self.calls else 0.0
 
+    def _fall_back(self, spans, budget, raw):
+        self.fallbacks += 1
+        self.last_decided_by = "heuristic-fallback"
+        if raw is not None and len(self.failed_replies) < 20:
+            self.failed_replies.append(raw)
+        if self.strict:
+            return [], _extractive_summary([s["text"] for s in spans])
+        return self.fallback.select(spans, budget)
+
     def select(self, spans, budget):
         self.calls += 1
+        self.last_decided_by = "model"
         prompt = build_compaction_prompt([s["text"] for s in spans], budget)
         try:
             raw = self.generator(COMPACTION_SYSTEM, prompt, self.max_new_tokens)
         except Exception:
-            self.fallbacks += 1
-            return self.fallback.select(spans, budget)
+            return self._fall_back(spans, budget, None)
         self.last_raw = raw
         kept, summary = parse_compaction_reply(raw, len(spans))
         if kept is None:
-            self.fallbacks += 1
-            return self.fallback.select(spans, budget)
+            return self._fall_back(spans, budget, raw)
         if not kept:
             self.empty_keeps += 1
         if not summary:

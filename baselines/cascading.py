@@ -86,9 +86,12 @@ def main():
         print(f"compactor: {compactor.calls} calls, {compactor.fallbacks} heuristic fallbacks "
               f"({compactor.fallback_rate:.1%}), {compactor.empty_keeps} empty keeps")
         if compactor.fallback_rate > 0.0:
+            dump = out_dir / "failed_replies.jsonl"
+            write_jsonl(dump, [{"reply": r} for r in compactor.failed_replies])
             print("WARNING: the model compactor failed to parse and fell back to the heuristic.\n"
-                  "Results under this run are not purely model-decided. Last raw reply:\n"
-                  f"{(compactor.last_raw or '')[:400]!r}")
+                  "Results under this run are not purely model-decided. Sample of failures "
+                  f"written to {dump}. First failure:\n"
+                  f"{(compactor.failed_replies[0] if compactor.failed_replies else '')[:400]!r}")
     print(f"wrote -> {out_dir}")
 
 
