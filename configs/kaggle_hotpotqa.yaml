@@ -1,0 +1,13 @@
+_base_: hotpotqa.yaml
+
+run_root: /kaggle/working/artifacts/runs_hotpot
+
+data:
+  dir: artifacts/data/hotpotqa
+
+model:
+  base: Qwen/Qwen2.5-0.5B-Instruct
+  dtype: float16
+
+eval:
+  batch_size: 8

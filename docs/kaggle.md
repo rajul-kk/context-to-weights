@@ -16,13 +16,25 @@ python data/generate_synthetic.py --n-train 48 --n-eval 16 --n-turns 120
 
 | Notebook | Purpose | Budget |
 |---|---|---|
-| `notebooks/a0_precondition.ipynb` | Salience lift per compactor. **Run first.** | ~1 h |
+| `notebooks/a0_precondition.ipynb` | Salience lift across 3 datasets x 2 models x 2 backends. **Run first.** | ~2 h |
 | `notebooks/a1_main.ipynb` | Compaction, all sleep runs, all eval arms, figures | ~4 h |
 | `notebooks/b1_skills.ipynb` | KL gate, distillation, sweeps | ~5 h |
 
-Each notebook clones the repo, installs `peft` and `accelerate`, runs `scripts/preflight.py`
-and restores the previous session's archive before doing any work. Edit the `git clone` URL
-in the first cell.
+`a1_main.ipynb` has a `DATASET` switch in its first cell: `hotpotqa` (primary — natural
+prose, no marker, positional control at chance) or `synthetic` (for the compaction-ratio
+sweep and debugging).
+
+Run `python scripts/check_notebooks.py` after editing any notebook. It compiles every code
+cell's Python, ignoring `!` and `%` lines and their continuations, and catches the broken
+line continuations that are easy to introduce when generating notebook JSON.
+
+Each notebook clones the repo, installs `peft`, `accelerate` and `datasets`, runs
+`scripts/preflight.py` and restores the previous session's archive before doing any work.
+
+**Before the first session:** edit the `git clone` URL in the first cell of each notebook.
+The repo is not published anywhere yet, so this is the one manual step. Either push it to
+GitHub, or upload the repo as a Kaggle Dataset and replace the clone with a copy from
+`/kaggle/input/`.
 
 `scripts/preflight.py` checks torch and GPU, the dependency versions, that the data splits
 exist and are non-empty, that `compaction.backend` is `scoring`, that the run root is
