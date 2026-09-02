@@ -146,6 +146,24 @@ def main():
     table = to_markdown(rows)
     saving = token_saving(rows)
     body = ["# Skill distillation results", "", "## Pass rate and token cost", "", table, ""]
+
+    by = {r["label"]: r for r in rows}
+    warnings = []
+    prompt = by.get("prompt-full", {}).get("pass_rate")
+    floor = by.get("no-skill", {}).get("pass_rate")
+    if prompt is not None and floor is not None and prompt - floor < 0.15:
+        warnings.append(
+            f"The skill document barely helps in-prompt ({prompt:.3f} against a {floor:.3f} "
+            "floor), so there is almost nothing for distillation to internalise. Use a larger "
+            "backbone or easier tasks before comparing methods.")
+    distilled = [by[k]["pass_rate"] for k in ("ours", "s2l-uniform", "random-control") if k in by]
+    if distilled and floor is not None and max(distilled) <= floor:
+        warnings.append(
+            "No distilled adapter beats the no-skill floor. Either training is too short or "
+            "the backbone is too small; the gate cannot be evaluated from this run.")
+    for w in warnings:
+        body += [f"> **Configuration is uninformative.** {w}", ""]
+        print(f"\nWARNING: {w}")
     if saving:
         body += [f"Runtime token saving vs keeping the skill in the prompt: "
                  f"**{saving['saving'] * 100:.1f}%** "
