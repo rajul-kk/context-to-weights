@@ -14,16 +14,15 @@ KEEP_PATTERNS = ["metrics.jsonl", "state.json", "config.json", "summary.json",
 
 
 def prune_phase_dirs(run_root, keep_last=1):
+    parents = {p.parent for p in Path(run_root).rglob("phase_*") if p.is_dir()}
     removed = 0
-    for parent in Path(run_root).rglob("phase_*"):
-        if not parent.is_dir():
-            continue
-        siblings = sorted(p for p in parent.parent.glob("phase_*") if p.is_dir())
-        for old in siblings[:-keep_last] if keep_last else siblings:
-            if old.exists():
-                shutil.rmtree(old)
-                removed += 1
-        break
+    for parent in sorted(parents):
+        siblings = sorted((p for p in parent.glob("phase_*") if p.is_dir()),
+                          key=lambda p: p.name)
+        doomed = siblings[:-keep_last] if keep_last else siblings
+        for old in doomed:
+            shutil.rmtree(old)
+            removed += 1
     return removed
 
 
