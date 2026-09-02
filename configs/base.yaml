@@ -12,7 +12,7 @@ model:
   max_length: 1024
 
 compaction:
-  backend: model
+  backend: scoring
   context_budget: 1024
   keep_recent_turns: 8
   keep_frac: 0.25

@@ -68,11 +68,22 @@ question needs. Measure that first:
 python scripts/check_compactor.py --config configs/kaggle.yaml
 ```
 
-It reports **salience lift** — fact-span keep rate over filler-span keep rate — per model. At
-or below 1.0x the decision carries no supervision and this reduces to uniform replay.
-SmolLM2-360M-Instruct scores **0.00x**: it keeps chit-chat and drops every planted fact.
-Establish lift for the intended compactor before spending GPU hours on the comparison. See
-[docs/protocol.md](docs/protocol.md).
+It reports **salience lift** — fact-span keep rate over filler-span keep rate — against a
+positional control. The compactor must beat the control, not merely 1.0x.
+
+Measured: only **Qwen2.5-1.5B with the `scoring` backend** clears it, at **2.56x** against a
+1.68x control. Every smaller model, and every configuration that asks a model to *generate*
+a ranked index list, lands at chance — both Qwen sizes answer `0, 1, 2, ...` regardless of
+content. Read the keep decision off the logits; do not ask for it. Full table and the three
+retracted measurements that preceded it are in [docs/protocol.md](docs/protocol.md).
+
+The compactor need not be the consolidation target. The event log is plain text, so run
+compaction under a larger model and consolidate into a smaller one:
+
+```bash
+python baselines/cascading.py --split both --set model.base=Qwen/Qwen2.5-1.5B-Instruct
+python sleep/loop.py --method compaction --events artifacts/runs/cascading/train_events.jsonl   --set model.base=Qwen/Qwen2.5-0.5B-Instruct
+```
 
 ## Metrics
 

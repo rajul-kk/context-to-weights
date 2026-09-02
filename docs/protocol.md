@@ -90,17 +90,29 @@ uniform replay would not learn too. `span_report.py` warns when this happens.
 
 Measured so far:
 
-| Compactor | Fallback | Empty | Prefix answers | Fact keep | Filler keep | Lift |
-|---|---|---|---|---|---|---|
-| heuristic (debug) | - | 0% | - | 1.000 | 0.224 | 4.47x |
-| SmolLM2-360M-Instruct | 0% | 0% | - | 0.000 | 0.136 | 0.00x |
-| Qwen2.5-0.5B-Instruct | 0% | 0% | 100% | 0.139 | 0.260 | 0.53x |
+All runs below use 6 eval trajectories, 12 compaction events, 36 fact spans. The positional
+control ("keep the first N spans") scores **1.68x** on this data, so a compactor must clear
+that, not merely 1.0x.
 
-**No model compactor tested so far carries any signal.** Qwen2.5-0.5B answers with a
-contiguous prefix of the span numbers it is shown on 100% of events — `0, 1, 2, ...` —
-regardless of what text sits at those positions. It is not ranking. Once spans are shuffled
-before presentation, that behaviour is exactly random selection, and the measured lift
-(0.53x, n=36 fact spans) is consistent with chance.
+| Compactor | Elicitation | Fact keep | Filler keep | Lift | Verdict |
+|---|---|---|---|---|---|
+| heuristic (debug) | scoring | 1.000 | 0.224 | 4.47x | cheats on template cues |
+| SmolLM2-360M | index list | 0.000 | 0.136 | 0.00x | no signal |
+| Qwen2.5-0.5B | index list | 0.139 | 0.260 | 0.53x | no signal |
+| Qwen2.5-1.5B | index list | 0.139 | 0.260 | 0.53x | no signal |
+| Qwen2.5-0.5B | logit scoring | 0.111 | 0.262 | 0.42x | no signal |
+| **Qwen2.5-1.5B** | **logit scoring** | **0.611** | **0.239** | **2.56x** | **usable** |
+
+**The working configuration is Qwen2.5-1.5B with the `scoring` backend.** Fact keep rate
+0.611 against a chance rate of 0.255 is roughly 4.9 sigma given the sampling noise, and it
+beats the positional control by 52%.
+
+Two things had to change together to get there. Asking any model for a ranked index list
+fails — both Qwen sizes answer with a contiguous prefix `0, 1, 2, ...` on 100% of events,
+regardless of the text at those positions, which under span shuffling is exactly random
+selection. And logit scoring alone is not enough either: at 0.5B the scorer's
+salient-versus-filler separation is +0.04 nats, indistinguishable from zero. Only 1.5B
+*and* scoring together clear the control.
 
 Read the columns together. A lift figure is meaningless unless fallback and empty-keep rates
 are zero *and* the prefix-answer rate is low, and unless the lift beats the positional
@@ -123,14 +135,17 @@ Compaction-supervised consolidation cannot beat uniform replay when the compacto
 random, because the two methods then draw from the same distribution. Options, in order of
 preference:
 
-1. **A larger compactor.** Measure Qwen2.5-1.5B and up. The compaction pass is one-off and
-   offline, so a bigger compactor costs little even when consolidating into a small target.
-2. **Score-based selection instead of index listing.** Ask the compactor to score spans one
-   at a time, or read a per-span keep probability off the logits, rather than asking a small
-   model to emit a ranked index list — a format it evidently cannot produce.
-3. **Report the negative result.** "The compaction decision is free but only carries signal
-   above a model-scale threshold" is a publishable finding, and the infrastructure here
-   measures exactly that threshold.
+Both were needed, and both are now the default. If a future backbone fails the gate again:
+
+1. **Use a larger compactor than the consolidation target.** The compaction pass is one-off
+   and offline, so the compactor need not be the model being consolidated into. The event
+   log is plain text, so the two stages simply run under different `model.base` overrides.
+2. **Never ask a small model for a ranked index list.** Read a per-span keep probability off
+   the logits instead. `compactor/inspect_scorer.py` checks salient-versus-filler separation
+   before any run.
+3. **Report the negative if it comes to that.** "The compaction decision is free but only
+   carries signal above a model-scale threshold, and only when read rather than generated"
+   is a finding, and this infrastructure measures that threshold.
 
 `scripts/check_compactor.py` runs this check across models and prints the table above:
 
