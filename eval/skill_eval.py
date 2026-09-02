@@ -108,7 +108,8 @@ def main():
         from peft import PeftModel
 
         run_dir = Path(args.run_dir)
-        adapters = sorted(p.parent.name for p in run_dir.glob("*/adapter/adapter_config.json"))
+        adapters = sorted(p.parent.parent.name
+                          for p in run_dir.glob("*/adapter/adapter_config.json"))
         if not adapters:
             raise SystemExit(f"no adapters under {run_dir}")
         for group in adapters:
