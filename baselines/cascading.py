@@ -95,10 +95,17 @@ def main():
     for split in splits:
         events, contexts = run_split(cfg, split, out_dir, tokenizer, compactor)
         ratios = [e["compaction_ratio"] for e in events] or [0.0]
+        per_traj = len(events) / max(1, len(contexts))
+        mean_ratio = sum(ratios) / len(ratios)
         print(
-            f"{split}: {len(contexts)} trajectories, {len(events)} compaction events, "
-            f"mean ratio {sum(ratios) / len(ratios):.3f}"
+            f"{split}: {len(contexts)} trajectories, {len(events)} compaction events "
+            f"({per_traj:.1f} per trajectory), mean ratio {mean_ratio:.3f}"
         )
+        if per_traj > 12 or mean_ratio < 0.2:
+            print("WARNING: compaction is not bringing the context back under budget, so it")
+            print("re-triggers on almost every turn. The recent-turns window alone probably")
+            print("exceeds the budget. Raise compaction.context_budget or lower")
+            print("compaction.keep_recent_turns for this dataset.")
     if getattr(compactor, "calls", 0):
         empty_rate = compactor.empty_keeps / compactor.calls
         print(f"compactor: {compactor.calls} calls, {compactor.fallbacks} heuristic fallbacks "

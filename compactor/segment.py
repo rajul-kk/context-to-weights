@@ -38,7 +38,8 @@ def segment_turns(turns, granularity="sentence"):
 
 def span_tags(turn_tags, piece):
     if len(turn_tags) >= 3 and turn_tags[0] == "fact":
-        if turn_tags[2] in piece:
+        markers = [m for m in turn_tags[2:] if m]
+        if any(m in piece or piece in m for m in markers):
             return [turn_tags[0], turn_tags[1]]
         return ["filler"]
     return list(turn_tags)

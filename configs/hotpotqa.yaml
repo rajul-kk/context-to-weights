@@ -1,0 +1,15 @@
+_base_: base.yaml
+
+data:
+  dir: artifacts/data/hotpotqa
+
+compaction:
+  context_budget: 3072
+  keep_recent_turns: 4
+  keep_frac: 0.25
+
+model:
+  max_length: 2048
+
+sleep:
+  every_k_events: 1

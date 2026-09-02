@@ -103,7 +103,7 @@ python sleep/loop.py --method compaction \
 ```bash
 pip install -r requirements.txt
 
-python data/generate_synthetic.py --n-train 48 --n-eval 16
+python data/generate_synthetic.py --n-train 48 --n-eval 24
 python baselines/cascading.py --config configs/base.yaml --split both
 python eval/span_report.py --events artifacts/runs/cascading/train_events.jsonl
 
@@ -120,8 +120,9 @@ python eval/retention.py --config configs/base.yaml \
 `configs/cpu_debug.yaml` swaps in SmolLM2-360M, fp32, a heuristic compactor and 20 training
 steps so the whole pipeline runs on a laptop without a GPU.
 
-See [docs/protocol.md](docs/protocol.md) for the experiment protocol and
-[docs/kaggle.md](docs/kaggle.md) for the session/resume workflow.
+See [docs/protocol.md](docs/protocol.md) for the experiment protocol,
+[docs/benchmarks.md](docs/benchmarks.md) for what data exists and what does not, and
+[docs/kaggle.md](docs/kaggle.md) for the notebooks and session/resume workflow.
 
 ---
 
@@ -152,7 +153,7 @@ The gate is verified by hand before anything trains on it —
 
 ```
 common/     config, IO, dataclasses shared by both projects
-data/       A: synthetic trajectory generator (CPU-only)
+data/       A: synthetic generator (CPU-only), HotpotQA and LoCoMo loaders
 compactor/  A: fixed-prompt compactor and cascading runner
 sleep/      A: consolidation loop; shared LM layer and LoRA trainer
 skills/     B: toy skill specs and generator (CPU-only)
@@ -161,6 +162,7 @@ distill/    B: gate policies and weighted KL training
 baselines/  A: cascading, full/no context, reflection
 eval/       both: retention, skill eval, reports and figures
 configs/    base and cpu_debug configs for both projects
+notebooks/  Kaggle GPU notebooks: a0 precondition, a1 main, b1 skills
 scripts/    orchestrators and ablation sweeps
 docs/       protocol, Kaggle workflow, gate check, results
 paper/      workshop drafts

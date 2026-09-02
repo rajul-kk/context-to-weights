@@ -12,26 +12,22 @@ on it.
 python data/generate_synthetic.py --n-train 48 --n-eval 16 --n-turns 120
 ```
 
-## Notebook cell
+## Notebooks
 
-```python
-!pip -q install peft accelerate
-%cd /kaggle/working/compaction-sleep
+| Notebook | Purpose | Budget |
+|---|---|---|
+| `notebooks/a0_precondition.ipynb` | Salience lift per compactor. **Run first.** | ~1 h |
+| `notebooks/a1_main.ipynb` | Compaction, all sleep runs, all eval arms, figures | ~4 h |
+| `notebooks/b1_skills.ipynb` | KL gate, distillation, sweeps | ~5 h |
 
-!python scripts/run_all.py --config configs/kaggle.yaml --mask-head
-```
+Each notebook clones the repo, installs `peft` and `accelerate`, runs `scripts/preflight.py`
+and restores the previous session's archive before doing any work. Edit the `git clone` URL
+in the first cell.
 
-To pick up a killed session, point the same run directory at `--resume`:
-
-```bash
-!python sleep/loop.py --config configs/kaggle.yaml --method compaction \
-  --events artifacts/runs/cascading/train_events.jsonl \
-  --val-events artifacts/runs/cascading/eval_events.jsonl \
-  --run-dir /kaggle/working/artifacts/runs/sleep_compaction --resume
-```
-
-The loop reads `latest/state.json`, restores the adapter, the event cursor and the reservoir
-buffer, and continues from the next phase.
+`scripts/preflight.py` checks torch and GPU, the dependency versions, that the data splits
+exist and are non-empty, that `compaction.backend` is `scoring`, that the run root is
+writable and that there is disk headroom. It exits non-zero on failure, so a broken session
+stops in the first cell rather than after two hours.
 
 ## Checkpoints
 
