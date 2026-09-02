@@ -21,7 +21,7 @@ def _fill(text, project, service, value=None):
     return text.format(project=project, service=service, value=value)
 
 
-def build_trajectory(traj_id, rng, n_facts, n_turns, early_window):
+def build_trajectory(traj_id, rng, n_facts, n_turns, early_window, unmarked=False):
     project = rng.choice(PROJECT_NAMES)
     services = rng.sample(SERVICES, k=min(len(SERVICES), max(3, n_facts)))
     templates = rng.sample(FACT_TEMPLATES, k=min(len(FACT_TEMPLATES), n_facts))
@@ -53,7 +53,8 @@ def build_trajectory(traj_id, rng, n_facts, n_turns, early_window):
                 Turn(
                     idx=idx,
                     role="assistant",
-                    content=f"{body} One thing to lock in: {statement}",
+                    content=(f"{body} {statement}" if unmarked
+                             else f"{body} One thing to lock in: {statement}"),
                     tags=["fact", tpl["key"], value],
                 )
             )
@@ -103,6 +104,7 @@ def main():
     ap.add_argument("--n-turns", type=int, default=120)
     ap.add_argument("--early-window", type=int, default=12)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--unmarked", action="store_true")
     args = ap.parse_args()
 
     set_seed(args.seed)
@@ -118,6 +120,7 @@ def main():
                 n_facts=args.n_facts,
                 n_turns=args.n_turns,
                 early_window=args.early_window,
+                unmarked=args.unmarked,
             )
             rows.append(traj.to_dict())
         write_jsonl(out / f"{split}.jsonl", rows)

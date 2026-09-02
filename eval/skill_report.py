@@ -97,20 +97,30 @@ def plot_sweep(run_root, out_path):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    points = []
+    series = {}
     for d in sorted(Path(run_root).glob("sweep_*/report")):
-        frac = d.parent.name.split("_")[-1]
+        parts = d.parent.name.split("_")
+        if len(parts) < 3:
+            continue
+        gran, frac = parts[1], parts[2]
         s = d / "ours.summary.json"
         if s.exists():
-            points.append((float(frac), read_json(s)["pass_rate"]))
-    if not points:
+            series.setdefault(gran, []).append((float(frac), read_json(s)["pass_rate"]))
+    if not series:
         return False
-    points.sort()
+
+    colors = {"span": "#c44e52", "token": "#4c72b0"}
     fig, ax = plt.subplots(figsize=(5.5, 3.8))
-    ax.plot([p[0] for p in points], [p[1] for p in points], marker="o", color="#c44e52")
+    for gran, points in sorted(series.items()):
+        points.sort()
+        ax.plot([p[0] for p in points], [p[1] for p in points], marker="o",
+                label=f"{gran}-level gating", color=colors.get(gran))
     ax.set_xlabel("KL gate top fraction")
     ax.set_ylabel("task pass rate")
+    ax.set_ylim(0, 1)
     ax.grid(alpha=0.25)
+    if len(series) > 1:
+        ax.legend(fontsize=8)
     fig.tight_layout()
     fig.savefig(out_path, dpi=160)
     plt.close(fig)

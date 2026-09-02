@@ -23,6 +23,7 @@ def main():
     ap.add_argument("--policies", default="kl_top,uniform,random")
     ap.add_argument("--granularity", default="span")
     ap.add_argument("--top-frac", type=float, default=0.25)
+    ap.add_argument("--limit-tasks", type=int, default=0)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -56,21 +57,22 @@ def main():
             "--policy", policy, "--run-dir", run_dir, "--resume",
             "--set", f"gate.granularity={args.granularity}", f"gate.top_frac={args.top_frac}"], dry)
 
+    lim = ["--limit-tasks", args.limit_tasks] if args.limit_tasks else []
     if "eval" in stages:
         label_of = {"kl_top": "ours", "uniform": "s2l-uniform", "random": "random-control"}
         sh(["eval/skill_eval.py", "--config", args.config, "--doc-mode", "correct",
-            "--label", "prompt-full", "--out", report_dir / "prompt-full"], dry)
+            "--label", "prompt-full", "--out", report_dir / "prompt-full"] + lim, dry)
         sh(["eval/skill_eval.py", "--config", args.config, "--doc-mode", "none",
-            "--label", "no-skill", "--out", report_dir / "no-skill"], dry)
+            "--label", "no-skill", "--out", report_dir / "no-skill"] + lim, dry)
         sh(["eval/skill_eval.py", "--config", args.config, "--doc-mode", "mismatched",
-            "--label", "prompt-mismatched", "--out", report_dir / "prompt-mismatched"], dry)
+            "--label", "prompt-mismatched", "--out", report_dir / "prompt-mismatched"] + lim, dry)
         for policy, run_dir in runs.items():
             label = label_of.get(policy, policy)
             sh(["eval/skill_eval.py", "--config", args.config, "--run-dir", run_dir,
-                "--doc-mode", "none", "--label", label, "--out", report_dir / label], dry)
+                "--doc-mode", "none", "--label", label, "--out", report_dir / label] + lim, dry)
         sh(["eval/skill_eval.py", "--config", args.config, "--run-dir", runs["kl_top"],
             "--doc-mode", "mismatched", "--label", "ours-mismatched",
-            "--out", report_dir / "ours-mismatched"], dry)
+            "--out", report_dir / "ours-mismatched"] + lim, dry)
 
     if "report" in stages:
         sh(["eval/skill_report.py", "--report-dir", report_dir, "--run-root", root,

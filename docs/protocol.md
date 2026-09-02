@@ -25,9 +25,13 @@ Two backends:
 
 - `model` — the frozen backbone under the fixed prompt in `compactor/prompts.py`, which
   replies `KEEP: <indices>` / `SUMMARY: <text>`. Used for all reported results.
-- `heuristic` — a cue/identifier/number scorer. CPU-only debugging. It shares vocabulary
-  with the generator's fact templates, so it separates facts from filler almost perfectly.
-  Treat its numbers as a plumbing check, never as a result.
+- `scoring` — the frozen backbone, with a per-span keep probability read off the logits.
+  The only configuration that clears the positional control. Used for all reported results.
+- `model` — the frozen backbone asked to generate a ranked index list. Fails at every scale
+  tested; kept only to reproduce that failure.
+- `heuristic` — a cue/identifier/number scorer. CPU-only debugging. Eight of its fourteen
+  cue phrases appear verbatim in `data/banks.py`, so its lift measures that overlap rather
+  than any judgment. Never report its numbers.
 
 Every event is logged as a `CompactionEvent` holding `(span_text, kept)` for every span.
 That log is the free supervision.
@@ -96,7 +100,7 @@ that, not merely 1.0x.
 
 | Compactor | Elicitation | Fact keep | Filler keep | Lift | Verdict |
 |---|---|---|---|---|---|
-| heuristic (debug) | scoring | 1.000 | 0.224 | 4.47x | cheats on template cues |
+| heuristic (debug) | scoring | 1.000 | 0.224 | 4.47x | cheats, see below |
 | SmolLM2-360M | index list | 0.000 | 0.136 | 0.00x | no signal |
 | Qwen2.5-0.5B | index list | 0.139 | 0.260 | 0.53x | no signal |
 | Qwen2.5-1.5B | index list | 0.139 | 0.260 | 0.53x | no signal |

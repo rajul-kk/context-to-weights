@@ -26,11 +26,26 @@ The point of this set is control, not realism. Fact placement, compaction pressu
 fact/filler ratio are all dials, which is what makes it useful for isolating whether the
 compaction signal specifically helps.
 
-**Known weakness.** Facts are introduced with the phrase `One thing to lock in:`. That is a
-gift to any compactor, and it is why the heuristic backend scores 4.47x — it keys on the
-same cue vocabulary the generator uses. A harder variant that drops the marker phrase is
-worth generating before the final write-up, since a reviewer will ask whether the result
-survives without it.
+**Known weakness, and what it actually is.** Facts are introduced with the phrase
+`One thing to lock in:`. An unmarked variant drops it:
+
+```bash
+python data/generate_synthetic.py --unmarked --out artifacts/data/synthetic_hard
+```
+
+Removing the marker turns out to change almost nothing for the heuristic compactor: 4.43x
+marked against 4.38x unmarked. The marker was never what it keyed on.
+
+The real leak is vocabulary overlap between the heuristic's cue list and the fact templates.
+Eight of the fourteen cues in `compactor/base.py` — `settled on`, `fixed at`, `agreed`,
+`pins`, `owns`, `rejected`, `kill switch`, `nowhere else` — appear verbatim in
+`data/banks.py`. The heuristic was written against the same vocabulary the generator emits,
+so its lift measures that overlap and nothing else. This is why the heuristic backend is
+debug-only and never reported.
+
+The unmarked variant is still the better set for the write-up: it is closer to how facts
+actually appear in a working conversation, and it is where the *model* compactor's lift
+should be measured, since the model has no such vocabulary overlap to exploit.
 
 ## HotpotQA
 
