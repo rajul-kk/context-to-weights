@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common.io import load_config, read_jsonl, set_seed, write_json, write_jsonl
+from common.io import load_config, parse_overrides, read_jsonl, set_seed, write_json, write_jsonl
 from eval.metrics import aggregate, answer_match
 from sleep.lm import batch_generate, chat_text, load_backbone, token_ce
 
@@ -66,9 +66,10 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--no-ce", action="store_true")
+    ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
 
-    cfg = load_config(args.config)
+    cfg = load_config(args.config, parse_overrides(args.set))
     set_seed(cfg["seed"])
     contexts = read_jsonl(args.contexts)
     if args.limit:

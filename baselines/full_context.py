@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common.io import ensure_dir, load_config, read_jsonl, write_jsonl
+from common.io import ensure_dir, load_config, parse_overrides, read_jsonl, write_jsonl
 from common.schema import Trajectory
 
 
@@ -35,9 +35,10 @@ def main():
     ap.add_argument("--mode", default="full", choices=["full", "none"])
     ap.add_argument("--max-turns", type=int, default=0)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
 
-    cfg = load_config(args.config)
+    cfg = load_config(args.config, parse_overrides(args.set))
     rows = read_jsonl(Path(cfg["data"]["dir"]) / cfg["data"][args.split])
     contexts = build_contexts(rows, args.mode, args.max_turns)
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common.io import load_config, read_jsonl, set_seed, write_jsonl
+from common.io import load_config, parse_overrides, read_jsonl, set_seed, write_jsonl
 from common.schema import CompactionEvent
 from sleep.lm import batch_generate, load_backbone
 
@@ -27,9 +27,10 @@ def main():
     ap.add_argument("--events", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--max-new-tokens", type=int, default=128)
+    ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
 
-    cfg = load_config(args.config)
+    cfg = load_config(args.config, parse_overrides(args.set))
     set_seed(cfg["seed"])
     events = [CompactionEvent.from_dict(d) for d in read_jsonl(args.events)]
     model, tokenizer = load_backbone(cfg)
