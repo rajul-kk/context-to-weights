@@ -43,9 +43,14 @@ Eight of the fourteen cues in `compactor/base.py` — `settled on`, `fixed at`, 
 so its lift measures that overlap and nothing else. This is why the heuristic backend is
 debug-only and never reported.
 
-The unmarked variant is still the better set for the write-up: it is closer to how facts
-actually appear in a working conversation, and it is where the *model* compactor's lift
-should be measured, since the model has no such vocabulary overlap to exploit.
+The model compactor is a different story, and a worse one. Qwen2.5-1.5B with logit scoring
+scores 2.56x on the marked set and **1.10x on the unmarked set**, where it no longer beats
+its positional control. The heuristic ignored the marker and keyed on vocabulary; the model
+ignored the vocabulary and keyed on the marker. Two backends, two different shortcuts.
+
+Report on the unmarked set. It is closer to how facts appear in a real conversation, and the
+gap between the two variants is itself the most informative number this generator has
+produced.
 
 ## HotpotQA
 

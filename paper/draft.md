@@ -17,7 +17,9 @@ with ordinary cross-entropy on the spans a frozen compactor chose to keep, in pe
 compactor turns out to depend less on its scale than on how the decision is elicited: asked
 to generate a ranked list of spans, a 1.5B model answers positionally and carries no signal,
 while the same model's keep judgment read directly off its logits separates salient from
-filler content at 2.56x against a positional control. On synthetic long software-development
+filler content at 2.56x against a positional control. That separation, however, survives
+only where the conversation marks its own important lines; strip the marker and the same
+compactor returns to chance, which bounds how free this free signal really is. On synthetic long software-development
 dialogues with facts planted early and probed late, this recovers TBD% of full-context
 retention on facts that compaction had already evicted, against TBD% for cascading
 compaction with no weight update and TBD% for the same LoRA machinery trained on uniformly
@@ -173,11 +175,12 @@ events, 36 fact spans.
 | Qwen2.5-0.5B | index list | 0.139 | 0.260 | 0.53x |
 | Qwen2.5-1.5B | index list | 0.139 | 0.260 | 0.53x |
 | Qwen2.5-0.5B | logit scoring | 0.111 | 0.262 | 0.42x |
-| **Qwen2.5-1.5B** | **logit scoring** | **0.611** | **0.239** | **2.56x** |
+| Qwen2.5-1.5B | logit scoring | 0.611 | 0.239 | 2.56x |
+| Qwen2.5-1.5B | logit scoring, unmarked set | 0.278 | 0.252 | 1.10x |
 
-Positional control: 1.68x.
+Positional control: 1.68x on the marked set, 1.57x on the unmarked set.
 
-Two findings, and the second is the one we did not expect.
+Three findings, and the last is the one that constrains the rest.
 
 **Elicitation dominates scale.** Asked to emit a ranked index list, both Qwen sizes reply
 with a contiguous prefix `0, 1, 2, ...` on 100% of events, regardless of the text at those
@@ -192,9 +195,26 @@ facts, and of an index-sorted truncation that reimposed positional bias after sh
 Every one erred favourably. The control reproduces the artifact exactly whenever it occurs,
 which is what makes it worth reporting alongside every lift figure.
 
+**The signal depends on the conversation flagging its own importance.** Our default
+generator introduces each fact with `One thing to lock in:`. An unmarked variant changes
+nothing else, and on it the 1.5B scoring compactor falls from 2.56x to 1.10x — chance, below
+its control. It had been reading the marker.
+
+This is a different shortcut from the one our heuristic baseline exploits. The heuristic
+keys on cue vocabulary shared with the generator's templates and is indifferent to the
+marker (4.43x marked, 4.38x unmarked); the model is indifferent to the vocabulary and keys
+on the marker. Two backends, two shortcuts, neither visible without a variant that removes
+them.
+
+The defensible claim is therefore narrower than we set out to make: **the compaction
+decision carries usable supervision when the surrounding text signals salience explicitly,
+and at the scales we can afford it does not otherwise.** Whether natural long conversations
+carry such signals often enough is an empirical question our synthetic data cannot answer,
+and it is what the HotpotQA arm is for.
+
 Salience lift costs one compaction pass and disqualifies a compactor before any training
-runs. We would recommend it as standard practice for any work that consumes a compaction
-decision as supervision.
+runs. We would recommend it, with a positional control and a marker-free variant, as
+standard practice for any work that consumes a compaction decision as supervision.
 
 ## 6. Consolidation results
 

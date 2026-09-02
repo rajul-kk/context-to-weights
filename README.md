@@ -72,11 +72,19 @@ python scripts/check_compactor.py --config configs/kaggle.yaml
 It reports **salience lift** — fact-span keep rate over filler-span keep rate — against a
 positional control. The compactor must beat the control, not merely 1.0x.
 
-Measured: only **Qwen2.5-1.5B with the `scoring` backend** clears it, at **2.56x** against a
-1.68x control. Every smaller model, and every configuration that asks a model to *generate*
-a ranked index list, lands at chance — both Qwen sizes answer `0, 1, 2, ...` regardless of
-content. Read the keep decision off the logits; do not ask for it. Full table and the three
-retracted measurements that preceded it are in [docs/protocol.md](docs/protocol.md).
+Measured, and the result is mixed. Only **Qwen2.5-1.5B with the `scoring` backend** clears
+the control, at **2.56x** against 1.68x — but only on the synthetic set whose facts are
+introduced by an explicit marker phrase. On the unmarked variant the same compactor drops to
+**1.10x** and fails its control.
+
+Two separate shortcuts were hiding here: the heuristic backend keyed on cue vocabulary it
+shared with the generator, the model backend keyed on the marker phrase. Neither was visible
+until tested against a set that removed them.
+
+Every configuration that asks a model to *generate* a ranked index list lands at chance at
+every scale — both Qwen sizes answer `0, 1, 2, ...` regardless of content. Read the keep
+decision off the logits; do not ask for it. Full table, and the three retracted measurements
+that preceded it, in [docs/protocol.md](docs/protocol.md).
 
 The compactor need not be the consolidation target. The event log is plain text, so run
 compaction under a larger model and consolidate into a smaller one:

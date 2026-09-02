@@ -105,11 +105,27 @@ that, not merely 1.0x.
 | Qwen2.5-0.5B | index list | 0.139 | 0.260 | 0.53x | no signal |
 | Qwen2.5-1.5B | index list | 0.139 | 0.260 | 0.53x | no signal |
 | Qwen2.5-0.5B | logit scoring | 0.111 | 0.262 | 0.42x | no signal |
-| **Qwen2.5-1.5B** | **logit scoring** | **0.611** | **0.239** | **2.56x** | **usable** |
+| Qwen2.5-1.5B | logit scoring | 0.611 | 0.239 | 2.56x | clears control (**marked set only**) |
+| Qwen2.5-1.5B | logit scoring, **unmarked set** | 0.278 | 0.252 | **1.10x** | **fails control (1.57x)** |
 
-**The working configuration is Qwen2.5-1.5B with the `scoring` backend.** Fact keep rate
-0.611 against a chance rate of 0.255 is roughly 4.9 sigma given the sampling noise, and it
-beats the positional control by 52%.
+**The signal is real but dataset-dependent, and that is the central caveat of this work.**
+
+On the default synthetic set, Qwen2.5-1.5B with the `scoring` backend reaches 2.56x against
+a 1.68x control — fact keep 0.611 versus a 0.255 chance rate, roughly 4.9 sigma.
+
+On the **unmarked** variant, which drops the `One thing to lock in:` phrase that introduces
+each fact and changes nothing else, the same compactor falls to 1.10x and no longer beats
+its control. Fact keep 0.278 against filler 0.252 is chance.
+
+So the compactor was largely reading the marker, not the content. Note this is a *different*
+leak from the heuristic's: the heuristic ignored the marker and keyed on cue vocabulary
+(4.43x marked, 4.38x unmarked), while the model ignored the vocabulary and keyed on the
+marker. Two backends, two different shortcuts, both invisible until tested against a set
+that removes them.
+
+The honest statement of the precondition result is therefore: **the compaction decision
+carries supervision when the conversation lexically flags what matters, and not otherwise at
+the scales tested.** Whether that holds on natural data is what HotpotQA is for.
 
 Two things had to change together to get there. Asking any model for a ranked index list
 fails — both Qwen sizes answer with a contiguous prefix `0, 1, 2, ...` on 100% of events,
