@@ -171,17 +171,18 @@ The method inherits whatever judgment the compactor has, so we measure that firs
 lift is reported against the positional control on 6 eval trajectories, 12 compaction
 events, 36 fact spans.
 
-| Compactor | Elicitation | Fact keep | Filler keep | Lift |
-|---|---|---|---|---|
-| SmolLM2-360M | index list | 0.000 | 0.136 | 0.00x |
-| Qwen2.5-0.5B | index list | 0.139 | 0.260 | 0.53x |
-| Qwen2.5-1.5B | index list | 0.139 | 0.260 | 0.53x |
-| Qwen2.5-0.5B | logit scoring | 0.111 | 0.262 | 0.42x |
-| Qwen2.5-1.5B | logit scoring | 0.611 | 0.239 | 2.56x |
-| Qwen2.5-1.5B | logit scoring, unmarked set | 0.278 | 0.252 | 1.10x |
-| **Qwen2.5-1.5B** | **logit scoring, HotpotQA** | **0.400** | **0.248** | **1.61x** |
+| Compactor | Elicitation | Fact keep | Filler keep | Lift | Control |
+|---|---|---|---|---|---|
+| SmolLM2-360M | logit scoring | 0.528 | 0.243 | **2.17x** | 1.32x |
+| Qwen2.5-0.5B | index list | 0.139 | 0.260 | 0.53x | 1.68x |
+| Qwen2.5-0.5B | logit scoring | 0.111 | 0.262 | 0.42x | 1.68x |
+| Qwen2.5-1.5B | index list | 0.139 | 0.260 | 0.53x | 1.69x |
+| Qwen2.5-1.5B | logit scoring | 0.611 | 0.239 | **2.56x** | 1.68x |
+| Qwen2.5-1.5B | logit scoring, unmarked | 0.278 | 0.252 | 1.10x | 1.57x |
+| Qwen2.5-1.5B | logit scoring, HotpotQA | 0.400 | 0.248 | **1.61x** | 0.98x |
 
-Positional control: 1.68x marked, 1.57x unmarked, 0.98x HotpotQA.
+The control is recomputed per run, so each compactor is judged against the positional
+baseline for its own selections rather than a fixed threshold.
 
 Three findings, and the last is the one that constrains the rest.
 
