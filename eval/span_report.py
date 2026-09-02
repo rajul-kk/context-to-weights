@@ -41,13 +41,19 @@ def summarize(events):
         "fact_keep_rate": _div(fact_kept, fact_total),
         "filler_spans": filler_total,
         "filler_keep_rate": _div(filler_kept, filler_total),
-        "salience_lift": _div(_div(fact_kept, fact_total), max(1e-9, _div(filler_kept, filler_total))),
+        "salience_lift": _lift(_div(fact_kept, fact_total), _div(filler_kept, filler_total)),
         "per_fact_keep_rate": {k: _div(per_key_kept[k], per_key[k]) for k in sorted(per_key)},
     }
 
 
 def _div(a, b):
     return float(a) / b if b else 0.0
+
+
+def _lift(fact_rate, filler_rate):
+    if filler_rate <= 0.0:
+        return float("inf") if fact_rate > 0.0 else 0.0
+    return fact_rate / filler_rate
 
 
 def positional_lift(events):
@@ -68,7 +74,7 @@ def positional_lift(events):
     return {
         "fact_keep_rate": fact_rate,
         "filler_keep_rate": filler_rate,
-        "salience_lift": _div(fact_rate, max(1e-9, filler_rate)),
+        "salience_lift": _lift(fact_rate, filler_rate),
     }
 
 

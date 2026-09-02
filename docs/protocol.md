@@ -100,7 +100,7 @@ that, not merely 1.0x.
 
 | Compactor | Elicitation | Fact keep | Filler keep | Lift | Verdict |
 |---|---|---|---|---|---|
-| heuristic (debug) | scoring | 1.000 | 0.224 | 4.47x | cheats, see below |
+| heuristic (debug) | n/a, rule-based | 1.000 | 0.226 | 4.43x | cheats, see below |
 | SmolLM2-360M | index list | 0.000 | 0.136 | 0.00x | no signal |
 | Qwen2.5-0.5B | index list | 0.139 | 0.260 | 0.53x | no signal |
 | Qwen2.5-1.5B | index list | 0.139 | 0.260 | 0.53x | no signal |
