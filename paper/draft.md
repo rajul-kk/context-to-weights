@@ -13,7 +13,11 @@ reinforcement learning. We observe that the compactor has already answered the *
 question. Its keep/drop decision is a salience label, produced for free on every compaction
 event, and it is exactly the supervision a consolidation pass needs. We train a LoRA adapter
 with ordinary cross-entropy on the spans a frozen compactor chose to keep, in periodic
-"sleep" phases interleaved with the trajectory. On synthetic long software-development
+"sleep" phases interleaved with the trajectory. Getting a usable decision out of a small
+compactor turns out to depend less on its scale than on how the decision is elicited: asked
+to generate a ranked list of spans, a 1.5B model answers positionally and carries no signal,
+while the same model's keep judgment read directly off its logits separates salient from
+filler content at 2.56x against a positional control. On synthetic long software-development
 dialogues with facts planted early and probed late, this recovers TBD% of full-context
 retention on facts that compaction had already evicted, against TBD% for cascading
 compaction with no weight update and TBD% for the same LoRA machinery trained on uniformly
@@ -51,6 +55,12 @@ Contributions:
 3. A controlled comparison against uniform-replay consolidation, reflection consolidation,
    cascading compaction and a full-context ceiling, at fixed example budget and fixed
    compute.
+4. **Salience lift**, a cheap precondition test measuring whether a given compactor's
+   keep/drop decision carries any supervision at all, scored against a positional control.
+   It is the first thing to run, and it disqualifies most small compactors.
+5. The finding that *how the decision is elicited* dominates compactor scale: generated
+   index lists carry no signal at 0.5B or 1.5B, while a logit read at 1.5B clears the
+   control at 2.56x.
 
 ## 2. Related work
 
@@ -85,10 +95,14 @@ decision without consuming it. None of them uses the compaction decision as supe
 ### 3.1 Free labels from compaction
 
 Run a trajectory until the context budget trips. Segment the evictable prefix into spans.
-A frozen compactor — the same backbone under a fixed prompt — selects at most
-`ceil(ρ · n)` spans to keep verbatim, where ρ is the keep fraction, and writes a summary of
-the rest. Log `(span_text, kept)` for every span. This costs one forward pass that the
-agent was going to make anyway.
+A frozen compactor selects `ceil(ρ · n)` spans to keep verbatim, where ρ is the keep
+fraction, and writes a summary of the rest. Log `(span_text, kept)` for every span.
+
+The compactor does not *generate* its decision. For each span the frozen backbone is asked
+whether deleting that line would make a later question unanswerable, and the keep score is
+read straight off the logits as `log p(Yes) − log p(No)`; the top `ceil(ρ · n)` spans by
+score are kept. Section 5 gives the reason: asking a model to emit a ranked index list
+fails at every scale we tested, while reading the same judgment off the logits works.
 
 ### 3.2 Sleep phases
 
@@ -110,17 +124,34 @@ separates "train on salient content" from "learn what salience looks like."
 **Data.** Synthetic multi-turn software-development dialogues, generated on CPU. Each
 trajectory plants six load-bearing facts — datastore choices, header names, rate limits,
 queue names, flag names, version pins — in an early window, then continues with topically
-plausible filler. Each fact has a held-out probe. 48 train / 16 eval trajectories, 120 turns.
-LoCoMo and HotpotQA are the planned extension.
+plausible filler. Each fact has a held-out probe. 48 train / 24 eval trajectories, 120 turns.
+An unmarked variant drops the `One thing to lock in:` framing that introduces each fact.
+HotpotQA, repackaged so supporting paragraphs sit early and distractors act as filler, is
+the external-validity check; a LoCoMo loader exists but its answer-substring labelling is
+weaker and is not yet validated.
 
-**Models.** Qwen2.5-0.5B-Instruct primary, Qwen2.5-1.5B-Instruct and SmolLM2-360M-Instruct
-for cross-scale and cross-family checks. LoRA rank 16, α 32, on all attention and MLP
-projections. Single T4.
+**Models.** Compaction runs under Qwen2.5-1.5B-Instruct, the smallest model whose keep/drop
+decision clears the positional control. Consolidation targets Qwen2.5-0.5B-Instruct. The two
+decouple cleanly because the event log is plain text, and compaction is a one-off offline
+pass, so a larger compactor costs little. SmolLM2-360M-Instruct is the cross-family check.
+LoRA rank 16, α 32, on all attention and MLP projections. Single T4.
 
 **Arms.** (ours) compaction-supervised; (a) uniform replay over all spans at matched example
 count; (b) reflection consolidation; (c) cascading compaction, no weight update; (d) full
 context; and a no-context floor. Arms (a), (b), (c) and ours all see the same
 post-compaction context at evaluation, so the adapter is the only difference between them.
+
+**Precondition.** Before any comparison, `salience lift` — the fact-span keep rate over the
+filler-span keep rate — must beat the positional control ("keep the first N spans"), which
+scores 1.68x on this data because planted facts sit early. A compactor at or below the
+control selects no better than chance, and ours and uniform replay then draw from the same
+distribution, making the comparison vacuous by construction.
+
+**Precondition.** Before any comparison, *salience lift* — the fact-span keep rate over the
+filler-span keep rate — must beat a positional control ("keep the first N spans"), which
+scores 1.68x on this data because planted facts sit early. A compactor at or below the
+control selects no better than chance; ours and uniform replay then draw from the same
+distribution and the comparison is vacuous by construction.
 
 **Metrics.** The headline number is accuracy on *evicted* probes — those whose gold answer
 is absent from the retained context. Overall retention accuracy, median and mean per-token
@@ -130,7 +161,42 @@ Baseline (a) is the control that matters. It fixes the machinery, the example bu
 compute, and varies only whether the compactor chose the spans. Any gap between (a) and ours
 is attributable to the compaction signal itself.
 
-## 5. Results
+## 5. Does the compaction decision carry signal at all?
+
+The method inherits whatever judgment the compactor has, so we measure that first. Salience
+lift is reported against the positional control on 6 eval trajectories, 12 compaction
+events, 36 fact spans.
+
+| Compactor | Elicitation | Fact keep | Filler keep | Lift |
+|---|---|---|---|---|
+| SmolLM2-360M | index list | 0.000 | 0.136 | 0.00x |
+| Qwen2.5-0.5B | index list | 0.139 | 0.260 | 0.53x |
+| Qwen2.5-1.5B | index list | 0.139 | 0.260 | 0.53x |
+| Qwen2.5-0.5B | logit scoring | 0.111 | 0.262 | 0.42x |
+| **Qwen2.5-1.5B** | **logit scoring** | **0.611** | **0.239** | **2.56x** |
+
+Positional control: 1.68x.
+
+Two findings, and the second is the one we did not expect.
+
+**Elicitation dominates scale.** Asked to emit a ranked index list, both Qwen sizes reply
+with a contiguous prefix `0, 1, 2, ...` on 100% of events, regardless of the text at those
+positions. Tripling the parameter count changes nothing. Because planted facts sit early in
+a trajectory, that behaviour *looks* like signal until spans are shuffled before
+presentation, at which point it is exactly random selection. The same model, asked the same
+question one span at a time with the answer read off the logits, reaches 2.56x.
+
+**A positional control is not optional.** Three earlier measurements of ours — 3.99x, 1.68x,
+1.69x — were artifacts, of a silent fallback path, of first-N answers meeting early-planted
+facts, and of an index-sorted truncation that reimposed positional bias after shuffling.
+Every one erred favourably. The control reproduces the artifact exactly whenever it occurs,
+which is what makes it worth reporting alongside every lift figure.
+
+Salience lift costs one compaction pass and disqualifies a compactor before any training
+runs. We would recommend it as standard practice for any work that consumes a compaction
+decision as supervision.
+
+## 6. Consolidation results
 
 TBD — see `docs/results.md`.
 
@@ -139,21 +205,31 @@ median vs mean validation CE across sleep phases, showing the divergence [1] rep
 the compaction-ratio sweep, testing whether compaction-supervised consolidation degrades
 more slowly than uniform replay as ρ falls.
 
-## 6. Limitations
+## 7. Limitations
 
-**The method inherits the compactor's judgment, and small compactors have none.** Salience
-lift — the ratio of the fact-span keep rate to the filler-span keep rate — measures whether
-the keep/drop decision carries supervision at all. SmolLM2-360M-Instruct scores 0.00x on our
-trajectories: it keeps chit-chat and drops every planted fact, which is worse than random.
-At that scale there is no signal to be supervised by, and the method reduces to uniform
-replay. The compactor must clear a lift of 1.0 before any of this is worth running, and
-establishing that threshold across model scales is a precondition we report rather than
-assume. If the consolidation target is too small to compact well, the compactor and the
-target must be decoupled.
+**The method inherits the compactor's judgment, and small compactors have little.** Nothing
+below 1.5B cleared the positional control in any elicitation we tried, so the free signal is
+not free at every scale. Where the consolidation target is too small to compact well, the
+compactor and the target must be decoupled — cheap here, since compaction is offline and
+one-off, but it does weaken the framing: the decision is free only to an agent already
+running a capable enough model.
 
-The synthetic generator plants facts with lexical cues that a keyword-based compactor can
-exploit; all reported results therefore use the model compactor, and the heuristic backend
-is documented as a debugging tool only. Trajectories are short relative to a real agent
+**The evaluation set is small.** 6 eval trajectories and 36 fact spans. The 2.56x figure is
+about 4.9 sigma above chance, but its margin over the positional control rests on roughly
+2.7 sigma. This needs widening before the result is load-bearing.
+
+**Blind spots may be systematic.** At 1.5B the compactor never keeps `auth_header`,
+`config_flag` or `deploy_target` spans, and in a hand-check the auth-header line scored
+lowest of twelve. If that survives a larger evaluation it is more interesting than the
+headline: the free signal would have a characteristic shape, and the paper should say which
+kinds of knowledge compaction-supervision cannot reach.
+
+**Generator vocabulary leaks into the heuristic baseline.** Eight of the fourteen cue
+phrases in our heuristic compactor appear verbatim in the generator's fact templates, so its
+4.4x lift measures that overlap rather than judgment. The heuristic is a debugging backend
+and none of its numbers are reported. An unmarked variant of the generator, which drops the
+`One thing to lock in:` framing, changes the heuristic's lift by 0.05x — confirming the leak
+is vocabulary, not the marker. Trajectories are short relative to a real agent
 session. Consolidation is measured on facts, not on procedures or style. A single seed per
 configuration at this budget; variance across seeds is not yet characterised.
 
