@@ -134,8 +134,8 @@ HotpotQA, repackaged so supporting paragraphs sit early and distractors act as f
 the external-validity check; a LoCoMo loader exists but its answer-substring labelling is
 weaker and is not yet validated.
 
-**Models.** Compaction runs under Qwen2.5-1.5B-Instruct, the smallest model whose keep/drop
-decision clears the positional control. Consolidation targets Qwen2.5-0.5B-Instruct. The two
+**Models.** Compaction runs under Qwen2.5-1.5B-Instruct, which clears the positional control
+by the widest margin of the models we measured. Consolidation targets Qwen2.5-0.5B-Instruct. The two
 decouple cleanly because the event log is plain text, and compaction is a one-off offline
 pass, so a larger compactor costs little. SmolLM2-360M-Instruct is the cross-family check.
 LoRA rank 16, α 32, on all attention and MLP projections. Single T4.
@@ -187,7 +187,11 @@ Three findings, and the last is the one that constrains the rest.
 
 **Elicitation dominates scale.** Asked to emit a ranked index list, both Qwen sizes reply
 with a contiguous prefix `0, 1, 2, ...` on 100% of events, regardless of the text at those
-positions. Tripling the parameter count changes nothing. Because planted facts sit early in
+positions. Tripling the parameter count changes nothing, while switching to a logit read at
+fixed size takes the same model from 0.53x to 2.56x. Scale is also non-monotonic: SmolLM2-360M
+scores 2.17x under logit scoring where Qwen2.5-0.5B manages 0.42x on identical data, so the
+usable range is a property of the individual model's behaviour on the probe rather than of
+capacity. Because planted facts sit early in
 a trajectory, that behaviour *looks* like signal until spans are shuffled before
 presentation, at which point it is exactly random selection. The same model, asked the same
 question one span at a time with the answer read off the logits, reaches 2.56x.
@@ -236,12 +240,10 @@ more slowly than uniform replay as ρ falls.
 
 ## 7. Limitations
 
-**The method inherits the compactor's judgment, and small compactors have little.** Nothing
-below 1.5B cleared the positional control in any elicitation we tried, so the free signal is
-not free at every scale. Where the consolidation target is too small to compact well, the
-compactor and the target must be decoupled — cheap here, since compaction is offline and
-one-off, but it does weaken the framing: the decision is free only to an agent already
-running a capable enough model.
+**The method inherits the compactor's judgment, and which models have it is not predictable
+from size.** SmolLM2-360M clears the control at 2.17x while Qwen2.5-0.5B fails at 0.42x on
+identical data. We can measure whether a given compactor carries signal but we cannot yet
+predict it, so salience lift has to be run per compactor rather than assumed from scale.
 
 **The evaluation set is small.** 6 eval trajectories and 36 fact spans. The 2.56x figure is
 about 4.9 sigma above chance, but its margin over the positional control rests on roughly

@@ -72,25 +72,29 @@ python scripts/check_compactor.py --config configs/kaggle.yaml
 It reports **salience lift** — fact-span keep rate over filler-span keep rate — against a
 positional control. The compactor must beat the control, not merely 1.0x.
 
-Measured. **Qwen2.5-1.5B with the `scoring` backend** is the only configuration that clears
-the control, and how far depends on the data:
+Measured. What matters is **how the decision is elicited**, not model size:
 
-| Set | Lift | Control | |
-|---|---|---|---|
-| synthetic, marked | 2.56x | 1.68x | clears |
-| synthetic, unmarked | 1.10x | 1.57x | fails |
-| **HotpotQA** | **1.61x** | **0.98x** | **clears** |
+| Compactor | Elicitation | Lift | Control | |
+|---|---|---|---|---|
+| SmolLM2-360M | logit scoring | 2.17x | 1.32x | clears |
+| Qwen2.5-0.5B | logit scoring | 0.42x | 1.68x | fails |
+| Qwen2.5-1.5B | logit scoring | 2.56x | 1.68x | clears |
+| any tested | generated index list | 0.53x | 1.68x | fails |
 
-HotpotQA is the number to trust: natural prose, no marker phrase, and a positional control
-at chance. The unmarked synthetic set is a floor case — its facts and filler come from one
-template bank and are stylistically identical, which is harsher than real text.
+Every model asked to *generate* a ranked list answers `0, 1, 2, ...` regardless of content.
+Read the keep decision off the logits instead. Scale is not monotonic — 360M clears while
+0.5B does not — so measure your compactor rather than assuming a bigger one is better.
 
-Two separate shortcuts were hiding here: the heuristic backend keyed on cue vocabulary it
-shared with the generator, the model backend keyed on the marker phrase. Neither was visible
-until tested against a set that removed them.
+Dataset matters as much: the 1.5B scoring compactor gives 2.56x on the marked synthetic set,
+1.10x on the unmarked variant, and **1.61x on HotpotQA against a 0.98x control**. HotpotQA is
+the number to trust — natural prose, no marker phrase, positional control at chance.
 
-Every configuration that asks a model to *generate* a ranked index list lands at chance at
-every scale — both Qwen sizes answer `0, 1, 2, ...` regardless of content. Read the keep
+Full table and the three retracted measurements that preceded it are in
+[docs/protocol.md](docs/protocol.md).
+
+Two separate shortcuts were hiding in the synthetic set: the heuristic backend keyed on cue
+vocabulary it shared with the generator, the model backend keyed on the marker phrase.
+Neither was visible until tested against a variant that removed them. Read the keep
 decision off the logits; do not ask for it. Full table, and the three retracted measurements
 that preceded it, in [docs/protocol.md](docs/protocol.md).
 
