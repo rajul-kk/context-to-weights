@@ -16,7 +16,7 @@ python data/generate_synthetic.py --n-train 48 --n-eval 16 --n-turns 120
 
 | Notebook | Purpose | Budget |
 |---|---|---|
-| `notebooks/a0_precondition.ipynb` | Salience lift across 3 datasets x 2 models x 2 backends. **Run first.** | ~2 h |
+| `notebooks/a0_precondition.ipynb` | Salience lift across 3 datasets x 3 models x 2 backends. **Run first.** | ~3 h |
 | `notebooks/a1_main.ipynb` | Compaction, all sleep runs, all eval arms, figures | ~4 h |
 | `notebooks/b1_skills.ipynb` | KL gate, distillation, sweeps | ~5 h |
 
