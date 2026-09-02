@@ -29,7 +29,8 @@ produced for free, and nobody trains on it. This project treats it as the target
 periodic offline consolidation pass:
 
 1. Run a trajectory until the context budget trips.
-2. A compactor (the same frozen backbone under a fixed prompt) picks spans to keep.
+2. A frozen compactor picks spans to keep, by reading a per-span keep probability off its
+   own logits rather than generating a list.
 3. Log `(span_text, kept: bool)` for every span — the free label.
 4. Every `K` compaction events, run a **sleep phase**: LoRA SFT with cross-entropy on the
    kept spans, plus a small reservoir replay buffer of previously-kept spans.
@@ -82,7 +83,9 @@ compaction under a larger model and consolidate into a smaller one:
 
 ```bash
 python baselines/cascading.py --split both --set model.base=Qwen/Qwen2.5-1.5B-Instruct
-python sleep/loop.py --method compaction --events artifacts/runs/cascading/train_events.jsonl   --set model.base=Qwen/Qwen2.5-0.5B-Instruct
+python sleep/loop.py --method compaction \
+  --events artifacts/runs/cascading/train_events.jsonl \
+  --set model.base=Qwen/Qwen2.5-0.5B-Instruct
 ```
 
 ## Metrics
