@@ -60,9 +60,17 @@ python baselines/cascading.py --config configs/hotpotqa.yaml --split both
 ```
 
 Multi-hop QA repackaged as a retention task. Each trajectory bundles several HotpotQA
-examples: supporting paragraphs are placed early, distractor paragraphs are shuffled through
-the rest as filler, and each example's question becomes a probe. Roughly 80 turns and 4
-probes per trajectory at the defaults.
+examples: supporting paragraphs are scattered at random positions through the first
+`--early-frac` of the trajectory, distractor paragraphs fill the rest, and each example's
+question becomes a probe. Roughly 80 turns and 4 probes per trajectory at the defaults.
+
+**The interleaving matters.** A first version placed every supporting paragraph in a
+contiguous block at the front. That made position almost perfectly predictive: the
+positional control scored 2.44x, higher than the compactor's own 1.76x, so the benchmark
+was measuring layout rather than judgment. Facts still land early — they have to, or
+compaction never evicts them — but scattered rather than stacked. Always read the positional
+control that `eval/span_report.py` prints beside the lift; if the control is high, the
+dataset construction is doing the work.
 
 Fact spans are labelled from HotpotQA's **sentence-level** `supporting_facts`, not from
 whether the span happens to contain the gold answer string. Multi-hop answers frequently do

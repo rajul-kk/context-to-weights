@@ -20,7 +20,28 @@ def _sentences(para):
     return [s.strip() for s in para if s and s.strip()]
 
 
-def build_trajectory(traj_id, items, rng):
+def interleave_early(supporting, distractors, rng, early_frac):
+    total = len(supporting) + len(distractors)
+    window = max(len(supporting), int(total * early_frac))
+    slots = sorted(rng.sample(range(window), k=min(len(supporting), window)))
+    ordered = []
+    sup = iter(supporting)
+    dis = iter(distractors)
+    slot_set = set(slots)
+    for i in range(total):
+        if i in slot_set:
+            ordered.append(next(sup))
+        else:
+            nxt = next(dis, None)
+            if nxt is None:
+                nxt = next(sup, None)
+            if nxt is not None:
+                ordered.append(nxt)
+    ordered.extend(list(sup))
+    return ordered
+
+
+def build_trajectory(traj_id, items, rng, early_frac=0.5):
     turns = []
     facts = []
     probes = []
@@ -40,7 +61,8 @@ def build_trajectory(traj_id, items, rng):
                 distractors.append((title, clean, None, None))
 
     rng.shuffle(distractors)
-    ordered = supporting + distractors
+    rng.shuffle(supporting)
+    ordered = interleave_early(supporting, distractors, rng, early_frac)
 
     for title, sents, markers, answer in ordered:
         if not sents:
@@ -92,6 +114,7 @@ def main():
     ap.add_argument("--n-train", type=int, default=32)
     ap.add_argument("--n-eval", type=int, default=16)
     ap.add_argument("--per-trajectory", type=int, default=5)
+    ap.add_argument("--early-frac", type=float, default=0.5)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
 
@@ -110,7 +133,8 @@ def main():
         for i in range(n):
             items = rows[cursor: cursor + args.per_trajectory]
             cursor += args.per_trajectory
-            out_rows.append(build_trajectory(f"hotpot-{split}-{i:04d}", items, rng).to_dict())
+            out_rows.append(build_trajectory(f"hotpot-{split}-{i:04d}", items, rng,
+                                             args.early_frac).to_dict())
         write_jsonl(out / f"{split}.jsonl", out_rows)
         turns = sum(r["meta"]["n_turns"] for r in out_rows) / max(1, len(out_rows))
         print(f"{split}: {len(out_rows)} trajectories, {turns:.0f} turns avg "
