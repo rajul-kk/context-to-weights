@@ -1,5 +1,7 @@
 _base_: kaggle.yaml
 
+run_root: /kaggle/working/artifacts/runs_qwen15
+
 model:
   base: Qwen/Qwen2.5-1.5B-Instruct
   dtype: float16
