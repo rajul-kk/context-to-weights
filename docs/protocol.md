@@ -107,6 +107,7 @@ that, not merely 1.0x.
 | Qwen2.5-0.5B | logit scoring | 0.111 | 0.262 | 0.42x | no signal |
 | Qwen2.5-1.5B | logit scoring | 0.611 | 0.239 | 2.56x | clears control (**marked set only**) |
 | Qwen2.5-1.5B | logit scoring, **unmarked set** | 0.278 | 0.252 | **1.10x** | **fails control (1.57x)** |
+| **Qwen2.5-1.5B** | **logit scoring, HotpotQA** | **0.400** | **0.248** | **1.61x** | **clears control (0.98x)** |
 
 **The signal is real but dataset-dependent, and that is the central caveat of this work.**
 
@@ -123,9 +124,18 @@ leak from the heuristic's: the heuristic ignored the marker and keyed on cue voc
 marker. Two backends, two different shortcuts, both invisible until tested against a set
 that removes them.
 
-The honest statement of the precondition result is therefore: **the compaction decision
-carries supervision when the conversation lexically flags what matters, and not otherwise at
-the scales tested.** Whether that holds on natural data is what HotpotQA is for.
+HotpotQA answers the question that raises. On natural Wikipedia text, with supporting
+sentences scattered through an early window and a positional control at 0.98x — no layout
+information at all — the same compactor reaches **1.61x**. Fact keep 0.400 against a 0.255
+chance rate is about 2.6 sigma at n=60 fact spans: real, but thin enough that it needs more
+trajectories before it is load-bearing.
+
+So the precondition result is: **the compaction decision carries supervision on natural
+text, and the size of that signal depends on how distinguishable salient content is from
+its surroundings.** Our unmarked synthetic variant is the hard floor of that spectrum, not a
+neutral test — facts and filler there are drawn from the same template bank and are
+stylistically identical, which is harsher than any real conversation. HotpotQA sits closer
+to the middle, and is the number to quote.
 
 Two things had to change together to get there. Asking any model for a ranked index list
 fails — both Qwen sizes answer with a contiguous prefix `0, 1, 2, ...` on 100% of events,

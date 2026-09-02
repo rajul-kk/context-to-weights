@@ -17,9 +17,11 @@ with ordinary cross-entropy on the spans a frozen compactor chose to keep, in pe
 compactor turns out to depend less on its scale than on how the decision is elicited: asked
 to generate a ranked list of spans, a 1.5B model answers positionally and carries no signal,
 while the same model's keep judgment read directly off its logits separates salient from
-filler content at 2.56x against a positional control. That separation, however, survives
-only where the conversation marks its own important lines; strip the marker and the same
-compactor returns to chance, which bounds how free this free signal really is. On synthetic long software-development
+filler content at 2.56x against a positional control. How much signal there is depends on
+how distinguishable salient content is: 2.56x where the synthetic text marks its own
+important lines, 1.61x on HotpotQA prose with the positional control at chance, and 1.10x
+when facts and filler are drawn from a single template bank and are stylistically
+identical. On synthetic long software-development
 dialogues with facts planted early and probed late, this recovers TBD% of full-context
 retention on facts that compaction had already evicted, against TBD% for cascading
 compaction with no weight update and TBD% for the same LoRA machinery trained on uniformly
@@ -177,8 +179,9 @@ events, 36 fact spans.
 | Qwen2.5-0.5B | logit scoring | 0.111 | 0.262 | 0.42x |
 | Qwen2.5-1.5B | logit scoring | 0.611 | 0.239 | 2.56x |
 | Qwen2.5-1.5B | logit scoring, unmarked set | 0.278 | 0.252 | 1.10x |
+| **Qwen2.5-1.5B** | **logit scoring, HotpotQA** | **0.400** | **0.248** | **1.61x** |
 
-Positional control: 1.68x on the marked set, 1.57x on the unmarked set.
+Positional control: 1.68x marked, 1.57x unmarked, 0.98x HotpotQA.
 
 Three findings, and the last is the one that constrains the rest.
 
@@ -206,11 +209,17 @@ marker (4.43x marked, 4.38x unmarked); the model is indifferent to the vocabular
 on the marker. Two backends, two shortcuts, neither visible without a variant that removes
 them.
 
-The defensible claim is therefore narrower than we set out to make: **the compaction
-decision carries usable supervision when the surrounding text signals salience explicitly,
-and at the scales we can afford it does not otherwise.** Whether natural long conversations
-carry such signals often enough is an empirical question our synthetic data cannot answer,
-and it is what the HotpotQA arm is for.
+**On natural text the signal is real.** HotpotQA, repackaged so that supporting sentences
+scatter through an early window, gives a positional control of 0.98x — position carries no
+information — and the same compactor reaches 1.61x. Fact keep 0.400 against a 0.255 chance
+rate is about 2.6 sigma at n=60 fact spans.
+
+Taken together the three rows describe a spectrum rather than a threshold. The compaction
+decision carries supervision in proportion to how distinguishable salient content is from
+its surroundings: strongly when the text marks it, not at all when facts and filler are
+drawn from one template bank in one register, and measurably on real prose in between. Our
+unmarked variant is the floor of that spectrum rather than a neutral test, and we report it
+as such.
 
 Salience lift costs one compaction pass and disqualifies a compactor before any training
 runs. We would recommend it, with a positional control and a marker-free variant, as

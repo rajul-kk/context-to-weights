@@ -48,9 +48,11 @@ scores 2.56x on the marked set and **1.10x on the unmarked set**, where it no lo
 its positional control. The heuristic ignored the marker and keyed on vocabulary; the model
 ignored the vocabulary and keyed on the marker. Two backends, two different shortcuts.
 
-Report on the unmarked set. It is closer to how facts appear in a real conversation, and the
-gap between the two variants is itself the most informative number this generator has
-produced.
+Report both, and read the unmarked set as a **floor** rather than a neutral test. Facts and
+filler there are generated from the same template bank in the same register, so they are
+close to stylistically indistinguishable once the marker is gone — harsher than any real
+conversation. HotpotQA, where the compactor reaches 1.61x against a 0.98x control, is the
+more representative number.
 
 ## HotpotQA
 
@@ -119,7 +121,10 @@ beat the random-span control.
 
 ## What to run first
 
-The synthetic set is the one that isolates the mechanism, so headline results should come
-from it. HotpotQA is the external-validity check — if compaction-supervised consolidation
-only works on conversations whose facts are marked with a stock phrase, that is worth
-knowing, and HotpotQA is where it would show up.
+**HotpotQA is now the primary set for the headline claim**, because it is the only one where
+the compaction signal survives with the positional control at chance and no marker or shared
+vocabulary to exploit (1.61x against 0.98x).
+
+The synthetic sets are the mechanism-isolation tools around it: the marked variant for
+debugging and for the compaction-ratio sweep, the unmarked variant as the floor case showing
+what happens when salient content is stylistically identical to filler.

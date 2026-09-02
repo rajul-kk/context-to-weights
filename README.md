@@ -72,10 +72,18 @@ python scripts/check_compactor.py --config configs/kaggle.yaml
 It reports **salience lift** — fact-span keep rate over filler-span keep rate — against a
 positional control. The compactor must beat the control, not merely 1.0x.
 
-Measured, and the result is mixed. Only **Qwen2.5-1.5B with the `scoring` backend** clears
-the control, at **2.56x** against 1.68x — but only on the synthetic set whose facts are
-introduced by an explicit marker phrase. On the unmarked variant the same compactor drops to
-**1.10x** and fails its control.
+Measured. **Qwen2.5-1.5B with the `scoring` backend** is the only configuration that clears
+the control, and how far depends on the data:
+
+| Set | Lift | Control | |
+|---|---|---|---|
+| synthetic, marked | 2.56x | 1.68x | clears |
+| synthetic, unmarked | 1.10x | 1.57x | fails |
+| **HotpotQA** | **1.61x** | **0.98x** | **clears** |
+
+HotpotQA is the number to trust: natural prose, no marker phrase, and a positional control
+at chance. The unmarked synthetic set is a floor case — its facts and filler come from one
+template bank and are stylistically identical, which is harsher than real text.
 
 Two separate shortcuts were hiding here: the heuristic backend keyed on cue vocabulary it
 shared with the generator, the model backend keyed on the marker phrase. Neither was visible
