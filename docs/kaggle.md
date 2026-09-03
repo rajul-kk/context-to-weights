@@ -16,13 +16,19 @@ python data/generate_synthetic.py --n-train 48 --n-eval 16 --n-turns 120
 
 | Notebook | Purpose | Budget |
 |---|---|---|
-| `notebooks/a0_precondition.ipynb` | Salience lift across 3 datasets x 3 models x 2 backends. **Run first.** | ~3 h |
+| `notebooks/a0_precondition.ipynb` | Salience lift per compactor. **Run first.** | 15 min quick / ~6 h full |
 | `notebooks/a1_main.ipynb` | Compaction, all sleep runs, all eval arms, figures | ~4 h |
 | `notebooks/b1_skills.ipynb` | KL gate, distillation, sweeps | ~5 h |
 
 `a1_main.ipynb` has a `DATASET` switch in its first cell: `hotpotqa` (primary — natural
 prose, no marker, positional control at chance) or `synthetic` (for the compaction-ratio
 sweep and debugging).
+
+`a0_precondition.ipynb` has `QUICK = True` in its boot cell. Leave it on for the first run:
+one model, one backend, 4 eval trajectories, about fifteen minutes end to end. It exercises
+the whole chain and prints the summary table, so you find out whether the plumbing works
+before committing to the full sweep. Set `QUICK = False` for the real run — 3 datasets x 3
+models x 2 backends is 18 compaction passes and takes most of a session.
 
 Run `python scripts/check_notebooks.py` after editing any notebook. It compiles every code
 cell's Python, ignoring `!` and `%` lines and their continuations, and catches the broken
