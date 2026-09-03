@@ -31,6 +31,12 @@ line continuations that are easy to introduce when generating notebook JSON.
 Each notebook clones the repo, installs `peft`, `accelerate` and `datasets`, runs
 `scripts/preflight.py` and restores the previous session's archive before doing any work.
 
+Every subprocess goes through `run()` from `notebooks/_runner.py` rather than a `!` shell
+magic. `!` swallows a non-zero exit code, so a failing script leaves the cell looking
+finished with nothing useful printed, and the rest of the notebook runs against missing
+files. `run()` streams output line by line, prints elapsed time, and raises on failure so
+the notebook stops at the first real error.
+
 **Before the first session:** edit the `git clone` URL in the first cell of each notebook.
 The repo is not published anywhere yet, so this is the one manual step. Either push it to
 GitHub, or upload the repo as a Kaggle Dataset and replace the clone with a copy from
