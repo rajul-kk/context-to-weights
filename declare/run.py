@@ -66,12 +66,16 @@ def summarize(records, label, n_regions):
         return {"label": label, "n": 0}
     hits = sum(int(r["hit"]) for r in records)
     shuffled = [r for r in records if "shuffled_hit" in r]
+    gold_counts = Counter(r["gold"] for r in records)
+    best_constant = max(gold_counts.values()) / n
     out = {
         "label": label,
         "n": n,
         "n_regions": n_regions,
         "hit_rate": hits / n,
         "random_control": 1.0 / n_regions,
+        "best_constant_control": best_constant,
+        "gold_distribution": {str(k): v for k, v in sorted(gold_counts.items())},
         "unparsed_rate": sum(1 for r in records if r["choice"] is None) / n,
         "mean_attended_frac": sum(r["attended_frac"] for r in records) / n,
     }
@@ -126,10 +130,17 @@ def main():
         write_jsonl(out_dir / f"{mode}.records.jsonl", records)
         write_json(out_dir / f"{mode}.summary.json", s)
         print(f"\n== {mode}")
-        for k in ("hit_rate", "random_control", "shuffled_hit_rate", "content_dependence",
-                  "slot_stable_rate", "modal_share", "unparsed_rate", "mean_attended_frac"):
+        for k in ("hit_rate", "random_control", "best_constant_control",
+                  "shuffled_hit_rate", "content_dependence", "slot_stable_rate",
+                  "modal_share", "unparsed_rate", "mean_attended_frac"):
             if k in s:
-                print(f"  {k:<22} {s[k]:.3f}")
+                print(f"  {k:<24} {s[k]:.3f}")
+        print(f"  {'gold_distribution':<24} {s['gold_distribution']}")
+        if s["hit_rate"] <= s["best_constant_control"]:
+            print("  WARNING: no better than always naming one fixed region.")
+        if s.get("slot_stable_rate", 0.0) >= 0.9:
+            print("  WARNING: the declaration barely moves when region contents are shuffled,")
+            print("  so it is naming a slot rather than reading content.")
 
     write_json(out_dir / "summary_all.json", summaries)
     print(f"\nwrote -> {out_dir}")
