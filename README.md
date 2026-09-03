@@ -3,16 +3,21 @@
 Two research prototypes asking the same question — *what should a consolidation pass
 internalise into weights?* — and answering it with two different free supervision signals.
 
-| | Project A | Project B |
-|---|---|---|
-| name | Compaction-Supervised Sleep Consolidation | [Context-Gap Distillation](docs/context_gap.md) |
-| signal | the compactor's keep/drop decision | with-vs-without-context KL divergence |
-| source | external, an agent already emits it | internal, two forward passes of one backbone |
-| loss | cross-entropy on kept spans | importance-weighted KL distillation |
-| paper | [paper/draft.md](paper/draft.md) | [paper/draft_b.md](paper/draft_b.md) |
+| | A | B | C |
+|---|---|---|---|
+| name | Compaction-Supervised Sleep Consolidation | [Context-Gap Distillation](docs/context_gap.md) | [Declarative Attention at small scale](docs/declarative.md) |
+| signal | the compactor's keep/drop decision | with-vs-without-context KL divergence | which region the model says it must read |
+| source | external, an agent already emits it | internal, two forward passes | external, the model states it |
+| paper | [draft.md](paper/draft.md) | [draft_b.md](paper/draft_b.md) | [draft_combined.md](paper/draft_combined.md) §5 |
 
-They share `common/`, `sleep/lm.py`, `sleep/trainer.py` and the config machinery. Project A
-is the reference implementation; Project B was built on top of it.
+They share `common/`, `sleep/lm.py`, `sleep/trainer.py` and the config machinery.
+
+**The finding that ties them together** ([paper/draft_combined.md](paper/draft_combined.md)):
+signals the model is *asked to state* collapse at small scale — both Qwen sizes answer a
+span-selection request with `0, 1, 2, ...` regardless of content, and SmolLM2-360M answers a
+region-declaration request with `FOCUS: 0` every time. Signals *measured from behaviour*
+survive: the same decision read off the logits reaches 2.56x salience lift at 1.5B and 2.17x
+at 360M. Measure the model; do not ask it.
 
 ---
 
