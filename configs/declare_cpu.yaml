@@ -1,0 +1,6 @@
+_base_: declare.yaml
+
+model:
+  base: HuggingFaceTB/SmolLM2-360M-Instruct
+  dtype: float32
+  max_length: 2048

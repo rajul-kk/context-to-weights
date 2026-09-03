@@ -1,0 +1,15 @@
+_base_: base.yaml
+
+run_root: artifacts/runs_declare
+
+data:
+  dir: artifacts/data/hotpotqa
+
+model:
+  base: Qwen/Qwen2.5-1.5B-Instruct
+  max_length: 2048
+
+declare:
+  n_regions: 8
+  max_new_tokens: 24
+  probe_batch_size: 8
