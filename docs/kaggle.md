@@ -43,10 +43,25 @@ finished with nothing useful printed, and the rest of the notebook runs against 
 files. `run()` streams output line by line, prints elapsed time, and raises on failure so
 the notebook stops at the first real error.
 
-**Before the first session:** edit the `git clone` URL in the first cell of each notebook.
-The repo is not published anywhere yet, so this is the one manual step. Either push it to
-GitHub, or upload the repo as a Kaggle Dataset and replace the clone with a copy from
-`/kaggle/input/`.
+**Before the first session** the code has to reach Kaggle. Uploading only the `.ipynb` is not
+enough — the notebook needs the repo. Two ways, and the boot cell handles both:
+
+**Kaggle Dataset (no GitHub account needed).** Locally:
+
+```bash
+python scripts/package_source.py
+```
+
+That writes `artifacts/myrios_src.zip` — about 0.1 MB, source only, no artifacts or
+adapters. Upload it at kaggle.com/datasets as a new dataset, then in the notebook use
+*Add Input* to attach it. The boot cell scans `/kaggle/input/*`, finds either an extracted
+tree or a zip, and unpacks it to `/kaggle/working/myrios`. Nothing to edit.
+
+**Git.** Set `GIT_URL` at the top of the boot cell to your repo URL and leave the dataset
+unattached.
+
+If neither is present the boot cell asserts with the list of what it actually found under
+`/kaggle/input/`, rather than failing silently three cells later.
 
 `scripts/preflight.py` checks torch and GPU, the dependency versions, that the data splits
 exist and are non-empty, that `compaction.backend` is `scoring`, that the run root is
