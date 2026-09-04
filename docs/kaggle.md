@@ -21,6 +21,16 @@ restarts the session with a CUDA image.
 
 **Session options -> Internet -> On**, unless you are booting from a Kaggle Dataset.
 
+Kaggle currently ships `transformers 5.0.0`, `peft 0.19.1`, `accelerate 1.13.0`. Everything
+here was developed against transformers 4.57 locally. The calls we make are the stable ones —
+`AutoModelForCausalLM.from_pretrained(name, dtype=...)` (already the 5.x spelling, not the
+removed `torch_dtype`), `apply_chat_template`, `generate`, and a plain forward for logits — so
+no breakage is expected, but the first GPU session is also the first run against 5.x. If
+something fails on import or generation, that is where to look first.
+
+`scripts/preflight.py` prints the installed versions, so they are recorded in every run's
+output.
+
 ## Notebooks
 
 | Notebook | Purpose | Budget |
