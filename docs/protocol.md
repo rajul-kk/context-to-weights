@@ -108,22 +108,22 @@ per run and shown beside each lift; a compactor must beat *its own* control, not
 | Qwen2.5-1.5B | logit scoring | 0.611 | 0.239 | **2.56x** | 1.68x | **clears** |
 | Qwen2.5-1.5B | logit scoring, unmarked | 0.278 | 0.252 | 1.10x | 1.57x | fails |
 | Qwen2.5-1.5B | logit scoring, HotpotQA | 0.400 | 0.248 | **1.61x** | 0.98x | **clears** |
-| SmolLM2-360M | logit scoring, HotpotQA | 0.225 | 0.257 | 0.88x | 1.08x | fails |
+| SmolLM2-360M | logit scoring, HotpotQA | 0.225 | 0.257 | 0.88x | 1.08x | -0.76 sigma, fails |
 
 **Elicitation is what matters, not scale.** Every index-list row fails at every size: both Qwen
 models answer with a contiguous prefix `0, 1, 2, ...` on 100% of events regardless of the text
 at those positions, which under span shuffling is exactly random selection. Every model we
 tested that clears the control does so through logit scoring.
 
-**Scale is not monotonic, but 360M is not enough on natural text.** On the marked synthetic
-set SmolLM2-360M reaches 2.17x while Qwen2.5-0.5B manages 0.42x, so ordering by size does not
-predict which model carries signal. But on HotpotQA — natural prose, no marker phrase —
-SmolLM2-360M drops to 0.88x against a 1.08x control, while Qwen2.5-1.5B clears at 1.61x. The
-360M result on synthetic was exploiting the same marker the 1.5B model exploited there, and
-it does not transfer.
+**SmolLM2-360M carries no demonstrable signal on any dataset.** Its apparent 2.17x on marked
+synthetic (CPU, n=36) came back as 1.86x at +0.50 sigma on GPU (n=24), and it is below control
+on both unmarked and HotpotQA. Two measurements of the same configuration landing at +2.85
+and +0.50 sigma is itself the finding: n in the twenties to thirties is not enough to
+distinguish a compactor from its control, and we should not have reported the first one.
 
-The rule that survives both observations: **measure the compactor on the data you will
-actually use.** Neither size nor a score on another dataset predicts it.
+**Only Qwen2.5-1.5B with logit scoring clears the control on natural text**, at +2.79 sigma on
+HotpotQA. Plan around that, and measure any substitute on the data you will actually use —
+neither size nor a score on another dataset predicts it.
 
 **The scorer hand-check does not predict lift.** `compactor/inspect_scorer.py` reports
 salient-versus-filler separation on twelve curated lines: +0.050 for SmolLM2-360M, +0.040 for
