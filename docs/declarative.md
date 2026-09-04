@@ -31,10 +31,16 @@ python declare/run.py --config configs/declare.yaml --modes generate read
 A hit rate on its own says nothing, for the same reason a salience lift on its own says
 nothing.
 
+Regions are **permuted per probe by default**, so the gold region is uniform across slots by
+construction. Without that, gold clusters early — supporting content lands near the front of
+a trajectory — and "always name region 0" scores 0.41 against a 1/K floor of 0.125, which is
+enough to swallow any real effect. `--no-balance` reproduces the natural layout if you want
+to measure the position prior itself.
+
 | Control | What it catches |
 |---|---|
 | `random_control` = 1/K | the floor |
-| `best_constant_control` | always naming one fixed region. Gold regions cluster early, so a constant policy scores well above 1/K |
+| `best_constant_control` | always naming one fixed region. Collapses to ~1/K once gold is balanced; report it anyway, since it is the number that exposed the unbalanced version |
 | `slot_stable_rate` | permute which content sits in which slot and re-elicit. Near 1.0 means the model names a slot, not content |
 | `content_dependence` | shuffled hit rate above chance — does the declaration follow the answer to its new slot? |
 | `modal_share` | how often the same region is named |
@@ -42,25 +48,27 @@ nothing.
 `run.py` warns when a mode fails to beat the best constant policy, or when the declaration
 barely moves under shuffling.
 
-## First measurement
+## First measurements
 
-SmolLM2-360M-Instruct, HotpotQA trajectories, `K = 8`, n = 6 probes — far too small to
-conclude from, recorded because the failure mode is unambiguous:
+SmolLM2-360M-Instruct, HotpotQA trajectories, `K = 8`. Small n; recorded because the failure
+mode is unambiguous, not because the numbers are conclusive.
+
+**Unbalanced layout, n = 12** — gold confined to regions 0-3, best constant 0.333:
 
 | | generate | read |
 |---|---|---|
-| hit rate | 0.333 | 0.167 |
-| random control | 0.125 | 0.125 |
+| hit rate | 0.333 | 0.333 |
+| best constant | 0.333 | 0.333 |
 | slot stable rate | **1.000** | 0.000 |
-| modal share | **1.000** | 0.667 |
+| modal share | 0.917 | 0.333 |
 
-`generate` replied `FOCUS: 0` on every probe and every shuffle. Its 0.333 hit rate is
-entirely luck: gold happened to be region 0 twice in six. That is the same degenerate
-behaviour as the index-list compactor, in a second task.
+Neither mode beats the constant policy, and the two diagnostics separate them cleanly.
+`generate` answered `FOCUS: 0` on essentially every probe and every shuffle — the same
+degenerate behaviour as the index-list compactor, reproduced in a second task with a
+different prompt format. `read` varies its scores per region and changes its choice under
+shuffling, so it is responding to content; it is simply not accurate at 360M.
 
-`read` produces varying per-region scores and its choice moves when contents are shuffled, so
-it is responding to content — but at 360M it is not yet accurate. Whether that improves with
-scale is the open question this arm exists to answer.
+**Balanced layout, n = 24** — TBD, see `artifacts/runs_declare/smollm_bal`.
 
 ## What would make this a result
 

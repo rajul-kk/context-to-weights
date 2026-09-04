@@ -29,10 +29,14 @@ def items_for(traj, n_regions, tokenizer):
     return out
 
 
-def evaluate(elicitor, items, rng, shuffle_test=True):
+def evaluate(elicitor, items, rng, shuffle_test=True, balance=True):
     records = []
     for it in items:
-        regions = it["regions"]
+        if balance:
+            regions, order = permute(it["regions"], rng)
+            gold = order.index(it["gold"])
+        else:
+            regions, gold = it["regions"], it["gold"]
         n = len(regions)
         choice, raw = elicitor.declare(regions, it["question"])
         toks = region_tokens(regions)
@@ -40,17 +44,17 @@ def evaluate(elicitor, items, rng, shuffle_test=True):
 
         rec = {
             "question": it["question"],
-            "gold": it["gold"],
+            "gold": gold,
             "choice": choice,
-            "hit": choice == it["gold"],
+            "hit": choice == gold,
             "n_regions": n,
             "attended_frac": (toks[choice] / total) if choice is not None else 1.0,
             "raw": raw[:200],
         }
 
         if shuffle_test:
-            permuted, order = permute(regions, rng)
-            new_gold = order.index(it["gold"])
+            permuted, order2 = permute(regions, rng)
+            new_gold = order2.index(gold)
             pchoice, _ = elicitor.declare(permuted, it["question"])
             rec["shuffled_gold"] = new_gold
             rec["shuffled_choice"] = pchoice
@@ -97,6 +101,7 @@ def main():
     ap.add_argument("--modes", nargs="*", default=["generate", "read"])
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--no-shuffle-test", action="store_true")
+    ap.add_argument("--no-balance", action="store_true")
     ap.add_argument("--out", default=None)
     ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
@@ -122,7 +127,8 @@ def main():
     summaries = []
     for mode in args.modes:
         elicitor = build_elicitor(mode, model, tokenizer, cfg)
-        records = evaluate(elicitor, items, rng, not args.no_shuffle_test)
+        records = evaluate(elicitor, items, rng, not args.no_shuffle_test,
+                           balance=not args.no_balance)
         s = summarize(records, mode, n_regions)
         s["model"] = cfg["model"]["base"]
         s["elicitor_unparsed"] = elicitor.unparsed
