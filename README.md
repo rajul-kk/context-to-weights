@@ -79,20 +79,23 @@ positional control. The compactor must beat the control, not merely 1.0x.
 
 Measured. What matters is **how the decision is elicited**, not model size:
 
-| Compactor | Elicitation | Lift | Control | |
-|---|---|---|---|---|
-| SmolLM2-360M | logit scoring | 2.17x | 1.32x | clears |
-| Qwen2.5-0.5B | logit scoring | 0.42x | 1.68x | fails |
-| Qwen2.5-1.5B | logit scoring | 2.56x | 1.68x | clears |
-| any tested | generated index list | 0.53x | 1.68x | fails |
+| Compactor | Elicitation | Data | Lift | Control | |
+|---|---|---|---|---|---|
+| any tested | generated index list | synthetic | 0.53x | 1.68x | fails |
+| SmolLM2-360M | logit scoring | synthetic | 2.17x | 1.32x | clears |
+| Qwen2.5-0.5B | logit scoring | synthetic | 0.42x | 1.68x | fails |
+| Qwen2.5-1.5B | logit scoring | synthetic | 2.56x | 1.68x | clears |
+| Qwen2.5-1.5B | logit scoring | unmarked | 1.10x | 1.57x | fails |
+| SmolLM2-360M | logit scoring | **HotpotQA** | 0.88x | 1.08x | fails |
+| **Qwen2.5-1.5B** | **logit scoring** | **HotpotQA** | **1.61x** | **0.98x** | **clears** |
 
 Every model asked to *generate* a ranked list answers `0, 1, 2, ...` regardless of content.
-Read the keep decision off the logits instead. Scale is not monotonic — 360M clears while
-0.5B does not — so measure your compactor rather than assuming a bigger one is better.
+Read the keep decision off the logits instead.
 
-Dataset matters as much: the 1.5B scoring compactor gives 2.56x on the marked synthetic set,
-1.10x on the unmarked variant, and **1.61x on HotpotQA against a 0.98x control**. HotpotQA is
-the number to trust — natural prose, no marker phrase, positional control at chance.
+Beyond that, neither size nor a score on another dataset predicts whether a compactor carries
+signal. 360M beats 0.5B on synthetic and then fails on natural prose where 1.5B succeeds.
+**Measure your compactor on the data you will actually use.** HotpotQA is the row to trust:
+natural prose, no marker phrase, positional control at chance.
 
 Full table and the three retracted measurements that preceded it are in
 [docs/protocol.md](docs/protocol.md).
