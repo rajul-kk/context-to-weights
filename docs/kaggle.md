@@ -12,6 +12,15 @@ on it.
 python data/generate_synthetic.py --n-train 48 --n-eval 16 --n-turns 120
 ```
 
+## Before you run anything
+
+**Session options -> Accelerator -> GPU T4 x2.** Kaggle installs a CPU-only build of torch
+when no accelerator is attached, so `torch.cuda.is_available()` returns False and every stage
+runs at CPU speed. The boot cell prints a banner if this happens. Changing the accelerator
+restarts the session with a CUDA image.
+
+**Session options -> Internet -> On**, unless you are booting from a Kaggle Dataset.
+
 ## Notebooks
 
 | Notebook | Purpose | Budget |
