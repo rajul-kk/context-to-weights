@@ -1,5 +1,13 @@
+import os
+
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 import torch
+import transformers
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+transformers.logging.set_verbosity_error()
 
 DTYPES = {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}
 

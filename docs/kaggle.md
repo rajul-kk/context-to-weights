@@ -63,6 +63,12 @@ finished with nothing useful printed, and the rest of the notebook runs against 
 files. `run()` streams output line by line, prints elapsed time, and raises on failure so
 the notebook stops at the first real error.
 
+It also suppresses progress bars. Hugging Face renders weight loading and dataset mapping as
+carriage-return updates, and a subprocess pipe turns every one of those into its own line —
+a single 360M model load emits several hundred. `run()` sets `HF_HUB_DISABLE_PROGRESS_BARS`
+and friends in the child environment, filters any residual progress lines, and reports how
+many it hid. Pass `show_progress=True` if you actually want them.
+
 **Getting the code onto Kaggle.** Uploading only the `.ipynb` is not enough — the notebook
 needs the repo. The boot cell now defaults to cloning
 `https://github.com/rajul-kk/context-to-weights.git`, so an uploaded notebook works with no
