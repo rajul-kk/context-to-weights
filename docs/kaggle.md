@@ -44,8 +44,12 @@ finished with nothing useful printed, and the rest of the notebook runs against 
 files. `run()` streams output line by line, prints elapsed time, and raises on failure so
 the notebook stops at the first real error.
 
-**Before the first session** the code has to reach Kaggle. Uploading only the `.ipynb` is not
-enough — the notebook needs the repo. Two ways, and the boot cell handles both:
+**Getting the code onto Kaggle.** Uploading only the `.ipynb` is not enough — the notebook
+needs the repo. The boot cell now defaults to cloning
+`https://github.com/rajul-kk/context-to-weights.git`, so an uploaded notebook works with no
+edits as long as the Kaggle session has internet enabled (Settings -> Internet -> On).
+
+If internet is off, or you would rather not clone, use a Dataset instead:
 
 **Kaggle Dataset (no GitHub account needed).** Locally:
 
