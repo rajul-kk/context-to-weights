@@ -68,7 +68,33 @@ degenerate behaviour as the index-list compactor, reproduced in a second task wi
 different prompt format. `read` varies its scores per region and changes its choice under
 shuffling, so it is responding to content; it is simply not accurate at 360M.
 
-**Balanced layout, n = 24** — TBD, see `artifacts/runs_declare/smollm_bal`.
+**Balanced layout, n = 24** — gold uniform across slots, so the constant policy is at chance:
+
+| | generate | read |
+|---|---|---|
+| hit rate | 0.083 | 0.000 |
+| random control | 0.125 | 0.125 |
+| slot stable rate | **0.958** | 0.125 |
+| modal share | 0.750 | 0.208 |
+| unparsed rate | 0.250 | 0.000 |
+
+Both at or below chance once position stops helping. The diagnostics still separate the two
+failure modes: `generate` names a slot and fails to parse a quarter of the time, while
+`read` spreads its choices across all eight regions but with nearly flat scores (typical
+range 0.17-0.80), so its argmax is effectively arbitrary. `read` scoring 0/24 is an unlucky
+draw from a 1/8 process rather than anti-correlation.
+
+**Do not read a result into this.** At 360M neither elicitation works, n = 24 is far too
+small, and the interesting question — where generated declarations start working, and whether
+`read` clears the control before they do — needs 0.5B / 1.5B and n in the hundreds. That is
+`notebooks/c1_declare.ipynb`, a GPU job.
+
+## Comparability
+
+Every mode is evaluated on **identical layouts**. An earlier version drew fresh permutations
+per mode, so `generate` and `read` saw different gold placements and their hit rates were not
+comparable — visible in the run only because the two gold distributions printed differently.
+Layouts are now materialised once and shared.
 
 ## What would make this a result
 

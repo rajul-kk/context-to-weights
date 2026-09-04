@@ -19,6 +19,7 @@ python data/generate_synthetic.py --n-train 48 --n-eval 16 --n-turns 120
 | `notebooks/a0_precondition.ipynb` | Salience lift per compactor. **Run first.** | 15 min quick / ~6 h full |
 | `notebooks/a1_main.ipynb` | Compaction, all sleep runs, all eval arms, figures | ~4 h |
 | `notebooks/b1_skills.ipynb` | KL gate, distillation, sweeps | ~5 h |
+| `notebooks/c1_declare.ipynb` | Declaration reliability vs scale, generate vs read | 20 min quick / ~3 h full |
 
 `a1_main.ipynb` has a `DATASET` switch in its first cell: `hotpotqa` (primary — natural
 prose, no marker, positional control at chance) or `synthetic` (for the compaction-ratio

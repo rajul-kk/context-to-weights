@@ -29,14 +29,27 @@ def items_for(traj, n_regions, tokenizer):
     return out
 
 
-def evaluate(elicitor, items, rng, shuffle_test=True, balance=True):
-    records = []
+def make_layouts(items, rng, shuffle_test=True, balance=True):
+    layouts = []
     for it in items:
         if balance:
             regions, order = permute(it["regions"], rng)
             gold = order.index(it["gold"])
         else:
             regions, gold = it["regions"], it["gold"]
+        entry = {"regions": regions, "gold": gold, "question": it["question"]}
+        if shuffle_test:
+            permuted, order2 = permute(regions, rng)
+            entry["shuffled_regions"] = permuted
+            entry["shuffled_gold"] = order2.index(gold)
+        layouts.append(entry)
+    return layouts
+
+
+def evaluate(elicitor, layouts):
+    records = []
+    for it in layouts:
+        regions, gold = it["regions"], it["gold"]
         n = len(regions)
         choice, raw = elicitor.declare(regions, it["question"])
         toks = region_tokens(regions)
@@ -52,13 +65,11 @@ def evaluate(elicitor, items, rng, shuffle_test=True, balance=True):
             "raw": raw[:200],
         }
 
-        if shuffle_test:
-            permuted, order2 = permute(regions, rng)
-            new_gold = order2.index(gold)
-            pchoice, _ = elicitor.declare(permuted, it["question"])
-            rec["shuffled_gold"] = new_gold
+        if "shuffled_regions" in it:
+            pchoice, _ = elicitor.declare(it["shuffled_regions"], it["question"])
+            rec["shuffled_gold"] = it["shuffled_gold"]
             rec["shuffled_choice"] = pchoice
-            rec["shuffled_hit"] = pchoice == new_gold
+            rec["shuffled_hit"] = pchoice == it["shuffled_gold"]
             rec["slot_stable"] = (pchoice == choice)
         records.append(rec)
     return records
@@ -124,11 +135,15 @@ def main():
     print(f"{len(items)} probes, {n_regions} regions each, model {cfg['model']['base']}")
 
     out_dir = ensure_dir(args.out or Path(cfg["run_root"]) / "declare")
+    layouts = make_layouts(items, rng, not args.no_shuffle_test,
+                           balance=not args.no_balance)
+    gold_seen = Counter(l["gold"] for l in layouts)
+    print(f"layouts fixed across modes, gold by region {dict(sorted(gold_seen.items()))}")
+
     summaries = []
     for mode in args.modes:
         elicitor = build_elicitor(mode, model, tokenizer, cfg)
-        records = evaluate(elicitor, items, rng, not args.no_shuffle_test,
-                           balance=not args.no_balance)
+        records = evaluate(elicitor, layouts)
         s = summarize(records, mode, n_regions)
         s["model"] = cfg["model"]["base"]
         s["elicitor_unparsed"] = elicitor.unparsed
