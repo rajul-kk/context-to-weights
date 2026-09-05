@@ -35,7 +35,7 @@ output.
 
 | Notebook | Purpose | Budget |
 |---|---|---|
-| `notebooks/a0_precondition.ipynb` | Salience lift per compactor. **Run first.** | 15 min quick / ~6 h full |
+| `notebooks/a0_precondition.ipynb` | Salience lift per compactor. **Run first.** | 15 min quick / ~1.5 h full |
 | `notebooks/a1_main.ipynb` | Compaction, all sleep runs, all eval arms, figures | ~4 h |
 | `notebooks/b1_skills.ipynb` | KL gate, distillation, sweeps | ~5 h |
 | `notebooks/c1_declare.ipynb` | Declaration reliability vs scale, generate vs read | 20 min quick / ~3 h full |
@@ -44,11 +44,25 @@ output.
 prose, no marker, positional control at chance) or `synthetic` (for the compaction-ratio
 sweep and debugging).
 
-`a0_precondition.ipynb` has `QUICK = True` in its boot cell. Leave it on for the first run:
-one model, one backend, 4 eval trajectories, about fifteen minutes end to end. It exercises
-the whole chain and prints the summary table, so you find out whether the plumbing works
-before committing to the full sweep. Set `QUICK = False` for the real run — 3 datasets x 3
-models x 2 backends is 18 compaction passes and takes most of a session.
+`a0_precondition.ipynb` has a `QUICK` switch in its boot cell. `QUICK = True` is one model,
+one backend, 4 eval trajectories, about fifteen minutes — enough to confirm the chain works.
+
+`QUICK = False` is the real sweep: **7 runs at 48 eval trajectories**, ordered so the
+load-bearing measurement comes first.
+
+| | |
+|---|---|
+| models | Qwen2.5-1.5B, Qwen2.5-0.5B |
+| datasets | HotpotQA (first), synthetic, unmarked |
+| backends | logit scoring, plus one index-list confirmation |
+
+Two things are deliberately dropped from the full sweep. **SmolLM2-360M**, measured at +0.50,
+-3.57 and -0.76 sigma against its controls, carries no demonstrable signal and is not worth
+more GPU time. **The index-list backend** produced 100% prefix answers at every scale tested,
+so it is reduced to a single confirmation run rather than a full arm.
+
+48 eval trajectories puts HotpotQA at roughly 200 fact spans instead of 60. That matters:
+the 1.5B HotpotQA result is +2.79 sigma at n=60, and the whole compaction arm rests on it.
 
 Run `python scripts/check_notebooks.py` after editing any notebook. It compiles every code
 cell's Python, ignoring `!` and `%` lines and their continuations, and catches the broken
