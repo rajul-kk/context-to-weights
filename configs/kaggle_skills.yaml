@@ -1,0 +1,10 @@
+_base_: skill_base.yaml
+
+run_root: /kaggle/working/artifacts/runs_skill
+
+model:
+  base: Qwen/Qwen2.5-1.5B-Instruct
+  dtype: float16
+
+eval:
+  batch_size: 8

@@ -37,8 +37,8 @@ output.
 |---|---|---|
 | `notebooks/a0_precondition.ipynb` | Salience lift per compactor. **Run first.** | 15 min quick / ~1.5 h full |
 | `notebooks/a1_main.ipynb` | Compaction, all sleep runs, all eval arms, figures | ~4 h |
-| `notebooks/b1_skills.ipynb` | KL gate, distillation, sweeps | ~5 h |
-| `notebooks/c1_declare.ipynb` | Declaration reliability vs scale, generate vs read | 20 min quick / ~3 h full |
+| `notebooks/b1_skills.ipynb` | KL gate, distillation, report | ~3 h (sweep is a second session) |
+| `notebooks/c1_declare.ipynb` | Declaration reliability vs scale, generate vs read | 20 min quick / ~2 h full |
 
 `a1_main.ipynb` has a `DATASET` switch in its first cell: `hotpotqa` (primary — natural
 prose, no marker, positional control at chance) or `synthetic` (for the compaction-ratio
@@ -63,6 +63,13 @@ so it is reduced to a single confirmation run rather than a full arm.
 
 48 eval trajectories puts HotpotQA at roughly 200 fact spans instead of 60. That matters:
 the 1.5B HotpotQA result is +2.79 sigma at n=60, and the whole compaction arm rests on it.
+
+**Each notebook must use a config whose `run_root` matches the path the notebook saves and
+restores.** The `skill_base` and `declare` configs use relative run roots, which resolve
+under the cloned repo rather than `/kaggle/working` — so `b1` and `c1` point at
+`configs/kaggle_skills.yaml` and `configs/kaggle_declare.yaml` instead. `b1` asserts the
+match in its boot cell, because a mismatch means distillation silently cannot find the KL
+scores written a cell earlier.
 
 Run `python scripts/check_notebooks.py` after editing any notebook. It compiles every code
 cell's Python, ignoring `!` and `%` lines and their continuations, and catches the broken

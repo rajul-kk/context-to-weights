@@ -1,0 +1,10 @@
+_base_: declare.yaml
+
+run_root: /kaggle/working/artifacts/runs_declare
+
+data:
+  dir: artifacts/data/hotpotqa_spread
+
+model:
+  base: Qwen/Qwen2.5-1.5B-Instruct
+  dtype: float16
