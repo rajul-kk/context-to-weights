@@ -79,23 +79,23 @@ positional control. The compactor must beat the control, not merely 1.0x.
 
 Measured. What matters is **how the decision is elicited**, not model size:
 
-| Compactor | Elicitation | Data | Lift | Control | |
+GPU sweep, 48 eval trajectories, 288-386 fact spans per row, logit-scoring backend:
+
+| Compactor | Data | Fact keep | Lift | vs chance | Verdict |
 |---|---|---|---|---|---|
-| any tested | generated index list | synthetic | 0.53x | 1.68x | fails |
-| SmolLM2-360M | logit scoring | synthetic | 2.17x | 1.32x | clears |
-| Qwen2.5-0.5B | logit scoring | synthetic | 0.42x | 1.68x | fails |
-| Qwen2.5-1.5B | logit scoring | synthetic | 2.56x | 1.68x | clears |
-| Qwen2.5-1.5B | logit scoring | unmarked | 1.10x | 1.57x | fails |
-| SmolLM2-360M | logit scoring | **HotpotQA** | 0.88x | 1.08x | fails |
-| **Qwen2.5-1.5B** | **logit scoring** | **HotpotQA** | **1.61x** | **0.98x** | **clears** |
+| **Qwen2.5-0.5B** | **HotpotQA** | 0.360 | 1.44x | **+4.77σ** | **clears** |
+| **Qwen2.5-1.5B** | **HotpotQA** | 0.337 | 1.34x | **+3.75σ** | **clears** |
+| Qwen2.5-1.5B | synthetic | 0.646 | 2.72x | +15.17σ | clears (marker) |
+| Qwen2.5-1.5B | unmarked | 0.344 | 1.37x | +3.47σ | beaten by position |
+| Qwen2.5-0.5B | synthetic | 0.097 | 0.37x | −6.18σ | below |
+| Qwen2.5-0.5B | unmarked | 0.014 | 0.05x | −9.41σ | below |
 
-Every model asked to *generate* a ranked list answers `0, 1, 2, ...` regardless of content.
-Read the keep decision off the logits instead.
+**The compaction signal is real on natural text at both model sizes.** Neither size nor a
+score on one dataset predicts the other: 0.5B is the best compactor on HotpotQA and the worst
+on synthetic.
 
-Beyond that, neither size nor a score on another dataset predicts whether a compactor carries
-signal. 360M beats 0.5B on synthetic and then fails on natural prose where 1.5B succeeds.
-**Measure your compactor on the data you will actually use.** HotpotQA is the row to trust:
-natural prose, no marker phrase, positional control at chance.
+Every model asked to *generate* a ranked list instead answers `0, 1, 2, ...` regardless of
+content, at every scale tested. Read the keep decision off the logits.
 
 Full table and the three retracted measurements that preceded it are in
 [docs/protocol.md](docs/protocol.md).
