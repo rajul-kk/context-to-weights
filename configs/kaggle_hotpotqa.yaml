@@ -11,3 +11,7 @@ model:
 
 eval:
   batch_size: 8
+
+sleep:
+  every_k_events: 4
+  steps: 150
