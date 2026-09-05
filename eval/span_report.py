@@ -50,14 +50,27 @@ def _div(a, b):
     return float(a) / b if b else 0.0
 
 
-def control_margin_sigma(report, pos):
+def _sd(report):
     n = report["fact_spans"]
     keep = report["keep_rate"]
     if not n or not keep or keep >= 1.0:
+        return None
+    return (keep * (1.0 - keep) / n) ** 0.5
+
+
+def chance_margin_sigma(report):
+    sd = _sd(report)
+    if not sd:
         return float("nan")
-    sd = (keep * (1.0 - keep) / n) ** 0.5
+    return (report["fact_keep_rate"] - report["keep_rate"]) / sd
+
+
+def control_margin_sigma(report, pos):
+    sd = _sd(report)
+    if not sd:
+        return float("nan")
     implied = pos["salience_lift"] * report["filler_keep_rate"]
-    return (report["fact_keep_rate"] - implied) / sd if sd else float("nan")
+    return (report["fact_keep_rate"] - implied) / sd
 
 
 def verdict_for(sigma):
@@ -137,15 +150,22 @@ def main():
     pos = positional_lift(events)
     report["positional_control"] = pos
     sigma = control_margin_sigma(report, pos)
+    chance = chance_margin_sigma(report)
     report["control_margin_sigma"] = sigma
-    report["verdict"] = verdict_for(sigma)
+    report["chance_margin_sigma"] = chance
+    report["verdict"] = verdict_for(min(sigma, chance))
     print(f"\npositional control (keep the first N spans):")
     print(f"  fact {pos['fact_keep_rate']:.3f}  filler {pos['filler_keep_rate']:.3f}  "
           f"lift {pos['salience_lift']:.2f}x")
-    print(f"  margin over control   {sigma:+.2f} sigma  ->  {report['verdict']}")
+    print(f"  margin over chance    {chance:+.2f} sigma")
+    print(f"  margin over control   {sigma:+.2f} sigma")
+    print(f"  verdict               {report['verdict']} (weaker of the two)")
+    if pos["salience_lift"] < 1.0:
+        print("\nNOTE: the positional control sits below chance, so beating it is easy and the")
+        print("control margin overstates the result. Quote the margin over chance instead.")
     if report["verdict"] == "indistinguishable from control":
         print("\nNOTE: on ratio alone this may read as a pass, but it sits within sampling")
-        print("noise of the positional control. Not a signal without more probes.")
+        print("noise. Not a signal without more probes.")
     if report["fact_spans"] and report["salience_lift"] <= pos["salience_lift"] * 1.1:
         print("\nWARNING: the compactor does not beat 'keep the first N spans'. Its lift is a\n"
               "positional artifact of where facts sit in the trajectory, not judgment. Shuffle\n"

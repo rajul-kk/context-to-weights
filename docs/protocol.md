@@ -94,58 +94,55 @@ uniform replay would not learn too. `span_report.py` warns when this happens.
 
 Measured so far:
 
-All rows below use the same 6 eval trajectories, 12 compaction events and 36 fact spans, so
-they are directly comparable. The positional control ("keep the first N spans") is recomputed
-per run and shown beside each lift; a compactor must beat *its own* control, not a fixed 1.0.
+**GPU sweep, 48 eval trajectories, 288-386 fact spans per row.** Logit-scoring backend.
+Two margins are reported: against chance (the overall keep rate) and against the positional
+control. The verdict takes the weaker of the two.
 
-| Compactor | Elicitation | Fact keep | Filler keep | Lift | Control | Verdict |
-|---|---|---|---|---|---|---|
-| heuristic (debug) | rule-based | 1.000 | 0.226 | 4.43x | 1.68x | cheats, see below |
-| SmolLM2-360M | logit scoring | 0.528 | 0.243 | **2.17x** | 1.32x | **clears** |
-| Qwen2.5-0.5B | index list | 0.139 | 0.260 | 0.53x | 1.68x | fails |
-| Qwen2.5-0.5B | logit scoring | 0.111 | 0.262 | 0.42x | 1.68x | fails |
-| Qwen2.5-1.5B | index list | 0.139 | 0.260 | 0.53x | 1.69x | fails |
-| Qwen2.5-1.5B | logit scoring | 0.611 | 0.239 | **2.56x** | 1.68x | **clears** |
-| Qwen2.5-1.5B | logit scoring, unmarked | 0.278 | 0.252 | 1.10x | 1.57x | fails |
-| Qwen2.5-1.5B | logit scoring, HotpotQA | 0.400 | 0.248 | **1.61x** | 0.98x | **clears** |
-| SmolLM2-360M | logit scoring, HotpotQA | 0.225 | 0.257 | 0.88x | 1.08x | -0.76 sigma, fails |
+| Compactor | Data | Fact keep | Lift | Control | vs chance | vs control | Verdict |
+|---|---|---|---|---|---|---|---|
+| Qwen2.5-1.5B | HotpotQA | 0.337 | 1.34x | 0.45x | **+3.75σ** | +10.11σ | **clears** |
+| Qwen2.5-0.5B | HotpotQA | 0.360 | 1.44x | 0.45x | **+4.77σ** | +11.13σ | **clears** |
+| Qwen2.5-1.5B | synthetic | 0.646 | 2.72x | 1.66x | +15.17σ | +9.82σ | clears (marker) |
+| Qwen2.5-0.5B | synthetic | 0.097 | 0.37x | 1.66x | −6.18σ | −13.20σ | below |
+| Qwen2.5-1.5B | unmarked | 0.344 | 1.37x | 1.71x | +3.47σ | −3.32σ | below control |
+| Qwen2.5-0.5B | unmarked | 0.014 | 0.05x | 1.71x | −9.41σ | −17.21σ | below |
 
-**Elicitation is what matters, not scale.** Every index-list row fails at every size: both Qwen
-models answer with a contiguous prefix `0, 1, 2, ...` on 100% of events regardless of the text
-at those positions, which under span shuffling is exactly random selection. Every model we
-tested that clears the control does so through logit scoring.
+**The compaction signal is real on natural text, at both model sizes.** On HotpotQA both
+Qwen models keep fact spans well above chance — 0.5B slightly ahead of 1.5B — with no
+marker phrase and no shared vocabulary to exploit. This is the result the compaction arm
+rests on.
 
-**SmolLM2-360M carries no demonstrable signal on any dataset.** Its apparent 2.17x on marked
-synthetic (CPU, n=36) came back as 1.86x at +0.50 sigma on GPU (n=24), and it is below control
-on both unmarked and HotpotQA. Two measurements of the same configuration landing at +2.85
-and +0.50 sigma is itself the finding: n in the twenties to thirties is not enough to
-distinguish a compactor from its control, and we should not have reported the first one.
+**Quote the margin over chance, not over the control, on HotpotQA.** Its positional control
+is 0.45x, *below* chance, because `compactor/runner.py` prepends carry spans (kept spans and
+the summary from the previous event, all tagged filler) to each span list. "Keep the first N"
+therefore picks disproportionately from carry content and makes an undemanding baseline. The
++10σ figures are inflated; +3.75σ and +4.77σ are the honest numbers. `span_report.py` now
+prints both and warns whenever the control falls below chance.
 
-**Only Qwen2.5-1.5B with logit scoring clears the control on natural text**, at +2.79 sigma on
-HotpotQA. Plan around that, and measure any substitute on the data you will actually use —
-neither size nor a score on another dataset predicts it.
+**Model and dataset interact, and neither predicts the other.** Qwen2.5-0.5B is the *best*
+compactor on HotpotQA (+4.77σ) and the *worst* on synthetic (−6.18σ). Qwen2.5-1.5B is
+enormous on marked synthetic (+15.17σ) because the marker phrase is trivially detectable,
+modest on HotpotQA (+3.75σ), and beaten by position on unmarked synthetic. There is no
+ordering of models that holds across datasets.
 
-**The scorer hand-check does not predict lift.** `compactor/inspect_scorer.py` reports
-salient-versus-filler separation on twelve curated lines: +0.050 for SmolLM2-360M, +0.040 for
-Qwen2.5-0.5B, +0.197 for Qwen2.5-1.5B. Those figures do not order the models the way real lift
-does (2.17x, 0.42x, 2.56x). Treat the hand-check as a sanity pass — does the scorer fire on
-identifiers rather than markdown — and never as a substitute for measuring lift.
+**Unmarked synthetic remains the floor case.** Qwen2.5-1.5B is +3.47σ over chance there —
+it does find something — but position predicts better than it does, so it loses to the
+control at −3.32σ. Facts and filler drawn from one template bank in one register is harder
+than real prose, exactly as documented in [benchmarks.md](benchmarks.md).
 
-**Dataset matters as much as model.** The same 1.5B scoring compactor moves from 2.56x on the
-marked synthetic set to 1.10x on the unmarked variant to 1.61x on HotpotQA. See
-[benchmarks.md](benchmarks.md) for why the unmarked set is a floor case rather than a neutral
-test.
+Earlier small-n measurements on this row were unreliable in both directions. SmolLM2-360M
+read as 2.17x (+2.85σ) on CPU at n=36 and 1.86x (+0.50σ) on GPU at n=24; Qwen2.5-0.5B read
+as failing on HotpotQA at n=60 and clears at +4.77σ at n=383. **Do not report a compactor
+from fewer than ~200 fact spans.**
 
-Three earlier measurements of ours were wrong, each inflated by a different bug:
+Three earlier measurements were wrong for reasons other than sample size, each inflated by a
+different bug:
 
 | Reported | Cause |
 |---|---|
 | 3.99x | 58% of decisions were silent heuristic fallbacks |
 | 1.68x | model answered with the first N spans; facts sit early in the trajectory |
 | 1.69x | `sorted(kept)[:budget]` restored positional bias after the shuffle |
-
-Every one erred favourably. Treat a positive lift as unproven until the positional control
-fails to reproduce it.
 
 ## Consequences if no compactor clears the gate
 
