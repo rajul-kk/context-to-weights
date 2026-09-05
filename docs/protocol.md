@@ -174,6 +174,39 @@ compactor and the consolidation target have to be decoupled: use 1.5B as the com
 consolidate into 0.5B. That is still within scope — the brief permits a separate small model
 as the compactor — but it changes the story and must be stated in the paper.
 
+## Significance
+
+`span_report.py` prints a sigma computed as if every fact span were an independent coin
+flip. It is not: spans from one compaction event share a keep budget. `eval/significance.py`
+does the honest version.
+
+```bash
+python eval/significance.py --events run_a/eval_events.jsonl run_b/eval_events.jsonl
+```
+
+It permutes the keep decisions **within each event**, preserving the number of spans, the
+number kept and which spans are facts, and breaking only the association between kept and
+fact. That is an exact null under clustering. It then applies Holm-Bonferroni across the runs
+being compared, since a sweep of six configurations will produce an apparent winner by chance.
+
+**Clustering turned out not to be the problem we expected.** Measured on four runs, the
+clustered sigma tracks the naive binomial one within 3% (inflation 0.97), because each event
+holds many spans and the hypergeometric null is close to binomial in that regime. The naive
+figure was very slightly *conservative*, not inflated. Reported here because the opposite was
+assumed before it was measured.
+
+What the correction does change is the multiple-comparison picture: across four runs, one
+result at p = 0.43 and another at p = 0.99 are plainly not signals, and Holm keeps the two
+real ones (p = 0.0002 and p = 0.0225) significant.
+
+## Seed stability
+
+Every number in the sweep is one draw of the data. `a0_precondition.ipynb` regenerates
+HotpotQA under seeds 0, 1, 2 and re-measures the compactor, printing the mean, standard
+deviation and range of the lift across seeds. Three minutes per seed. Report the spread, not
+a single draw — the SmolLM2-360M figure moved from +2.85 to +0.50 sigma between two draws of
+a smaller set.
+
 ## Sanity gate before trusting a comparison
 
 Check `n_evicted` in the cascading arm's summary. If it is 0, the compactor kept every
