@@ -10,7 +10,7 @@ INCLUDE_DIRS = ["common", "data", "compactor", "sleep", "skills", "kl_gate", "di
                 "baselines", "eval", "configs", "scripts", "notebooks", "docs", "paper"]
 INCLUDE_FILES = ["requirements.txt", "README.md"]
 SKIP_SUFFIX = {".pyc", ".pyo", ".zip", ".safetensors", ".pt", ".png"}
-SKIP_DIRS = {"__pycache__", ".ipynb_checkpoints", ".git", "artifacts", "toy"}
+SKIP_DIRS = {"__pycache__", ".ipynb_checkpoints", ".git", "artifacts"}
 
 
 def collect():
