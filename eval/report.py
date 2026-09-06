@@ -75,6 +75,12 @@ def to_markdown(rows):
     return "\n".join(lines)
 
 
+def _se(acc, n):
+    if not n or _is_nan(acc):
+        return 0.0
+    return (acc * (1 - acc) / n) ** 0.5
+
+
 def plot_headline(rows, out_path):
     import matplotlib
 
@@ -82,21 +88,34 @@ def plot_headline(rows, out_path):
     import matplotlib.pyplot as plt
 
     labels = [PRETTY.get(r["label"], r["label"]) for r in rows]
-    key = "evicted_accuracy"
-    if all(_is_nan(r.get("evicted_accuracy")) for r in rows):
-        key = "retention_accuracy"
-    acc = [0.0 if _is_nan(r.get(key)) else r.get(key, 0.0) for r in rows]
-    fig, ax = plt.subplots(figsize=(9, 4.2))
-    bars = ax.bar(range(len(rows)), acc, color="#4c72b0")
-    for i, r in enumerate(rows):
-        if r["label"].startswith("ours"):
-            bars[i].set_color("#c44e52")
-    ax.set_xticks(range(len(rows)))
-    ax.set_xticklabels(labels, rotation=20, ha="right", fontsize=8)
-    ax.set_ylabel("retention accuracy on evicted facts" if key == "evicted_accuracy"
-                  else "retention accuracy (no fact was evicted)")
-    ax.set_ylim(0, 1)
-    ax.grid(axis="y", alpha=0.25)
+    x = range(len(rows))
+    over = [0.0 if _is_nan(r.get("retention_accuracy")) else r["retention_accuracy"] for r in rows]
+    over_se = [_se(r.get("retention_accuracy"), r.get("n")) for r in rows]
+    evi = [0.0 if _is_nan(r.get("evicted_accuracy")) else r["evicted_accuracy"] for r in rows]
+    evi_se = [_se(r.get("evicted_accuracy"), r.get("n_evicted")) for r in rows]
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.4))
+    for ax, vals, ses, title in (
+        (axes[0], over, over_se, "all probes"),
+        (axes[1], evi, evi_se, "evicted probes (answer not in retained context)"),
+    ):
+        bars = ax.bar(x, vals, yerr=ses, capsize=3, color="#8c9bb0")
+        for i, r in enumerate(rows):
+            if r["label"].startswith("ours"):
+                bars[i].set_color("#c44e52")
+            elif r["label"] in ("cascading", "full"):
+                bars[i].set_color("#4c72b0")
+        base = next((v for v, r in zip(vals, rows) if r["label"] == "cascading"), None)
+        if base is not None:
+            ax.axhline(base, ls="--", lw=1, color="#333",
+                       label="no-adapter baseline")
+            ax.legend(fontsize=8, loc="upper left")
+        ax.set_xticks(list(x))
+        ax.set_xticklabels(labels, rotation=25, ha="right", fontsize=8)
+        ax.set_ylabel("retention accuracy")
+        ax.set_title(title, fontsize=9)
+        ax.set_ylim(0, max(0.4, max(vals) * 1.25))
+        ax.grid(axis="y", alpha=0.25)
     fig.tight_layout()
     fig.savefig(out_path, dpi=160)
     plt.close(fig)
@@ -193,8 +212,39 @@ def main():
                 f"{v['mean_gpu_seconds_per_phase']:.1f} |"
             )
         body.append("")
-    body += ["## Figures", "", "![headline](../artifacts/runs/report/figures/headline_retention.png)", "",
-             "![ce](../artifacts/runs/report/figures/ce_curves.png)", ""]
+    casc_row = next((r for r in rows if r["label"] == "cascading"), None)
+    adapters = [r for r in rows if r["label"] in ("ours", "uniform", "reflection", "ours+mask")]
+    if casc_row and adapters:
+        base = casc_row.get("retention_accuracy", 0.0)
+        best = max(adapters, key=lambda r: r.get("retention_accuracy", 0.0))
+        body += ["## Reading", ""]
+        if best.get("retention_accuracy", 0.0) < base:
+            body += [
+                f"No consolidated adapter beats the no-adapter baseline "
+                f"({base:.3f} all-probe accuracy). The best adapter is "
+                f"{PRETTY.get(best['label'], best['label'])} at "
+                f"{best.get('retention_accuracy', 0.0):.3f}. On this run the sleep pass is "
+                f"net-negative: it costs more than the knowledge it adds.", ""]
+        ours = next((r for r in adapters if r["label"] == "ours"), None)
+        uni = next((r for r in adapters if r["label"] == "uniform"), None)
+        if ours and uni:
+            d = ours.get("evicted_accuracy", 0.0) - uni.get("evicted_accuracy", 0.0)
+            se = (_se(ours.get("evicted_accuracy"), ours.get("n_evicted"))
+                  + _se(uni.get("evicted_accuracy"), uni.get("n_evicted")))
+            verdict = "within noise" if abs(d) < se else ("ours ahead" if d > 0 else "uniform ahead")
+            body += [
+                f"ours vs uniform on evicted probes: {ours.get('evicted_accuracy', 0.0):.3f} "
+                f"vs {uni.get('evicted_accuracy', 0.0):.3f}, difference {d:+.3f} "
+                f"(combined SE {se:.3f}) - **{verdict}**.", ""]
+
+    body += ["## Figures", "",
+             "![retention](figures/headline_retention.png)", "",
+             "*Left: accuracy on all held-out probes. Right: accuracy restricted to probes "
+             "whose answer is absent from the retained context. Dashed line is the no-adapter "
+             "baseline; error bars are binomial standard error.*", "",
+             "![ce](figures/ce_curves.png)", "",
+             "*Median (left) and mean (right) per-token validation cross-entropy across sleep "
+             "phases. Rising median CE indicates the adapter is getting worse, not better.*", ""]
 
     out = Path(args.out)
     ensure_dir(out.parent)
