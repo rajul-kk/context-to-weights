@@ -66,6 +66,7 @@ def main():
                                          "replay": use_replay, "mask_head": use_mask})
 
     events = [CompactionEvent.from_dict(d) for d in read_jsonl(args.events)]
+    events_sig = f"{Path(args.events).name}:{len(events)}"
     reflections = load_reflections(args.reflections)
     val_examples = []
     if args.val_events:
@@ -82,10 +83,16 @@ def main():
     state = load_state(run_dir) if args.resume else None
     adapter = resume_adapter(run_dir) if args.resume else None
     if state:
+        prior_sig = state.get("events_sig")
+        if prior_sig and prior_sig != events_sig:
+            raise SystemExit(
+                f"refusing to resume: this run was trained on '{prior_sig}' but --events is "
+                f"now '{events_sig}'. Delete {run_dir} to retrain from scratch, or point "
+                "--events back at the original file.")
         cursor = state["cursor"]
         phase = state["phase"]
         replay.load_state_dict(state["replay"])
-        print(f"resuming at phase {phase}, event cursor {cursor}")
+        print(f"resuming at phase {phase}, event cursor {cursor} ({events_sig})")
 
     model, tokenizer = load_backbone(cfg)
     model = load_or_attach(model, cfg, adapter)
@@ -143,7 +150,8 @@ def main():
 
         save_phase(run_dir, phase, model,
                    {"phase": phase, "cursor": cursor, "method": args.method,
-                    "replay": replay.state_dict(), "best_ce": best_ce},
+                    "replay": replay.state_dict(), "best_ce": best_ce,
+                    "events_sig": events_sig},
                    mask_head=mask_head)
         if is_best:
             mark_best(run_dir, phase)
