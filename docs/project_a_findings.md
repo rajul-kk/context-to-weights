@@ -61,13 +61,54 @@ Three findings, all negative for the headline claim:
 
 ### Why it fails
 
-The training target is a bare LM objective on `retained note: <fact sentence>`. The adapter
-learns to reproduce that string — validation CE on kept spans drops to 0.001 for the
-mask-head variant — but reproducing a sentence is not the same as answering a question about
-it, and the greedy decoder cannot retrieve the fact when prompted with a question form it
-never trained on. Reflection, which trains on richer LLM-written summaries, fails the same
-way. The gap is between memorisation and retrieval, and at 0.5B with a few hundred training
-steps it does not close.
+The failure is entirely in the consolidation *mechanism*, not the signal. Four pieces of
+evidence.
+
+**1. The compactor did its job.** Fact-span keep rate 0.62 against a 0.24 filler rate,
++15.53σ under a clustered permutation test. The spans handed to the sleep loop were the
+load-bearing ones. Garbage-in is not the story.
+
+**2. The adapter memorised the target perfectly and it did not help.** Validation
+cross-entropy on held-out kept-span text fell to **0.0003** by phase 24 for compaction,
+uniform and the mask-head variant alike. The adapter can reproduce
+`retained note: We settled on SQLite 3.45 as the primary datastore for rate-limiter.`
+essentially losslessly. Evicted-fact QA accuracy is still 0.
+
+**3. The knowledge is partly encoded but not retrievable.** Evicted-probe median CE, which
+measures how much loss the model puts on the *correct answer tokens* when they appear:
+
+| | evicted median CE |
+|---|---|
+| cascading (no adapter) | 6.29 |
+| ours | 5.52 |
+| uniform | **2.24** |
+| reflection | 3.73 |
+
+Every adapter lowered it — the model assigns the right answers less loss after training — but
+greedy decoding from a question prompt never surfaces them, because the top-1 prediction is
+something else. This is the well-documented gap between a fact being *in the weights* and the
+model being able to *say it on demand*, and small models sit on the wrong side of it. Note
+that uniform, not ours, has the lowest evicted CE.
+
+**4. Training format ≠ eval format.** The adapter is trained to continue a session-id cue
+into a declarative sentence. At eval it is given a question and must produce a short answer.
+Nothing in training connected the question form to the answer. This is a reversal-curse-shaped
+problem: fine-tuning on "A is B" does not reliably yield "what is B? → A" in a new phrasing.
+Reflection trains on LLM-written prose summaries instead of raw spans and fails the same way,
+worse — its 0.5B summariser produces targets the adapter cannot even memorise (val CE stays
+near 4).
+
+**What would plausibly change the outcome**, none of it in scope here: a consolidation target
+that is itself QA-shaped (synthetic `Q → A` pairs built from the kept spans, so training and
+eval formats match — but that is close to "reflection with structure"); a larger consolidation
+target where the know-but-cannot-say gap is smaller; or a scoring-based eval that ranks
+candidate answers by CE rather than generating, which the evidence above suggests would show
+a signal — at the cost of a weaker, multiple-choice claim.
+
+The clean statement: **the compaction decision is a strong salience signal, and LoRA SFT on
+the selected span text — or on random spans, or on reflections — does not turn that signal
+into retrievable knowledge at this scale.** The bottleneck is knowledge injection via
+fine-tuning, a known-hard problem, not the compaction signal.
 
 ## Consequence for the writeup
 
