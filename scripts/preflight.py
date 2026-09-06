@@ -43,6 +43,28 @@ def main():
         except ImportError:
             results.append(check(mod, False, "not installed"))
 
+    try:
+        import importlib.metadata as md
+
+        tv = md.version("torchao")
+        ok = tuple(int(x) for x in tv.split(".")[:2]) >= (0, 16)
+        results.append(check("torchao", ok,
+                             f"{tv}" + ("" if ok else " - peft raises on this; pip uninstall -y torchao")))
+    except Exception:
+        results.append(check("torchao", True, "absent, which is what peft wants"))
+
+    try:
+        import peft
+        import torch.nn as nn
+        from peft import LoraConfig, get_peft_model
+
+        probe = nn.Sequential()
+        probe.add_module("q_proj", nn.Linear(8, 8))
+        get_peft_model(probe, LoraConfig(r=2, target_modules=["q_proj"]))
+        results.append(check("lora attach", True, "get_peft_model works"))
+    except Exception as exc:
+        results.append(check("lora attach", False, f"{type(exc).__name__}: {exc}"))
+
     data_dir = ROOT / cfg["data"]["dir"]
     for split in ("train", "eval"):
         p = data_dir / cfg["data"][split]

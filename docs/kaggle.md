@@ -29,7 +29,13 @@ no breakage is expected, but the first GPU session is also the first run against
 something fails on import or generation, that is where to look first.
 
 `scripts/preflight.py` prints the installed versions, so they are recorded in every run's
-output.
+output. It also attaches a throwaway LoRA to a two-layer stub, which catches peft/backend
+incompatibilities in seconds rather than after the compaction pass.
+
+**torchao.** Kaggle ships torchao 0.10.0; peft requires above 0.16 and *raises* rather than
+skipping its torchao dispatcher, so `get_peft_model` dies with an ImportError the moment a
+sleep phase starts. Nothing here uses torchao, so the boot cell uninstalls it when the
+version is too old. Preflight reports it either way.
 
 ## Notebooks
 
