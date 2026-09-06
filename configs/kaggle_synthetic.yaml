@@ -1,0 +1,24 @@
+_base_: kaggle.yaml
+
+run_root: /kaggle/working/artifacts/runs_synth
+
+data:
+  dir: artifacts/data/synthetic
+
+model:
+  base: Qwen/Qwen2.5-1.5B-Instruct
+  dtype: float16
+
+compaction:
+  backend: scoring
+
+sleep:
+  every_k_events: 4
+  steps: 80
+  lr: 5.0e-5
+  replay:
+    enabled: true
+    capacity: 80
+
+eval:
+  batch_size: 8

@@ -8,7 +8,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from common.io import (append_jsonl, ensure_dir, load_config, parse_overrides, read_jsonl,
                        set_seed, write_json)
 from common.schema import CompactionEvent
-from sleep.checkpoint import load_state, resume_adapter, resume_mask_head, save_phase
+from sleep.checkpoint import (load_state, mark_best, resume_adapter, resume_mask_head,
+                              save_phase)
 from sleep.examples import ReplayBuffer, from_compaction, from_reflection, from_uniform
 from sleep.lm import load_backbone
 from sleep.trainer import MaskHead, load_or_attach, train_sleep_phase
@@ -98,6 +99,9 @@ def main():
 
     k = cfg["sleep"]["every_k_events"]
     metrics_path = run_dir / "metrics.jsonl"
+    best_ce = None
+    if state:
+        best_ce = state.get("best_ce")
 
     while cursor < len(events):
         window = events[cursor: cursor + k]
@@ -125,6 +129,11 @@ def main():
         if result.get("history"):
             record["final"] = result["history"][-1]
         append_jsonl(metrics_path, record)
+
+        phase_ce = record.get("final", {}).get("val_ce_median")
+        is_best = phase_ce is not None and (best_ce is None or phase_ce < best_ce)
+        if is_best:
+            best_ce = phase_ce
         print(
             f"phase {phase:>3} events {cursor:>4}/{len(events)} "
             f"examples {result.get('n_train_examples', 0):>4} "
@@ -134,14 +143,17 @@ def main():
 
         save_phase(run_dir, phase, model,
                    {"phase": phase, "cursor": cursor, "method": args.method,
-                    "replay": replay.state_dict()},
+                    "replay": replay.state_dict(), "best_ce": best_ce},
                    mask_head=mask_head)
+        if is_best:
+            mark_best(run_dir, phase)
 
         if args.max_phases and phase >= args.max_phases:
             print("hit --max-phases, stopping")
             break
 
-    print(f"done -> {run_dir}")
+    tag_best = best_ce if best_ce is not None else float("nan")
+    print(f"done -> {run_dir}  (best val_ce_median {tag_best:.4f}, adapter in best/)")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,6 @@
+_base_: kaggle_synthetic.yaml
+
+run_root: /kaggle/working/artifacts/runs_unmarked
+
+data:
+  dir: artifacts/data/synthetic_hard

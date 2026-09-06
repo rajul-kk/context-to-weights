@@ -41,6 +41,21 @@ def save_phase(run_dir, phase, model, state, mask_head=None, keep_phase_copy=Tru
     return latest / ADAPTER_DIR
 
 
+def mark_best(run_dir, phase):
+    best = ensure_dir(Path(run_dir) / "best")
+    src = phase_dir(run_dir, phase)
+    for name in (ADAPTER_DIR, STATE_FILE, MASK_HEAD_FILE):
+        s = src / name
+        if not s.exists():
+            continue
+        d = best / name
+        if d.exists():
+            shutil.rmtree(d) if d.is_dir() else d.unlink()
+        shutil.copytree(s, d) if s.is_dir() else shutil.copyfile(s, d)
+    write_json(best / "best.json", {"phase": phase})
+    return best
+
+
 def resume_mask_head(run_dir, mask_head):
     path = latest_dir(run_dir) / MASK_HEAD_FILE
     if mask_head is None or not path.exists():
