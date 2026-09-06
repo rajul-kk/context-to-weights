@@ -3,7 +3,7 @@
 Two questions, answered separately.
 
 1. **Does the compactor's keep/drop decision carry a salience signal?** Yes.
-2. **Does consolidating on that signal help retention?** Not in any configuration tested so far.
+2. **Does consolidating on that signal help retention?** No. Definitively negative under a corrected, well-controlled setup.
 
 ## The compaction signal is real
 
@@ -34,7 +34,7 @@ construction. The notebook was fixed to consolidate `eval_events.jsonl` (the con
 the adapter is then tested on), and `sleep/loop.py` now refuses to resume when the events
 file changed.
 
-**Corrected run, marked synthetic set, compaction signal +15.5σ (clustered, p < 0.0001):**
+**Corrected run** (adapter consolidates the eval trajectories; `--resume` refuses a mismatched events file; all four methods trained fresh for 24 phases). Marked synthetic set, compaction signal **+15.53σ** (clustered permutation, p < 0.0001):
 
 | method | all-probe acc | evicted acc (n=120) | evicted median CE |
 |---|---|---|---|
@@ -71,8 +71,8 @@ steps it does not close.
 
 ## Consequence for the writeup
 
-The headline claim — compaction-supervised consolidation beats uniform replay — is not
-supported by the data. The contributions that survive:
+The headline claim — compaction-supervised consolidation beats uniform replay — is
+**refuted** by the corrected run. The consolidation half of Project A is a negative result. The contributions that survive:
 
 - **The elicitation finding.** A salience decision must be *read* from the model, not
   *generated* by it, below the scales where structured instruction-following is reliable.
