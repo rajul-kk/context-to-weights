@@ -33,7 +33,7 @@ def main():
     policies = [p for p in args.policies.split(",") if p]
     dry = args.dry_run
     scores = root / f"scores_{args.granularity}.jsonl"
-    report_dir = root / "report"
+    report_dir = root / ("report" if args.granularity == "span" else f"report_{args.granularity}")
 
     if "skills" in stages:
         sh(["skills/generate_toy_skills.py", "--out", cfg["skills"]["root"],
@@ -44,7 +44,7 @@ def main():
             "--granularity", args.granularity, "--out", scores], dry)
         sh(["kl_gate/inspect_gate.py", "--scores", scores,
             "--skills-root", cfg["skills"]["root"], "--top-frac", args.top_frac,
-            "--out", root / "gate_report.json"], dry)
+            "--out", root / f"gate_report_{args.granularity}.json"], dry)
 
     runs = {}
     for policy in policies:
@@ -75,8 +75,10 @@ def main():
             "--out", report_dir / "ours-mismatched"] + lim, dry)
 
     if "report" in stages:
+        out = "docs/results_skills.md" if args.granularity == "span" \
+            else f"docs/results_skills_{args.granularity}.md"
         sh(["eval/skill_report.py", "--report-dir", report_dir, "--run-root", root,
-            "--out", "docs/results_skills.md"], dry)
+            "--out", out], dry)
 
 
 if __name__ == "__main__":

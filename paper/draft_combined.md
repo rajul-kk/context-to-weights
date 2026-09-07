@@ -133,8 +133,8 @@ A raw lift figure is close to meaningless. We report it against a **positional c
 what "keep the first N spans" would score on the same data — because in any trajectory where
 important content appears early, position alone produces a large apparent lift.
 
-We recommend this because it repeatedly caught us. Five artifacts, each inflating the result
-in the favourable direction, each invisible until a control exposed it:
+We recommend this because it repeatedly caught us. Six artifacts, each invisible until a
+control exposed it:
 
 | Artifact | Apparent effect | Caught by |
 |---|---|---|
@@ -143,10 +143,23 @@ in the favourable direction, each invisible until a control exposed it:
 | Model answered with the first N spans | 1.68x | positional control |
 | `sorted(kept)[:budget]` reimposed position after shuffling | 1.69x | kept-index distribution |
 | Supporting paragraphs stacked at the front of a benchmark | 1.76x | positional control (2.44x) |
+| Span-mean pooling inverted a real per-token gate | 0.38x of chance | matched-budget control |
 
 None was a modelling error; all were construction. We think that is the norm rather than our
 misfortune, and that free-supervision work should report a control beside every signal
 strength figure as a matter of course.
+
+The last row is the one we most want to generalise, because it is the only one that moved
+the result *against* us and so was not caught by disbelief. The context-gap gate (§4) is a
+per-token quantity, and we selected on its mean over contiguous spans. Required API
+identifiers occur as two or three high-KL tokens inside a dozen near-zero syntax tokens, so
+code spans average low; prose restatements of a rule are uniformly moderately surprising, so
+they average high. The gate bought prose and skipped code, scoring 0.118 required-token
+coverage against a matched-budget random control's 0.307 — a 5.14σ deficit. Scored per token
+the same signal clears the same control at +2.62σ. The precondition test existed and was run;
+it reported 0.125 next to a `top_frac` of 0.25 and nothing compared the two. **A precondition
+number without a control is not a test**, and the ratio of a signal's p90 to its median (here
+8x) is a cheap advance warning that pooling it by the mean will destroy it.
 
 ## 7. Measured beats asked
 

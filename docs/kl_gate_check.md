@@ -1,5 +1,12 @@
 # KL gate sanity check
 
+> **Superseded.** This check ran on a two-skill debug slice with SmolLM2-360M and reported
+> `required_in_top_frac = 0.50` with no control to compare it against. On the full eight-skill
+> set with Qwen2.5-1.5B the same measurement is 0.118 against a matched-budget random control
+> of 0.307 — 5.14σ *below* chance. The interpretation section below rationalises a number that
+> should have stopped the run. Kept as written, because that is the finding. See
+> [project_b_findings.md](project_b_findings.md).
+
 The dual-forward-pass importance signal is the riskiest part of Project B, so it is verified
 by hand before anything trains on it. This is the check, run on SmolLM2-360M-Instruct over
 two toy skills (18 demonstrations, 1050 response tokens).
