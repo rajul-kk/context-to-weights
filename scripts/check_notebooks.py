@@ -4,6 +4,8 @@ import sys
 
 
 def python_only(source):
+    if isinstance(source, str):
+        source = source.splitlines(keepends=True)
     out = []
     in_shell = False
     for line in source:

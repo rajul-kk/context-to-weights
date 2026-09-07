@@ -10,7 +10,7 @@ from common.io import (ensure_dir, load_config, parse_overrides, read_jsonl, set
                        write_json, write_jsonl)
 from common.schema import Trajectory
 from declare.elicit import build_elicitor
-from declare.regions import build_regions, gold_region, permute, region_tokens
+from declare.regions import build_regions, gold_region, permute, region_tokens, render
 from sleep.lm import load_backbone
 
 
@@ -75,6 +75,23 @@ def evaluate(elicitor, layouts):
     return records
 
 
+def _sigma(rate, baseline, n):
+    se = (rate * (1 - rate) / n) ** 0.5 if n else 0.0
+    if not se:
+        se = (baseline * (1 - baseline) / n) ** 0.5 if n else 0.0
+    return (rate - baseline) / se if se else float("nan")
+
+
+def verdict_for(sigma):
+    if sigma != sigma:
+        return "undetermined"
+    if sigma >= 2.0:
+        return "clears control"
+    if sigma <= -2.0:
+        return "below control"
+    return "indistinguishable"
+
+
 def summarize(records, label, n_regions):
     n = len(records)
     if not n:
@@ -83,13 +100,19 @@ def summarize(records, label, n_regions):
     shuffled = [r for r in records if "shuffled_hit" in r]
     gold_counts = Counter(r["gold"] for r in records)
     best_constant = max(gold_counts.values()) / n
+    hit_rate = hits / n
+    sig_rand = _sigma(hit_rate, 1.0 / n_regions, n)
+    sig_const = _sigma(hit_rate, best_constant, n)
     out = {
         "label": label,
         "n": n,
         "n_regions": n_regions,
-        "hit_rate": hits / n,
+        "hit_rate": hit_rate,
         "random_control": 1.0 / n_regions,
         "best_constant_control": best_constant,
+        "sigma_over_random": sig_rand,
+        "sigma_over_constant": sig_const,
+        "verdict": verdict_for(min(sig_rand, sig_const)),
         "gold_distribution": {str(k): v for k, v in sorted(gold_counts.items())},
         "unparsed_rate": sum(1 for r in records if r["choice"] is None) / n,
         "mean_attended_frac": sum(r["attended_frac"] for r in records) / n,
@@ -140,6 +163,18 @@ def main():
     gold_seen = Counter(l["gold"] for l in layouts)
     print(f"layouts fixed across modes, gold by region {dict(sorted(gold_seen.items()))}")
 
+    window = model.config.max_position_embeddings
+    probe_len = max(len(tokenizer(render(l["regions"], tokenizer)[0],
+                                  add_special_tokens=False)["input_ids"]) for l in layouts)
+    print(f"longest rendered context {probe_len} tokens, model window {window}")
+    if probe_len >= window:
+        raise SystemExit(
+            f"the generate prompt ({probe_len} tokens) does not fit the model window "
+            f"({window}). It would be truncated and the comparison against read would be "
+            f"confounded by context length rather than elicitation. Lower "
+            f"data.per_trajectory or pick a model with a longer window.")
+
+    n_probes = len(layouts)
     summaries = []
     for mode in args.modes:
         elicitor = build_elicitor(mode, model, tokenizer, cfg)
@@ -152,11 +187,16 @@ def main():
         write_json(out_dir / f"{mode}.summary.json", s)
         print(f"\n== {mode}")
         for k in ("hit_rate", "random_control", "best_constant_control",
+                  "sigma_over_random", "sigma_over_constant",
                   "shuffled_hit_rate", "content_dependence", "slot_stable_rate",
                   "modal_share", "unparsed_rate", "mean_attended_frac"):
             if k in s:
                 print(f"  {k:<24} {s[k]:.3f}")
+        print(f"  {'verdict':<24} {s['verdict']} (weaker of the two controls)")
         print(f"  {'gold_distribution':<24} {s['gold_distribution']}")
+        if n_probes < 200:
+            print(f"  NOTE: n={n_probes} is small; best_constant_control is the max of "
+                  f"{n_regions} empirical bins and is biased upward below ~200 probes.")
         if s["hit_rate"] <= s["best_constant_control"]:
             print("  WARNING: no better than always naming one fixed region.")
         if s.get("slot_stable_rate", 0.0) >= 0.9:

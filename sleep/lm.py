@@ -58,8 +58,11 @@ def batch_generate(model, tokenizer, pairs, max_new_tokens=64, batch_size=8):
     for i in range(0, len(pairs), batch_size):
         chunk = pairs[i: i + batch_size]
         texts = [chat_text(tokenizer, s, u) for s, u in chunk]
+        side = tokenizer.truncation_side
+        tokenizer.truncation_side = "left"
         enc = tokenizer(texts, return_tensors="pt", padding=True, truncation=True,
                         max_length=model.config.max_position_embeddings).to(device)
+        tokenizer.truncation_side = side
         gen = model.generate(
             **enc,
             max_new_tokens=max_new_tokens,
