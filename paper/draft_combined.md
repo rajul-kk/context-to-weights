@@ -133,7 +133,7 @@ A raw lift figure is close to meaningless. We report it against a **positional c
 what "keep the first N spans" would score on the same data — because in any trajectory where
 important content appears early, position alone produces a large apparent lift.
 
-We recommend this because it repeatedly caught us. Six artifacts, each invisible until a
+We recommend this because it repeatedly caught us. Seven artifacts, each invisible until a
 control exposed it:
 
 | Artifact | Apparent effect | Caught by |
@@ -144,6 +144,7 @@ control exposed it:
 | `sorted(kept)[:budget]` reimposed position after shuffling | 1.69x | kept-index distribution |
 | Supporting paragraphs stacked at the front of a benchmark | 1.76x | positional control (2.44x) |
 | Span-mean pooling inverted a real per-token gate | 0.38x of chance | matched-budget control |
+| Falling CE on gold answers read as knowledge transfer | 6.29 -> 2.24 | distractor ranking (at chance) |
 
 None was a modelling error; all were construction. We think that is the norm rather than our
 misfortune, and that free-supervision work should report a control beside every signal
@@ -160,6 +161,17 @@ the same signal clears the same control at +2.62σ. The precondition test existe
 it reported 0.125 next to a `top_frac` of 0.25 and nothing compared the two. **A precondition
 number without a control is not a test**, and the ratio of a signal's p90 to its median (here
 8x) is a cheap advance warning that pooling it by the mean will destroy it.
+
+The final row generalises furthest, because it concerns a metric the field reports routinely.
+Consolidation lowered per-token cross-entropy on evicted gold answers from 6.29 to 2.24, which
+we read as knowledge that had entered the weights but could not be decoded. Ranking each gold
+answer against distractors drawn from the same fact bank shows that reading was wrong: no arm
+scores above the 0.240 chance rate, and the mean margin to the best distractor is negative
+everywhere and grows more negative after training. The adapter lowered loss on the gold answer
+and its distractors alike, having learned the answer vocabulary without the binding. **A CE
+reduction on a target is not evidence of knowledge acquisition unless it is checked against
+distractors from the same distribution.** The check costs one extra forward pass per candidate
+and it converted a hedged positive into a clean negative.
 
 ## 7. Measured beats asked
 

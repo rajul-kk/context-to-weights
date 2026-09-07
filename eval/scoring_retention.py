@@ -97,6 +97,8 @@ def main():
                 records.append(r)
 
     summary = summarize(records, args.label)
+    summary["model"] = cfg["model"]["base"]
+    summary["adapter"] = args.adapter
     out = Path(args.out)
     write_jsonl(out.with_suffix(".records.jsonl"), records)
     write_json(out.with_suffix(".summary.json"), summary)

@@ -33,12 +33,30 @@ def _is_nan(v):
     return v is None or (isinstance(v, float) and v != v)
 
 
-def collect(report_dir):
-    rows = []
-    for path in sorted(Path(report_dir).glob("*.summary.json")):
-        rows.append(read_json(path))
+SCORE_COLUMNS = [
+    ("label", "method"),
+    ("mc_accuracy", "MC acc"),
+    ("mc_accuracy_evicted", "MC acc(evicted)"),
+    ("chance", "chance"),
+    ("mean_margin_evicted", "margin(ev)"),
+    ("evicted_sigma_over_chance", "sigma>chance"),
+]
+
+
+def _sorted(rows):
     rows.sort(key=lambda r: ORDER.index(r["label"]) if r["label"] in ORDER else 99)
     return rows
+
+
+def collect(report_dir):
+    rows = [read_json(p) for p in sorted(Path(report_dir).glob("*.summary.json"))
+            if not p.name.startswith("score_")]
+    return _sorted(rows)
+
+
+def collect_scores(report_dir):
+    rows = [read_json(p) for p in sorted(Path(report_dir).glob("score_*.summary.json"))]
+    return _sorted(rows)
 
 
 def sleep_cost(run_dirs):
@@ -57,13 +75,13 @@ def sleep_cost(run_dirs):
     return out
 
 
-def to_markdown(rows):
-    head = "| " + " | ".join(h for _, h in COLUMNS) + " |"
-    rule = "|" + "|".join("---" for _ in COLUMNS) + "|"
+def to_markdown(rows, columns=COLUMNS):
+    head = "| " + " | ".join(h for _, h in columns) + " |"
+    rule = "|" + "|".join("---" for _ in columns) + "|"
     lines = [head, rule]
     for r in rows:
         cells = []
-        for key, _ in COLUMNS:
+        for key, _ in columns:
             v = r.get(key)
             if key == "label":
                 cells.append(PRETTY.get(v, v))
@@ -180,13 +198,19 @@ def main():
     cfg_path = Path(args.run_root) / "cascading" / "config.json"
     if cfg_path.exists():
         run_cfg = read_json(cfg_path)
+        target = next((r["model"] for r in rows if r.get("model")), None)
+        compactor = run_cfg["model"]["base"]
+        who = (f"Compactor `{compactor}`, consolidation and eval backbone `{target}`"
+               if target and target != compactor else f"Backbone `{compactor}`")
         body += [
-            f"Backbone `{run_cfg['model']['base']}`, compactor "
-            f"`{run_cfg['compaction']['backend']}`, keep_frac "
+            f"{who}, compaction backend `{run_cfg['compaction']['backend']}`, keep_frac "
             f"{run_cfg['compaction']['keep_frac']}, context budget "
             f"{run_cfg['compaction']['context_budget']}.",
             "",
         ]
+        if target is None:
+            body += ["> Eval summaries predate the `model` field, so the backbone above is the "
+                     "compactor's and may not be the model that was evaluated.", ""]
     body += ["## Retention", "", table, ""]
     casc = next((r for r in rows if r["label"] == "cascading"), None)
     if casc is not None and casc.get("n_evicted", 0) == 0:
@@ -236,6 +260,35 @@ def main():
                 f"ours vs uniform on evicted probes: {ours.get('evicted_accuracy', 0.0):.3f} "
                 f"vs {uni.get('evicted_accuracy', 0.0):.3f}, difference {d:+.3f} "
                 f"(combined SE {se:.3f}) - **{verdict}**.", ""]
+
+    scores = collect_scores(args.report_dir)
+    if scores:
+        body += ["## Scoring eval (CE ranking)", "",
+                 "Ranks the gold answer against distractors drawn from the same fact bank and "
+                 "scores a hit when gold has the lowest cross-entropy. This separates *is the "
+                 "knowledge in the weights* from *can the greedy decoder say it*.", "",
+                 to_markdown(scores, SCORE_COLUMNS), ""]
+        ev = [r for r in scores if not _is_nan(r.get("evicted_sigma_over_chance"))]
+        if ev:
+            best = max(ev, key=lambda r: r["evicted_sigma_over_chance"])
+            if best["evicted_sigma_over_chance"] < 2.0:
+                body += [
+                    f"**No arm ranks evicted answers above chance.** The best is "
+                    f"{PRETTY.get(best['label'], best['label'])} at "
+                    f"{best['mc_accuracy_evicted']:.3f} against a chance rate of "
+                    f"{best['chance']:.3f} ({best['evicted_sigma_over_chance']:+.2f} sigma). "
+                    f"A drop in evicted CE is therefore not evidence of knowledge transfer: "
+                    f"the adapter lowers loss on the gold answer and on its distractors alike, "
+                    f"having learned the answer vocabulary without the binding.", ""]
+        casc_s = next((r for r in scores if r["label"] == "cascading"), None)
+        if casc_s is not None:
+            worse = [r for r in scores if r["label"] != "cascading"
+                     and not _is_nan(r.get("mc_accuracy"))
+                     and r["mc_accuracy"] < casc_s.get("mc_accuracy", 0.0)]
+            if len(worse) == len(scores) - 1:
+                body += [f"Every adapter also ranks *retained* answers worse than no adapter "
+                         f"({casc_s['mc_accuracy']:.3f} all-probe), so the sleep pass degrades "
+                         f"the backbone rather than trading retained accuracy for evicted.", ""]
 
     body += ["## Figures", "",
              "![retention](figures/headline_retention.png)", "",

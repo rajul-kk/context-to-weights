@@ -3,7 +3,8 @@
 Two questions, answered separately.
 
 1. **Does the compactor's keep/drop decision carry a salience signal?** Yes.
-2. **Does consolidating on that signal help retention?** No. Definitively negative under a corrected, well-controlled setup.
+2. **Does consolidating on that signal help retention?** No. Definitively negative under a
+   corrected, well-controlled setup, by generation *and* by CE ranking. Closed.
 
 ## The compaction signal is real
 
@@ -34,7 +35,10 @@ construction. The notebook was fixed to consolidate `eval_events.jsonl` (the con
 the adapter is then tested on), and `sleep/loop.py` now refuses to resume when the events
 file changed.
 
-**Corrected run** (adapter consolidates the eval trajectories; `--resume` refuses a mismatched events file; all four methods trained fresh for 24 phases). Marked synthetic set, compaction signal **+15.53σ** (clustered permutation, p < 0.0001):
+**Corrected run** (adapter consolidates the eval trajectories; `--resume` refuses a mismatched
+events file; all four methods trained fresh for 24 phases). Marked synthetic set, compactor
+`Qwen2.5-1.5B-Instruct`, consolidation and eval backbone `Qwen2.5-0.5B-Instruct`, compaction
+signal **+15.53σ** (clustered permutation, p < 0.0001):
 
 | method | all-probe acc | evicted acc (n=120) | evicted median CE |
 |---|---|---|---|
@@ -74,21 +78,35 @@ uniform and the mask-head variant alike. The adapter can reproduce
 `retained note: We settled on SQLite 3.45 as the primary datastore for rate-limiter.`
 essentially losslessly. Evicted-fact QA accuracy is still 0.
 
-**3. The knowledge is partly encoded but not retrievable.** Evicted-probe median CE, which
-measures how much loss the model puts on the *correct answer tokens* when they appear:
+**3. The knowledge is not in the weights at all.** Evicted-probe median CE falls under every
+adapter — cascading 6.29, ours 5.52, reflection 3.73, uniform **2.24** — which looks like
+partial encoding that greedy decoding cannot reach. It is not. A CE-ranking eval
+(`eval/scoring_retention.py`) scores the gold answer against distractors drawn from the same
+fact bank and counts a hit when gold has the lowest loss:
 
-| | evicted median CE |
-|---|---|
-| cascading (no adapter) | 6.29 |
-| ours | 5.52 |
-| uniform | **2.24** |
-| reflection | 3.73 |
+| method | MC acc (all) | MC acc (evicted) | margin(ev) | σ vs chance |
+|---|---|---|---|---|
+| cascading (no adapter) | **0.642** | 0.233 | −0.88 | −0.28 |
+| uniform | 0.601 | 0.242 | −1.72 | −0.06 |
+| reflection | 0.590 | 0.275 | −2.18 | +0.76 |
+| ours | 0.573 | 0.183 | −1.88 | −1.72 |
+| ours + mask | 0.566 | 0.183 | −1.72 | −1.72 |
 
-Every adapter lowered it — the model assigns the right answers less loss after training — but
-greedy decoding from a question prompt never surfaces them, because the top-1 prediction is
-something else. This is the well-documented gap between a fact being *in the weights* and the
-model being able to *say it on demand*, and small models sit on the wrong side of it. Note
-that uniform, not ours, has the lowest evicted CE.
+Chance is 0.240. **No arm ranks evicted answers above chance**, and ours sits below it. Mean
+margin is negative everywhere — the best distractor beats gold — and grows *more* negative
+after training (−0.88 → −1.88).
+
+So the CE drop is an artifact of how the answers are distributed. Every candidate value comes
+from the same template bank, and the adapter trained on span text containing many of them, so
+it lowered loss on the gold answer and its distractors alike. It learned the answer
+vocabulary without the binding. **A CE reduction on the gold answer is not evidence of
+knowledge acquisition unless it is checked against distractors from the same distribution** —
+and an earlier version of this document drew exactly that unsupported inference from the
+table above.
+
+Every adapter also ranks *retained* answers worse than no adapter (0.642 → 0.573), so the
+sleep pass is not trading retained accuracy for evicted accuracy. It is degrading the
+backbone.
 
 **4. Training format ≠ eval format.** The adapter is trained to continue a session-id cue
 into a declarative sentence. At eval it is given a question and must produce a short answer.
@@ -100,15 +118,15 @@ near 4).
 
 **What would plausibly change the outcome**, none of it in scope here: a consolidation target
 that is itself QA-shaped (synthetic `Q → A` pairs built from the kept spans, so training and
-eval formats match — but that is close to "reflection with structure"); a larger consolidation
-target where the know-but-cannot-say gap is smaller; or a scoring-based eval that ranks
-candidate answers by CE rather than generating, which the evidence above suggests would show
-a signal — at the cost of a weaker, multiple-choice claim.
+eval formats match — but that is close to "reflection with structure"), or a larger
+consolidation target where the know-but-cannot-say gap is smaller. The scoring eval was the
+third candidate and has now been run: it is null, so there is no hidden signal for a weaker
+multiple-choice claim to recover. **Project A is closed.**
 
 The clean statement: **the compaction decision is a strong salience signal, and LoRA SFT on
 the selected span text — or on random spans, or on reflections — does not turn that signal
-into retrievable knowledge at this scale.** The bottleneck is knowledge injection via
-fine-tuning, a known-hard problem, not the compaction signal.
+into knowledge at this scale, whether measured by generation or by ranking.** The bottleneck
+is knowledge injection via fine-tuning, a known-hard problem, not the compaction signal.
 
 ## Consequence for the writeup
 

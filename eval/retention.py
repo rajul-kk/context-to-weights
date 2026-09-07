@@ -85,6 +85,7 @@ def main():
     records = evaluate(model, tokenizer, contexts, cfg, args.label, compute_ce=not args.no_ce)
     summary = aggregate(records)
     summary["label"] = args.label
+    summary["model"] = cfg["model"]["base"]
     summary["contexts"] = args.contexts
     summary["adapter"] = args.adapter
 
