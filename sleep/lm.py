@@ -87,3 +87,30 @@ def token_ce(model, tokenizer, prompt, target, max_length=1024):
     shift_labels = input_ids[0][1:]
     losses = torch.nn.functional.cross_entropy(shift_logits, shift_labels, reduction="none")
     return losses[-n_target:].tolist()
+
+
+@torch.no_grad()
+def target_ce_batch(model, tokenizer, prompt, targets, max_length=1024):
+    device = next(model.parameters()).device
+    p_ids = tokenizer(prompt, add_special_tokens=False)["input_ids"]
+    seqs, spans = [], []
+    for target in targets:
+        t_ids = tokenizer(target, add_special_tokens=False)["input_ids"]
+        ids = (p_ids + t_ids)[-max_length:]
+        seqs.append(ids)
+        spans.append(min(len(t_ids), len(ids)))
+    width = max(len(s) for s in seqs)
+    pad = tokenizer.pad_token_id or 0
+    batch = torch.full((len(seqs), width), pad, device=device)
+    mask = torch.zeros((len(seqs), width), device=device)
+    for i, s in enumerate(seqs):
+        batch[i, : len(s)] = torch.tensor(s, device=device)
+        mask[i, : len(s)] = 1
+    logits = model(input_ids=batch, attention_mask=mask).logits.float()
+    out = []
+    for i, (s, n) in enumerate(zip(seqs, spans)):
+        lg = logits[i, : len(s) - 1]
+        lb = batch[i, 1: len(s)]
+        losses = torch.nn.functional.cross_entropy(lg, lb, reduction="none")
+        out.append(losses[-n:].mean().item() if n else float("inf"))
+    return out
