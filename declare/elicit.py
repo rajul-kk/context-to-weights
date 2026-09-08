@@ -129,13 +129,18 @@ class ReadElicitor:
 LAST_ROW = []
 
 
+def _repeat_kv(states, groups):
+    if groups == 1:
+        return states
+    b, h, s, d = states.shape
+    return states[:, :, None].expand(b, h, groups, s, d).reshape(b, h * groups, s, d)
+
+
 def probe_attention(module, query, key, value, attention_mask=None, scaling=None,
                     dropout=0.0, **kwargs):
-    from transformers.models.llama.modeling_llama import repeat_kv
-
     groups = query.shape[1] // key.shape[1]
-    k = repeat_kv(key, groups)
-    v = repeat_kv(value, groups)
+    k = _repeat_kv(key, groups)
+    v = _repeat_kv(value, groups)
     if scaling is None:
         scaling = query.shape[-1] ** -0.5
 
@@ -177,6 +182,28 @@ class AttentionElicitor:
                 "attention probing needs the model loaded with the myrios_probe attention "
                 "implementation; declare/run.py does this when an attention mode is requested.")
 
+    def _check(self, captured, seq_len):
+        n_layers = getattr(self.model.config, "num_hidden_layers", None)
+        if not captured:
+            raise RuntimeError(
+                "the probe attention function captured nothing. This transformers version "
+                "may not route through ALL_ATTENTION_FUNCTIONS as expected; check that "
+                "model.config._attn_implementation is 'myrios_probe'.")
+        if n_layers and len(captured) != n_layers:
+            raise RuntimeError(
+                f"captured {len(captured)} attention rows but the model has {n_layers} "
+                f"layers, so the probe is not firing once per layer.")
+        row = captured[0]
+        if row.shape[-1] != seq_len:
+            raise RuntimeError(
+                f"captured row covers {row.shape[-1]} keys but the input is {seq_len} tokens.")
+        total = row.sum(dim=-1)
+        if not torch.allclose(total, torch.ones_like(total), atol=1e-2):
+            raise RuntimeError(
+                f"captured rows do not sum to 1 (got {total.flatten()[:4].tolist()}), so they "
+                f"are not attention probabilities. The attention-function signature has "
+                f"probably changed in this transformers version.")
+
     def _token_spans(self, offsets, char_spans, shift):
         out = []
         for lo, hi in char_spans:
@@ -203,8 +230,7 @@ class AttentionElicitor:
         self.model(**enc, use_cache=False)
         captured = list(LAST_ROW)
         LAST_ROW.clear()
-        if not captured:
-            raise RuntimeError("no attention rows captured by the probe attention function")
+        self._check(captured, enc["input_ids"].shape[-1])
 
         keep = int(len(captured) * self.layer_frac)
         rows = captured[keep:] if keep < len(captured) else captured
