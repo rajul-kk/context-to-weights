@@ -21,8 +21,9 @@ def _fill(text, project, service, value=None):
     return text.format(project=project, service=service, value=value)
 
 
-def build_trajectory(traj_id, rng, n_facts, n_turns, early_window, unmarked=False):
-    project = rng.choice(PROJECT_NAMES)
+def build_trajectory(traj_id, rng, n_facts, n_turns, early_window, unmarked=False,
+                     project=None):
+    project = project or rng.choice(PROJECT_NAMES)
     services = rng.sample(SERVICES, k=min(len(SERVICES), max(3, n_facts)))
     templates = rng.sample(FACT_TEMPLATES, k=min(len(FACT_TEMPLATES), n_facts))
 
@@ -121,6 +122,7 @@ def main():
                 n_turns=args.n_turns,
                 early_window=args.early_window,
                 unmarked=args.unmarked,
+                project=f"{PROJECT_NAMES[i % len(PROJECT_NAMES)]}-{i:02d}",
             )
             rows.append(traj.to_dict())
         write_jsonl(out / f"{split}.jsonl", rows)

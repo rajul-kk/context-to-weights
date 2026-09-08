@@ -12,25 +12,25 @@ FACT_TEMPLATES = [
     {
         "key": "db_engine",
         "statement": "We settled on {value} as the primary datastore for {service}.",
-        "question": "Which datastore did we settle on for {service}?",
+        "question": "In {project}, which datastore did we settle on for {service}?",
         "values": ["PostgreSQL 16", "CockroachDB 24.1", "MySQL 8.4", "SQLite 3.45", "ScyllaDB 6.0"],
     },
     {
         "key": "auth_header",
         "statement": "The auth token travels in the {value} header, not Authorization.",
-        "question": "Which header carries the auth token?",
+        "question": "In {project}, which header carries the auth token?",
         "values": ["X-Session-Key", "X-Meridian-Token", "X-Tessera-Auth", "X-Client-Assert"],
     },
     {
         "key": "rate_limit",
         "statement": "The public rate limit for {service} is fixed at {value}.",
-        "question": "What is the public rate limit for {service}?",
+        "question": "In {project}, what is the public rate limit for {service}?",
         "values": ["500 req/min", "1200 req/min", "80 req/sec", "45 req/sec", "9000 req/hour"],
     },
     {
         "key": "retry_policy",
         "statement": "Retries use {value}; anything else was rejected in review.",
-        "question": "What retry policy was agreed on?",
+        "question": "In {project}, what retry policy was agreed on?",
         "values": [
             "exponential backoff capped at 30s",
             "three fixed retries at 2s intervals",
@@ -47,25 +47,25 @@ FACT_TEMPLATES = [
     {
         "key": "queue_name",
         "statement": "Events for {service} land on the queue named {value}.",
-        "question": "Which queue receives {service} events?",
+        "question": "In {project}, which queue receives {service} events?",
         "values": ["evt.sable.v3", "evt.harrow.v1", "evt.pallas.v2", "evt.dover.v4"],
     },
     {
         "key": "config_flag",
         "statement": "The kill switch is the flag {value}; flipping it disables writes.",
-        "question": "What is the name of the kill-switch flag?",
+        "question": "In {project}, what is the name of the kill-switch flag?",
         "values": ["ENABLE_WRITE_PATH", "GUARD_MUTATIONS", "ALLOW_PERSIST", "WRITE_FUSE_OPEN"],
     },
     {
         "key": "owner",
         "statement": "{value} owns {service} and signs off on every schema change.",
-        "question": "Who owns {service}?",
+        "question": "In {project}, who owns {service}?",
         "values": ["the Platform team", "the Ingest team", "the Reliability guild", "the Data pod"],
     },
     {
         "key": "timeout",
         "statement": "The upstream timeout for {service} is {value}, agreed after the incident.",
-        "question": "What is the upstream timeout for {service}?",
+        "question": "In {project}, what is the upstream timeout for {service}?",
         "values": ["2500 ms", "800 ms", "15 s", "4 s"],
     },
     {

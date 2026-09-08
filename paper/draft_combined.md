@@ -23,7 +23,9 @@ We argue that "measure the model, do not ask it" is the governing constraint for
 free-supervision methods below the scales where instruction-following is reliable, and we
 supply the measurement discipline — a matched control beside every signal-strength figure —
 that makes the distinction visible. Neither consolidation method we build beats uniform
-training on the same budget; the elicitation finding and the discipline are what survive.
+training on the same budget, and for Project A we report that as unresolved rather than
+negative: an audit found its benchmark could not have separated the methods. The elicitation
+finding and the discipline are what survive.
 
 ## 1. Introduction
 
@@ -57,8 +59,8 @@ contribution of this paper.
 3. Declarative attention below the scale at which declaring works: the elicitation threshold,
    and a logit-read substitute that clears it (§5).
 4. **A matched control beside every signal-strength figure** — a cheap precondition test for
-   whether a candidate signal carries information at all, which caught seven separate artifacts
-   in our own pipeline, six inflating a result favourably and one hiding a negative (§6).
+   whether a candidate signal carries information at all, which caught eight separate artifacts
+   in our own pipeline, six inflating a result favourably and two hiding a possible positive (§6).
 5. The governing finding: generated signals fail and measured signals survive, on three
    independent mechanisms, at every scale we can afford (§7).
 
@@ -160,7 +162,7 @@ A raw lift figure is close to meaningless. We report it against a **positional c
 what "keep the first N spans" would score on the same data — because in any trajectory where
 important content appears early, position alone produces a large apparent lift.
 
-We recommend this because it repeatedly caught us. Seven artifacts, each invisible until a
+We recommend this because it repeatedly caught us. Eight artifacts, each invisible until a
 control exposed it:
 
 | Artifact | Apparent effect | Caught by |
@@ -172,6 +174,7 @@ control exposed it:
 | Supporting paragraphs stacked at the front of a benchmark | 1.76x | positional control (2.44x) |
 | Span-mean pooling inverted a real per-token gate | 0.38x of chance | matched-budget control |
 | Falling CE on gold answers read as knowledge transfer | 6.29 -> 2.24 | distractor ranking (at chance) |
+| Eval questions that did not identify which item was meant | 50% ceiling read as 100% | duplicate-answer audit |
 
 None was a modelling error; all were construction. We think that is the norm rather than our
 misfortune, and that free-supervision work should report a control beside every signal
@@ -189,16 +192,22 @@ it reported 0.125 next to a `top_frac` of 0.25 and nothing compared the two. **A
 number without a control is not a test**, and the ratio of a signal's p90 to its median (here
 8x) is a cheap advance warning that pooling it by the mean will destroy it.
 
-The final row generalises furthest, because it concerns a metric the field reports routinely.
-Consolidation lowered per-token cross-entropy on evicted gold answers from 6.29 to 2.24, which
-we read as knowledge that had entered the weights but could not be decoded. Ranking each gold
-answer against distractors drawn from the same fact bank shows that reading was wrong: no arm
-scores above the 0.240 chance rate, and the mean margin to the best distractor is negative
-everywhere and grows more negative after training. The adapter lowered loss on the gold answer
-and its distractors alike, having learned the answer vocabulary without the binding. **A CE
-reduction on a target is not evidence of knowledge acquisition unless it is checked against
-distractors from the same distribution.** The check costs one extra forward pass per candidate
-and it converted a hedged positive into a clean negative.
+The last two rows concern metrics rather than signals, and they compound. Consolidation
+lowered per-token cross-entropy on evicted gold answers from 6.29 to 2.24, which we first read
+as knowledge that had entered the weights but could not be decoded. Ranking each gold answer
+against distractors from the same fact bank put every arm at the 0.240 chance rate, which we
+then read as knowledge that was never acquired. Both readings were premature. Auditing the
+benchmark showed that 98.3% of its questions had more than one correct answer across
+trajectories -- the generator scoped questions by a service drawn from a pool of eight, so
+"Which header carries the auth token?" was asked of 48 conversations with four different
+answers. A model with perfect recall of every trajectory could not have exceeded 50%, and the
+ranking distractors were themselves other trajectories' correct answers. **A CE reduction on a
+target is not evidence of knowledge acquisition unless it is checked against distractors from
+the same distribution; and a distractor set must not contain answers that are correct for a
+different item in the same eval.** We report Project A's consolidation result as unresolved
+rather than negative, and the audit -- count the distinct answers each question string
+receives, and compute what a perfect memoriser could score -- as the cheaper check we should
+have run before the experiment rather than after it.
 
 ## 7. Measured beats asked
 
