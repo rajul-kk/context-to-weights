@@ -47,6 +47,8 @@ def main():
     ap.add_argument("--val-contexts", default=None)
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--steps", type=int, default=0)
+    ap.add_argument("--batch-size", type=int, default=1)
+    ap.add_argument("--grad-accum", type=int, default=8)
     ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
 
@@ -54,6 +56,8 @@ def main():
     set_seed(cfg["seed"])
     if args.steps:
         cfg["sleep"]["steps"] = args.steps
+    cfg["sleep"]["batch_size"] = args.batch_size
+    cfg["sleep"]["grad_accum"] = args.grad_accum
 
     model, tokenizer = load_backbone(cfg)
     train = build_examples(read_jsonl(args.contexts), tokenizer)
@@ -61,6 +65,11 @@ def main():
 
     n_abstain = sum(1 for e in train if e.source == "abstain")
     print(f"{len(train)} examples: {n_abstain} abstain, {len(train) - n_abstain} answer")
+    width = max(len(tokenizer(e.prompt, add_special_tokens=False)["input_ids"]) for e in train)
+    vocab = getattr(model.config, "vocab_size", 152000)
+    print(f"longest prompt {width} tokens, batch {args.batch_size} x accum "
+          f"{args.grad_accum}, logits about "
+          f"{args.batch_size * min(width, cfg['model']['max_length']) * vocab * 4 / 1e9:.2f} GB")
     if not n_abstain or n_abstain == len(train):
         raise SystemExit(
             "the training split is one-sided, so the adapter would learn a constant policy. "
