@@ -23,9 +23,11 @@ We argue that "measure the model, do not ask it" is the governing constraint for
 free-supervision methods below the scales where instruction-following is reliable, and we
 supply the measurement discipline — a matched control beside every signal-strength figure —
 that makes the distinction visible. Neither consolidation method we build beats uniform
-training on the same budget, and for Project A we report that as unresolved rather than
-negative: an audit found its benchmark could not have separated the methods. The elicitation
-finding and the discipline are what survive.
+training on the same budget. On the compaction signal, uniform replay recovers 12.3% of
+evicted facts while gating on a +15.9σ salience signal recovers none; on the context-gap
+signal a gate that clears its own control still loses to uniform distillation. **Uniform
+coverage beats importance gating on two independent signals**, each with a positive control
+showing the setup could have registered a win.
 
 ## 1. Introduction
 
