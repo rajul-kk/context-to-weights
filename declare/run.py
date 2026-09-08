@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common.io import (ensure_dir, load_config, parse_overrides, read_jsonl, set_seed,
+from common.io import (ensure_dir, load_config, parse_overrides, read_json, read_jsonl, set_seed,
                        write_json, write_jsonl)
 from common.schema import Trajectory
 from declare.elicit import build_elicitor
@@ -146,7 +146,15 @@ def main():
     n_regions = cfg["declare"]["n_regions"]
 
     rows = read_jsonl(Path(cfg["data"]["dir"]) / cfg["data"][args.split])
-    model, tokenizer = load_backbone(cfg)
+    probing = any(m.startswith("attention") for m in args.modes)
+    impl = None
+    if probing:
+        from declare.elicit import register_probe
+
+        impl = register_probe()
+        print(f"attention probing on: loaded with the {impl} attention implementation, "
+              "which keeps SDPA for the forward pass and captures only the final query row")
+    model, tokenizer = load_backbone(cfg, attn_implementation=impl)
 
     items = []
     for row in rows:
@@ -203,8 +211,13 @@ def main():
             print("  WARNING: the declaration barely moves when region contents are shuffled,")
             print("  so it is naming a slot rather than reading content.")
 
-    write_json(out_dir / "summary_all.json", summaries)
-    print(f"\nwrote -> {out_dir}")
+    merged = {}
+    for path in sorted(out_dir.glob("*.summary.json")):
+        s = read_json(path)
+        if s.get("label"):
+            merged[s["label"]] = s
+    write_json(out_dir / "summary_all.json", list(merged.values()))
+    print(f"\nwrote -> {out_dir} ({len(merged)} modes: {', '.join(sorted(merged))})")
 
 
 if __name__ == "__main__":

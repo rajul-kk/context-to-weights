@@ -44,6 +44,17 @@ def render(regions, tokenizer=None):
     return text, count_tokens(text, tokenizer)
 
 
+def render_spans(regions):
+    blocks, spans, pos = [], [], 0
+    for i, lines in enumerate(regions):
+        body = "\n".join(lines) if lines else "(empty)"
+        block = f"[REGION {i}]\n{body}"
+        blocks.append(block)
+        spans.append((pos, pos + len(block)))
+        pos += len(block) + 2
+    return "\n\n".join(blocks), spans
+
+
 def region_tokens(regions, tokenizer=None):
     return [count_tokens("\n".join(lines) or "(empty)", tokenizer) for lines in regions]
 

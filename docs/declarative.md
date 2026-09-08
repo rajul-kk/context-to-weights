@@ -98,6 +98,37 @@ per mode, so `generate` and `read` saw different gold placements and their hit r
 comparable — visible in the run only because the two gold distributions printed differently.
 Layouts are now materialised once and shared.
 
+## Attention-probing ablation
+
+The literature describes asking-the-model and probing-attention as the two routes to the same
+answer — Declarative Attention [5] asks, Sentinel (arXiv:2505.23277) and the retrieval-head
+line probe — but on different models and different data. Nobody has run them head to head.
+
+`attention` mode does that here: the model is run on the full context plus the question and
+the attention mass the final query position puts on each region is read off, argmax wins. Same
+layouts, same probes, same model as `read` and `generate`, so the three elicitations are
+directly comparable. `attention_late` restricts to the second half of the layers, where
+retrieval behaviour is usually reported.
+
+```bash
+python declare/run.py --config configs/kaggle_declare.yaml --modes read attention attention_late
+```
+
+The probe registers a custom attention implementation (`myrios_probe`) rather than using
+`output_attentions=True`. The forward pass still runs through SDPA; only the final query row
+is materialised, so cost is `O(heads x seq)` per layer instead of `O(heads x seq^2)`. Eager
+attention on a 9k context needs about 1.9 GB per layer transiently and does not fit
+comfortably on a T4 alongside the model; the probe needs about 430 KB. Scores were checked
+against a full eager run and match to all printed digits.
+
+**The question it answers.** `read` asks the model a semantic question about each region;
+`attention` reads where the model actually looks. If the self-query wins, a model's explicit
+judgement about its context beats its own implicit behaviour, and the cheap route to a routing
+signal is to ask rather than instrument. If attention wins, `read` is redundant and the
+contribution shrinks to "cheaper than generating".
+
+Results pending.
+
 ## Pilot runs, superseded
 
 Earlier CPU runs on SmolLM2-360M (n = 12 and n = 24) showed `generate` naming a fixed slot

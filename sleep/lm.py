@@ -16,7 +16,7 @@ def pick_device():
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def load_backbone(cfg, device=None):
+def load_backbone(cfg, device=None, attn_implementation=None):
     name = cfg["model"]["base"]
     device = device or pick_device()
     dtype = DTYPES[cfg["model"]["dtype"]]
@@ -26,7 +26,10 @@ def load_backbone(cfg, device=None):
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
-    model = AutoModelForCausalLM.from_pretrained(name, dtype=dtype)
+    kwargs = {"dtype": dtype}
+    if attn_implementation:
+        kwargs["attn_implementation"] = attn_implementation
+    model = AutoModelForCausalLM.from_pretrained(name, **kwargs)
     model.to(device)
     model.eval()
     return model, tokenizer

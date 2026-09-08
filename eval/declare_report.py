@@ -44,9 +44,13 @@ def plot(rows, out_path):
     import matplotlib.pyplot as plt
 
     models = sorted({s["model"] for s in rows}, key=short)
-    modes = ["generate", "read"]
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-    width = 0.35
+    order = ["generate", "read", "attention", "attention_mean", "attention_late"]
+    modes = sorted({s["label"] for s in rows},
+                   key=lambda m: order.index(m) if m in order else 99)
+    colors = {"generate": "#8c9bb0", "read": "#c44e52", "attention": "#4c72b0",
+              "attention_mean": "#7ba7d4", "attention_late": "#2f4b6e"}
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+    width = 0.8 / max(1, len(modes))
     x = range(len(models))
 
     for ax, key, title, ref in (
@@ -54,11 +58,11 @@ def plot(rows, out_path):
         (axes[1], "content_dependence", "content dependence (shuffled hit - chance)", 0.0),
     ):
         for j, mode in enumerate(modes):
-            vals = [next((s[key] for s in rows
+            vals = [next((s.get(key, 0.0) for s in rows
                           if s["model"] == m and s["label"] == mode), 0.0) for m in models]
-            off = (j - 0.5) * width
-            color = "#c44e52" if mode == "read" else "#8c9bb0"
-            ax.bar([i + off for i in x], vals, width, label=mode, color=color)
+            off = (j - (len(modes) - 1) / 2) * width
+            ax.bar([i + off for i in x], vals, width, label=mode,
+                   color=colors.get(mode, "#999999"))
         if key == "hit_rate":
             ch = rows[0]["random_control"]
             ax.axhline(ch, ls="--", lw=1, color="#333", label=f"chance {ch:.3f}")
@@ -88,25 +92,37 @@ def main():
     fig_dir = ensure_dir(Path(args.run_root) / "figures")
     plot(rows, fig_dir / "declare.png")
 
-    reads = [s for s in rows if s["label"] == "read"]
-    gens = [s for s in rows if s["label"] == "generate"]
-    body = ["# Declarative attention: generate vs read", ""]
+    body = ["# Declarative attention: asking versus measuring", ""]
     body += [table(rows), ""]
-    if reads and gens:
-        rd = sum(s.get("content_dependence", 0.0) for s in reads) / len(reads)
-        gd = sum(s.get("content_dependence", 0.0) for s in gens) / len(gens)
-        gen_clears = [s for s in gens if s["sigma_over_constant"] >= 2.0
-                      and s.get("content_dependence", 0.0) >= 0.1]
-        body += [
-            "## Reading", "",
-            f"Mean `content_dependence`: read {rd:.3f}, generate {gd:.3f}. "
-            f"{'No' if not gen_clears else str(len(gen_clears))} generate run tracks content "
-            f"after the shuffle; every read run does. The generated declaration's hit rate "
-            f"comes from position, not from reading the context.", "",
-            "![declare](figures/declare.png)", "",
-            "*Left: hit rate by model and elicitation, dashed line at chance. Right: content "
-            "dependence, the shuffled hit rate above chance. read (red) tracks content; "
-            "generate (grey) sits at zero.*", ""]
+
+    def mean_of(mode, key):
+        vals = [s.get(key, 0.0) for s in rows if s["label"] == mode]
+        return sum(vals) / len(vals) if vals else float("nan")
+
+    modes = sorted({s["label"] for s in rows})
+    body += ["## Reading", ""]
+    line = ", ".join(f"{m} {mean_of(m, 'content_dependence'):.3f}" for m in modes)
+    body += [f"Mean `content_dependence` by elicitation: {line}.", ""]
+
+    rd, ad = mean_of("read", "content_dependence"), mean_of("attention", "content_dependence")
+    if rd == rd and ad == ad:
+        if rd > ad:
+            verdict = (f"The semantic self-query beats attention probing ({rd:.3f} vs {ad:.3f}). "
+                       f"Asking the model which region holds the answer recovers more content "
+                       f"signal than reading where it actually attends.")
+        elif ad > rd:
+            verdict = (f"Attention probing beats the semantic self-query ({ad:.3f} vs {rd:.3f}). "
+                       f"Where the model attends is a better guide than what it says about the "
+                       f"region, so the read elicitation is not the cheapest route to the signal.")
+        else:
+            verdict = f"Self-query and attention probing are level ({rd:.3f} vs {ad:.3f})."
+        body += [verdict, ""]
+
+    body += ["![declare](figures/declare.png)", "",
+             "*Left: hit rate by model and elicitation, dashed line at chance. Right: content "
+             "dependence, the shuffled hit rate above chance. generate (grey) asks the model to "
+             "state a region; read (red) scores each region off the logits; attention (blue) "
+             "reads where the model attends when answering.*", ""]
 
     out = Path(args.out)
     ensure_dir(out.parent)
