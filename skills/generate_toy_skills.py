@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common.io import ensure_dir, set_seed, write_json, write_jsonl
-from skills.specs import SKILL_SPECS
+from skills.specs import SKILL_SPECS, generate_specs
 
 SKILL_MD = """# {name}
 
@@ -122,6 +122,7 @@ def main():
     ap.add_argument("--out", default="skills/toy")
     ap.add_argument("--n-demos", type=int, default=9)
     ap.add_argument("--n-tasks", type=int, default=12)
+    ap.add_argument("--n-skills", type=int, default=0)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
 
@@ -129,8 +130,9 @@ def main():
     rng = random.Random(args.seed)
     root = ensure_dir(args.out)
     index = []
+    specs = generate_specs(args.n_skills, args.seed) if args.n_skills else SKILL_SPECS
 
-    for spec in SKILL_SPECS:
+    for spec in specs:
         doc, demos, tasks = build_skill(spec, rng, args.n_demos, args.n_tasks)
         d = ensure_dir(root / spec["name"])
         (d / "SKILL.md").write_text(doc, encoding="utf-8")
