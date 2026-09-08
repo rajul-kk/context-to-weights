@@ -6,7 +6,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common.io import ensure_dir, read_json, read_jsonl, write_json
 
-ORDER = ["floor", "cascading", "uniform", "reflection", "ours", "ours+mask", "full"]
+ORDER = ["floor", "cascading", "uniform", "reflection", "ours", "ours+mask",
+         "oracle-closedbook", "oracle", "full"]
 PRETTY = {
     "floor": "no context (floor)",
     "cascading": "(c) cascading, no update",
@@ -14,6 +15,8 @@ PRETTY = {
     "reflection": "(b) reflection",
     "ours": "ours: compaction-supervised",
     "ours+mask": "ours + mask head",
+    "oracle": "oracle: facts + augmentation",
+    "oracle-closedbook": "oracle, closed book",
     "full": "(d) full context (ceiling)",
 }
 
@@ -121,6 +124,8 @@ def plot_headline(rows, out_path):
         for i, r in enumerate(rows):
             if r["label"].startswith("ours"):
                 bars[i].set_color("#c44e52")
+            elif r["label"].startswith("oracle"):
+                bars[i].set_color("#55a868")
             elif r["label"] in ("cascading", "full"):
                 bars[i].set_color("#4c72b0")
         base = next((v for v, r in zip(vals, rows) if r["label"] == "cascading"), None)
@@ -249,6 +254,25 @@ def main():
                 f"{PRETTY.get(best['label'], best['label'])} at "
                 f"{best.get('retention_accuracy', 0.0):.3f}. On this run the sleep pass is "
                 f"net-negative: it costs more than the knowledge it adds.", ""]
+        orc = next((r for r in rows if r["label"] == "oracle"), None)
+        if orc is not None and casc_row is not None:
+            oe = orc.get("evicted_accuracy", 0.0)
+            ce = casc_row.get("evicted_accuracy", 0.0)
+            se = _se(oe, orc.get("n_evicted")) + _se(ce, casc_row.get("n_evicted"))
+            if _is_nan(oe) or oe - ce <= max(se, 0.02):
+                body += [
+                    f"**The oracle control does not clear the baseline** ({oe:.3f} vs {ce:.3f} "
+                    f"on evicted probes). Perfect fact selection plus 20 augmented surface "
+                    f"forms per fact still recovers nothing, so this configuration cannot "
+                    f"register a consolidation win at all and the comparisons between the "
+                    f"other arms are uninformative about the compaction signal.", ""]
+            else:
+                body += [
+                    f"**The oracle control clears the baseline** ({oe:.3f} vs {ce:.3f} on "
+                    f"evicted probes). The setup can register a consolidation win, so the "
+                    f"gap between the other arms and the oracle is a real measure of what "
+                    f"the compaction signal costs relative to perfect selection.", ""]
+
         ours = next((r for r in adapters if r["label"] == "ours"), None)
         uni = next((r for r in adapters if r["label"] == "uniform"), None)
         if ours and uni:
