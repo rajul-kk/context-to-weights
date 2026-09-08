@@ -16,10 +16,14 @@ small scale: both Qwen2.5-0.5B and 1.5B answer a span-selection request with the
 prefix `0, 1, 2, ...` on 100% of events regardless of content, which under shuffling is
 exactly random selection. Signals *measured from the model's behaviour* survive: the same
 1.5B model reaches 2.56x salience lift when its keep decision is read off the logits rather
-than generated, and 2.17x for a 360M model. We argue that "measure the model, do not ask
-it" is the governing constraint for free-supervision methods below the scales where
-instruction-following is reliable, and we supply the measurement discipline — salience lift
-against a positional control — that makes the distinction visible.
+than generated, and on a separate task it routes its own attention to the right region of an
+8k-token context at +9σ when the choice is read off the logits versus no better than naming a
+fixed slot when it is asked to state it — a gap that widens, not closes, from 0.5B to 1.5B.
+We argue that "measure the model, do not ask it" is the governing constraint for
+free-supervision methods below the scales where instruction-following is reliable, and we
+supply the measurement discipline — a matched control beside every signal-strength figure —
+that makes the distinction visible. Neither consolidation method we build beats uniform
+training on the same budget; the elicitation finding and the discipline are what survive.
 
 ## 1. Introduction
 
@@ -52,11 +56,11 @@ contribution of this paper.
    context divergence (§4).
 3. Declarative attention below the scale at which declaring works: the elicitation threshold,
    and a logit-read substitute that clears it (§5).
-4. **Salience lift with a positional control** — a cheap precondition test for whether a
-   candidate signal carries information at all, which caught five separate artifacts in our
-   own pipeline, every one of which inflated results favourably (§6).
-5. The governing finding: generated signals fail and measured signals survive, at every
-   scale we can afford (§7).
+4. **A matched control beside every signal-strength figure** — a cheap precondition test for
+   whether a candidate signal carries information at all, which caught seven separate artifacts
+   in our own pipeline, six inflating a result favourably and one hiding a negative (§6).
+5. The governing finding: generated signals fail and measured signals survive, on three
+   independent mechanisms, at every scale we can afford (§7).
 
 ## 2. Related work
 
@@ -119,9 +123,32 @@ labelled, plus a question whose answer lies in exactly one. Two elicitations:
 **Controls.** Random choice is `1/K`. Modal share exposes a model that always names the same
 region. The decisive test is the **content shuffle**: permute which content sits in which
 slot and re-elicit. A declaration that tracks content follows the answer to its new slot; one
-that tracks position does not. `content_dependence` is the shuffled hit rate above chance.
+that tracks position does not. `content_dependence` is the shuffled hit rate above chance;
+`slot_stable_rate` is how often the choice does *not* move when content does — near `1/K`
+means content-driven, near 1 means position-driven.
 
-**Results.** TBD — see `docs/results_declare.md`.
+**Results.** HotpotQA trajectories with supporting paragraphs scattered across the whole
+context, `K = 8`, gold region permuted per probe, 384 probes.
+
+| | 0.5B generate | 0.5B read | 1.5B generate | 1.5B read |
+|---|---|---|---|---|
+| hit rate (chance 0.125) | 0.206 | 0.333 | 0.154 | 0.372 |
+| σ over best-constant (0.148) | +2.8 | +7.7 | +0.3 | +9.1 |
+| `content_dependence` | 0.055 | **0.206** | 0.021 | **0.240** |
+| `slot_stable_rate` | 0.328 | 0.125 | 0.422 | 0.141 |
+| unparsed rate | 0.02 | 0.00 | 0.19 | 0.00 |
+| mean attended fraction | 0.145 | 0.135 | 0.291 | 0.137 |
+
+`read` clears every control at both scales: `content_dependence` 0.21–0.24 and
+`slot_stable_rate` at `1/K`, so when a region's content moves to a new slot the choice
+follows it. `generate` does not track content at either scale. Its raw hit rate clears the
+constant control at 0.5B (+2.8σ), but the shuffle unmasks that as position: `content_dependence`
+is 0.055, a quarter of `read`'s. At 1.5B the generated declaration is indistinguishable from
+naming one fixed region (+0.3σ), the model refuses the `FOCUS:` format on 19% of probes, and
+`slot_stable_rate` rises to 0.42. **The larger model is worse at saying where to look, and
+identical on reading it.** `read` attends 13.6% of tokens — a larger cut than the paper's
+52.0% / 31.1% — but at a 0.33–0.37 hit rate, so the routing is real and roughly 3x chance,
+not yet accurate enough to deploy unsupervised. See `docs/declarative.md`.
 
 ## 6. Salience lift, and why a control is not optional
 
@@ -181,20 +208,26 @@ and it converted a hedged positive into a clean negative.
 | compaction decision | logit read | 360M | 2.17x, clears |
 | compaction decision | logit read | 1.5B | 2.56x, clears |
 | context gap | measured, no elicitation | 360M | separates identifiers from markdown |
-| attention declaration | generated `FOCUS: k` | 0.5B / 1.5B | TBD |
-| attention declaration | logit read | 0.5B / 1.5B | TBD |
+| attention declaration | generated `FOCUS: k` | 0.5B | +0.055 content dep, positional |
+| attention declaration | generated `FOCUS: k` | 1.5B | +0.021 content dep, at chance |
+| attention declaration | logit read | 0.5B | +0.206 content dep, +7.7σ |
+| attention declaration | logit read | 1.5B | +0.240 content dep, +9.1σ |
 
 Two observations.
 
 **Elicitation dominates scale.** Tripling parameters leaves a generated index list at chance;
-switching the same model to a logit read takes it from 0.53x to 2.56x. The failure is not that
-small models lack the judgment — it is that they cannot express it in a structured format on
-demand.
+switching the same model to a logit read takes it from 0.53x to 2.56x. The attention
+declaration repeats this exactly: the generated `FOCUS:` at 1.5B carries no content signal
+(`content_dependence` 0.021), the same model's logit read carries a strong one (0.240, +9.1σ).
+The failure is not that small models lack the judgment — it is that they cannot express it in
+a structured format on demand, and asking harder as they scale makes it worse.
 
 **Scale is not monotonic.** SmolLM2-360M clears the control at 2.17x while Qwen2.5-0.5B fails
-at 0.42x on identical data with identical code. Whether a compactor carries signal is a
-property of that model's behaviour on the probe, not of its size, and has to be measured per
-model rather than assumed.
+at 0.42x on identical compaction data with identical code. And on the attention declaration
+the 1.5B model is *worse* than the 0.5B at the generated `FOCUS:` — its hit rate falls from
+0.206 to 0.154, its unparsed rate rises from 2% to 19%, and it leans harder on naming a fixed
+slot. Whether a model carries a usable signal in a given elicitation is a property of its
+behaviour on the probe, not of its size, and has to be measured per model rather than assumed.
 
 The practical rule for anyone building free-supervision pipelines below frontier scale:
 **derive the signal from what the model does, not from what it says it does.** The context
@@ -204,12 +237,14 @@ as published, does not — and §5 measures the cost.
 
 ## 8. Limitations
 
-Single seed per configuration. Evaluation sets are small — 36 to 60 fact spans — so the
-HotpotQA lift of 1.61x sits about 2.6σ above chance and needs widening before it carries
-weight. Our synthetic generator's unmarked variant is a floor case rather than a neutral test:
-facts and filler come from one template bank in one register, so they are near
-indistinguishable by construction. We cannot test the 27B+ regime where [5] reports, so our
-declarative-attention result speaks only to small scale and does not contradict theirs. All
+Single seed per configuration. Evaluation sets for the compaction lift are small — 36 to 60
+fact spans — so the HotpotQA lift of 1.61x sits about 2.6σ above chance and needs widening
+before it carries weight; the declarative-attention arm is larger at 384 probes. Our synthetic
+generator's unmarked variant is a floor case rather than a neutral test: facts and filler come
+from one template bank in one register, so they are near indistinguishable by construction. We
+cannot test the 27B+ regime where [5] reports, so our declarative-attention result bounds the
+generated declaration from below — it does not work at 1.5B — and does not contradict the
+accuracy [5] reports at 27B. The `read` substitute we propose is untested at their scale. All
 compute is one T4.
 
 ## References

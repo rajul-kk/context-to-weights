@@ -48,46 +48,48 @@ to measure the position prior itself.
 `run.py` warns when a mode fails to beat the best constant policy, or when the declaration
 barely moves under shuffling.
 
-## First measurements
+## Result
 
-SmolLM2-360M-Instruct, HotpotQA trajectories, `K = 8`. Small n; recorded because the failure
-mode is unambiguous, not because the numbers are conclusive.
+Qwen2.5-0.5B and 1.5B, HotpotQA trajectories with supporting paragraphs scattered across the
+whole context so position carries no prior, `K = 8`, gold region permuted per probe, **384
+probes**. Chance is 0.125, best-constant control 0.148.
 
-**Unbalanced layout, n = 12** — gold confined to regions 0-3, best constant 0.333:
+| | 0.5B generate | 0.5B read | 1.5B generate | 1.5B read |
+|---|---|---|---|---|
+| hit rate | 0.206 | 0.333 | 0.154 | 0.372 |
+| σ over random | +3.9 | +8.7 | +1.6 | +10.0 |
+| σ over best-constant | +2.8 | +7.7 | +0.3 | +9.1 |
+| `content_dependence` | 0.055 | **0.206** | 0.021 | **0.240** |
+| `slot_stable_rate` | 0.328 | 0.125 | 0.422 | 0.141 |
+| modal share | 0.263 | 0.146 | 0.312 | 0.133 |
+| unparsed rate | 0.021 | 0.000 | 0.185 | 0.000 |
+| mean attended fraction | 0.145 | 0.135 | 0.291 | 0.137 |
 
-| | generate | read |
-|---|---|---|
-| hit rate | 0.333 | 0.333 |
-| best constant | 0.333 | 0.333 |
-| slot stable rate | **1.000** | 0.000 |
-| modal share | 0.917 | 0.333 |
+**`read` works at both scales.** +7.7σ and +9.1σ over the constant control,
+`content_dependence` 0.21–0.24, `slot_stable_rate` at `1/K`. When a region's content is
+shuffled to a new slot the choice follows it. This is a content-tracking signal, and it is
+slightly stronger at 1.5B.
 
-Neither mode beats the constant policy, and the two diagnostics separate them cleanly.
-`generate` answered `FOCUS: 0` on essentially every probe and every shuffle — the same
-degenerate behaviour as the index-list compactor, reproduced in a second task with a
-different prompt format. `read` varies its scores per region and changes its choice under
-shuffling, so it is responding to content; it is simply not accurate at 360M.
+**`generate` does not track content at either scale.** At 0.5B the raw hit rate clears the
+constant control (+2.8σ) — but `content_dependence` is only 0.055, a quarter of `read`'s, and
+`slot_stable_rate` is 3x chance. The hit rate is mostly position. At 1.5B the generated
+declaration is statistically indistinguishable from always naming one region (+0.3σ), the
+model refuses the `FOCUS:` format on 19% of probes, and `slot_stable_rate` climbs to 0.42.
 
-**Balanced layout, n = 24** — gold uniform across slots, so the constant policy is at chance:
+**Scale makes the generated declaration worse.** Every `generate` number degrades from 0.5B
+to 1.5B: hit rate 0.206 → 0.154, σ over constant +2.8 → +0.3, unparsed 2% → 19%,
+`slot_stable_rate` 0.33 → 0.42. The `read` numbers are flat to slightly better. The larger
+model is worse at *saying* where to look and identical at *reading* it.
 
-| | generate | read |
-|---|---|---|
-| hit rate | 0.083 | 0.000 |
-| random control | 0.125 | 0.125 |
-| slot stable rate | **0.958** | 0.125 |
-| modal share | 0.750 | 0.208 |
-| unparsed rate | 0.250 | 0.000 |
+**The content-shuffle control is load-bearing.** At 0.5B, raw hit rate alone reports
+`generate` as clearing the control at +2.8σ. Only the shuffle reveals the signal is
+positional. This is the same lesson as the compaction positional control (§6) and the KL-gate
+matched-budget control — the third independent instance in this project of a raw
+signal-strength number that a matched control overturns.
 
-Both at or below chance once position stops helping. The diagnostics still separate the two
-failure modes: `generate` names a slot and fails to parse a quarter of the time, while
-`read` spreads its choices across all eight regions but with nearly flat scores (typical
-range 0.17-0.80), so its argmax is effectively arbitrary. `read` scoring 0/24 is an unlucky
-draw from a 1/8 process rather than anti-correlation.
-
-**Do not read a result into this.** At 360M neither elicitation works, n = 24 is far too
-small, and the interesting question — where generated declarations start working, and whether
-`read` clears the control before they do — needs 0.5B / 1.5B and n in the hundreds. That is
-`notebooks/c1_declare.ipynb`, a GPU job.
+**Token saving.** `read` attends 13.6% of the context — a larger cut than the paper's
+52.0% / 31.1% — but at a 0.33–0.37 hit rate, roughly 3x chance. The routing signal is real
+and cheap to extract at this scale; it is not accurate enough to act on without a check.
 
 ## Comparability
 
@@ -96,13 +98,20 @@ per mode, so `generate` and `read` saw different gold placements and their hit r
 comparable — visible in the run only because the two gold distributions printed differently.
 Layouts are now materialised once and shared.
 
-## What would make this a result
+## Pilot runs, superseded
 
-- n in the hundreds, not six
-- 0.5B, 1.5B, and 7B-4bit, to locate the threshold where generated declarations start working
-- `read` clearing `best_constant_control` at some scale
-- attended-token fraction compared against the paper's 52.0% / 31.1%, so the saving is
-  comparable
+Earlier CPU runs on SmolLM2-360M (n = 12 and n = 24) showed `generate` naming a fixed slot
+(`slot_stable_rate` up to 0.958) and `read` at chance. The direction matched the result above,
+but the numbers are confounded: SmolLM2-360M has an 8192-token window and the rendered
+contexts run to 8966 tokens, so the longest trajectories were silently truncated — under
+right-side truncation, cutting the question off the end. `sleep/lm.py` now truncates
+left-side and `declare/run.py` refuses to run when the context overflows the window. The
+Qwen2.5 models have a 32768 window and are unaffected.
 
-If generated declarations turn out to work fine at 1.5B, this arm becomes a negative result
-and the combined paper leans on the compaction and context-gap signals instead.
+## Open
+
+- A single seed. A third scale (7B-4bit) would show whether `read` accuracy keeps climbing.
+- `read` at 27B+, to see whether it matches or beats the generated declaration [5] reports
+  there. We cannot run it.
+- The routing is 3x chance, not deployable unsupervised. A cheap verifier on the chosen
+  region would close that, at the cost of the method's simplicity.
