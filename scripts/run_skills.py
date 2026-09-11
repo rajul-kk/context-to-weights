@@ -16,6 +16,14 @@ def sh(cmd, dry):
     subprocess.run([sys.executable, "-u"] + [str(c) for c in cmd], cwd=ROOT, check=True)
 
 
+def eval_arm(config, out_dir, resume, label_args, lim, dry):
+    summary = Path(out_dir).with_suffix(".summary.json")
+    if resume and summary.exists() and not dry:
+        print(f"skip {out_dir} (already evaluated)")
+        return
+    sh(["eval/skill_eval.py", "--config", config, "--out", out_dir] + label_args + lim, dry)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="configs/skill_base.yaml")
@@ -24,6 +32,8 @@ def main():
     ap.add_argument("--granularity", default="span")
     ap.add_argument("--top-frac", type=float, default=0.25)
     ap.add_argument("--limit-tasks", type=int, default=0)
+    ap.add_argument("--no-resume", action="store_true",
+                    help="re-run every eval arm even if its summary already exists")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -58,21 +68,22 @@ def main():
             "--set", f"gate.granularity={args.granularity}", f"gate.top_frac={args.top_frac}"], dry)
 
     lim = ["--limit-tasks", args.limit_tasks] if args.limit_tasks else []
+    resume = not args.no_resume
     if "eval" in stages:
         label_of = {"kl_top": "ours", "uniform": "s2l-uniform", "random": "random-control"}
-        sh(["eval/skill_eval.py", "--config", args.config, "--doc-mode", "correct",
-            "--label", "prompt-full", "--out", report_dir / "prompt-full"] + lim, dry)
-        sh(["eval/skill_eval.py", "--config", args.config, "--doc-mode", "none",
-            "--label", "no-skill", "--out", report_dir / "no-skill"] + lim, dry)
-        sh(["eval/skill_eval.py", "--config", args.config, "--doc-mode", "mismatched",
-            "--label", "prompt-mismatched", "--out", report_dir / "prompt-mismatched"] + lim, dry)
+        eval_arm(args.config, report_dir / "prompt-full", resume,
+                ["--doc-mode", "correct", "--label", "prompt-full"], lim, dry)
+        eval_arm(args.config, report_dir / "no-skill", resume,
+                ["--doc-mode", "none", "--label", "no-skill"], lim, dry)
+        eval_arm(args.config, report_dir / "prompt-mismatched", resume,
+                ["--doc-mode", "mismatched", "--label", "prompt-mismatched"], lim, dry)
         for policy, run_dir in runs.items():
             label = label_of.get(policy, policy)
-            sh(["eval/skill_eval.py", "--config", args.config, "--run-dir", run_dir,
-                "--doc-mode", "none", "--label", label, "--out", report_dir / label] + lim, dry)
-        sh(["eval/skill_eval.py", "--config", args.config, "--run-dir", runs["kl_top"],
-            "--doc-mode", "mismatched", "--label", "ours-mismatched",
-            "--out", report_dir / "ours-mismatched"] + lim, dry)
+            eval_arm(args.config, report_dir / label, resume,
+                    ["--run-dir", run_dir, "--doc-mode", "none", "--label", label], lim, dry)
+        eval_arm(args.config, report_dir / "ours-mismatched", resume,
+                ["--run-dir", runs["kl_top"], "--doc-mode", "mismatched",
+                 "--label", "ours-mismatched"], lim, dry)
 
     if "report" in stages:
         out = "docs/results_skills.md" if args.granularity == "span" \
