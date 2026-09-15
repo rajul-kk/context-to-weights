@@ -147,24 +147,52 @@ def probe_attention(module, query, key, value, attention_mask=None, scaling=None
     mask = attention_mask
     if mask is not None:
         mask = mask[:, :, :, : k.shape[-2]]
+        if mask.dtype == torch.bool:
+            mask = mask | ~mask.any(dim=-1, keepdim=True)
     out = torch.nn.functional.scaled_dot_product_attention(
         query, k, v, attn_mask=mask, dropout_p=0.0,
         is_causal=mask is None and query.shape[-2] > 1)
     out = out.transpose(1, 2).contiguous()
 
     if query.shape[-2] > 1:
-        logits = (query[:, :, -1:, :] @ k.transpose(-1, -2)) * scaling
+        logits = (query[:, :, -1:, :].float() @ k.float().transpose(-1, -2)) * scaling
         if mask is not None:
-            logits = logits + mask[:, :, -1:, :]
-        LAST_ROW.append(logits.softmax(dim=-1).detach().float()[:, :, 0, :].cpu())
+            last = mask[:, :, -1:, :]
+            if last.dtype == torch.bool:
+                logits = logits.masked_fill(~last, float("-inf"))
+            else:
+                logits = logits + last.float()
+        LAST_ROW.append(logits.softmax(dim=-1).detach()[:, :, 0, :].cpu())
     return out, None
 
 
 def register_probe():
+    from transformers.masking_utils import AttentionMaskInterface, sdpa_mask
     from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
 
-    ALL_ATTENTION_FUNCTIONS["myrios_probe"] = probe_attention
+    type(ALL_ATTENTION_FUNCTIONS).register("myrios_probe", probe_attention)
+    AttentionMaskInterface.register("myrios_probe", sdpa_mask)
     return "myrios_probe"
+
+
+def check_probe_parity(model, tokenizer, tol=0.1):
+    enc = tokenizer(["The deploy key for the billing service rotates every ninety days.", "Hi"],
+                    return_tensors="pt", padding=True)
+    enc = {k: v.to(next(model.parameters()).device) for k, v in enc.items()}
+    cfg = model.config
+    probe = cfg._attn_implementation
+    with torch.no_grad():
+        LAST_ROW.clear()
+        got = model(**enc, use_cache=False).logits[:, -1].float().log_softmax(-1)
+        LAST_ROW.clear()
+        cfg._attn_implementation = "sdpa"
+        try:
+            ref = model(**enc, use_cache=False).logits[:, -1].float().log_softmax(-1)
+        finally:
+            cfg._attn_implementation = probe
+    diff = (got - ref).abs().max().item()
+    same_top = bool((got.argmax(-1) == ref.argmax(-1)).all())
+    return diff, same_top, diff <= tol and same_top
 
 
 class AttentionElicitor:

@@ -155,6 +155,17 @@ def main():
         print(f"attention probing on: loaded with the {impl} attention implementation, "
               "which keeps SDPA for the forward pass and captures only the final query row")
     model, tokenizer = load_backbone(cfg, attn_implementation=impl)
+    if probing:
+        from declare.elicit import check_probe_parity
+
+        diff, same_top, ok = check_probe_parity(model, tokenizer)
+        print(f"probe parity vs sdpa on a left-padded batch: max logprob diff {diff:.4f}, "
+              f"same top-1 {same_top}")
+        if not ok:
+            raise SystemExit(
+                "the probe attention implementation does not reproduce SDPA on a padded batch, "
+                "so every mode in this run - read included - would be measured on a corrupted "
+                "model. Fix the probe before running.")
 
     items = []
     for row in rows:

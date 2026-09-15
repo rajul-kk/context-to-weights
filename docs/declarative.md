@@ -127,7 +127,21 @@ judgement about its context beats its own implicit behaviour, and the cheap rout
 signal is to ask rather than instrument. If attention wins, `read` is redundant and the
 contribution shrinks to "cheaper than generating".
 
-Results pending.
+**First run discarded.** Loading the model with the custom implementation silently dropped the
+padding mask: transformers builds masks through a separate registry keyed by implementation
+name, and an unregistered name produced `attention_mask=None` even for left-padded batches.
+Unpadded prompts were unaffected (logit difference 0.0); padded rows were not (13.4). `read`
+batches left-padded region prompts, so it fell from 0.333 to 0.177 at 0.5B and from 0.372 to
+0.177 at 1.5B — caught only because `read` was re-run in the same session as a reproduction
+check. Separately, the last-row q·k product was computed in fp16 before scaling; Qwen2.5-1.5B's
+layer 0 reaches 152,967, past fp16's 65,504, which produced the NaN rows.
+
+Fixed by registering `sdpa_mask` for the probe's name, computing the last row in fp32, and
+adding a startup guard: `run.py` compares the probe against SDPA on a left-padded batch and
+refuses to run if log-probabilities diverge. The guard reports 0.0 after the fix and 14.4 with
+the mask registration removed.
+
+Results pending a re-run.
 
 ## Pilot runs, superseded
 
