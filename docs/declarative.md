@@ -101,47 +101,59 @@ Layouts are now materialised once and shared.
 ## Attention-probing ablation
 
 The literature describes asking-the-model and probing-attention as the two routes to the same
-answer — Declarative Attention [5] asks, Sentinel (arXiv:2505.23277) and the retrieval-head
-line probe — but on different models and different data. Nobody has run them head to head.
+answer - Declarative Attention [5] asks, Sentinel (arXiv:2505.23277) and the retrieval-head
+line probe - but on different models and different data. This runs them head to head: same
+layouts, same probes, same model.
 
-`attention` mode does that here: the model is run on the full context plus the question and
-the attention mass the final query position puts on each region is read off, argmax wins. Same
-layouts, same probes, same model as `read` and `generate`, so the three elicitations are
-directly comparable. `attention_late` restricts to the second half of the layers, where
-retrieval behaviour is usually reported.
+`attention` reads the attention mass the final query position puts on each region and takes
+the argmax. `attention_late` restricts that to the second half of the layers. The probe
+registers a custom attention implementation that keeps SDPA for the forward pass and
+materialises only the final query row, so cost is `O(heads x seq)` per layer rather than
+`O(heads x seq^2)`; `run.py` refuses to start unless it reproduces SDPA on a padded batch.
 
-```bash
-python declare/run.py --config configs/kaggle_declare.yaml --modes read attention attention_late
-```
+### Result
 
-The probe registers a custom attention implementation (`myrios_probe`) rather than using
-`output_attentions=True`. The forward pass still runs through SDPA; only the final query row
-is materialised, so cost is `O(heads x seq)` per layer instead of `O(heads x seq^2)`. Eager
-attention on a 9k context needs about 1.9 GB per layer transiently and does not fit
-comfortably on a T4 alongside the model; the probe needs about 430 KB. Scores were checked
-against a full eager run and match to all printed digits.
+384 probes, chance 0.125, best-constant control 0.148.
 
-**The question it answers.** `read` asks the model a semantic question about each region;
-`attention` reads where the model actually looks. If the self-query wins, a model's explicit
-judgement about its context beats its own implicit behaviour, and the cheap route to a routing
-signal is to ask rather than instrument. If attention wins, `read` is redundant and the
-contribution shrinks to "cheaper than generating".
+| model | mode | hit | sigma(const) | content dep | slot stable | unparsed |
+|---|---|---|---|---|---|---|
+| 0.5B | generate | 0.206 | +2.8 | 0.055 | 0.328 | 0.021 |
+| 0.5B | attention | 0.151 | +0.1 | 0.003 | 0.880 | 0.000 |
+| 0.5B | attention_late | 0.240 | +4.2 | 0.081 | 0.385 | 0.000 |
+| 0.5B | **read** | **0.333** | **+7.7** | **0.206** | 0.125 | 0.000 |
+| 1.5B | generate | 0.154 | +0.3 | 0.021 | 0.422 | 0.185 |
+| 1.5B | attention | 0.310 | +6.8 | 0.159 | 0.453 | 0.000 |
+| 1.5B | **attention_late** | **0.391** | **+9.7** | **0.266** | 0.216 | 0.000 |
+| 1.5B | read | 0.372 | +9.1 | 0.240 | 0.141 | 0.000 |
 
-**First run discarded.** Loading the model with the custom implementation silently dropped the
-padding mask: transformers builds masks through a separate registry keyed by implementation
-name, and an unregistered name produced `attention_mask=None` even for left-padded batches.
-Unpadded prompts were unaffected (logit difference 0.0); padded rows were not (13.4). `read`
-batches left-padded region prompts, so it fell from 0.333 to 0.177 at 0.5B and from 0.372 to
-0.177 at 1.5B — caught only because `read` was re-run in the same session as a reproduction
-check. Separately, the last-row q·k product was computed in fp16 before scaling; Qwen2.5-1.5B's
-layer 0 reaches 152,967, past fp16's 65,504, which produced the NaN rows.
+**The ordering reverses with scale.** At 0.5B the self-query is clearly ahead of the best
+attention variant: hit 0.333 vs 0.240 (+2.87 sigma), content dependence 0.206 vs 0.081
+(+5.02 sigma). At 1.5B late-layer attention is nominally ahead, 0.391 vs 0.372 (-0.54 sigma)
+and 0.266 vs 0.240 (-0.83 sigma), but neither margin is significant. The honest statement is
+that read wins at 0.5B and the two are level at 1.5B.
 
-Fixed by registering `sdpa_mask` for the probe's name, computing the last row in fp32, and
-adding a startup guard: `run.py` compares the probe against SDPA on a left-padded batch and
-refuses to run if log-probabilities diverge. The guard reports 0.0 after the fix and 14.4 with
-the mask registration removed.
+**Layer choice decides whether attention probing works at all.** Averaged over every layer it
+is useless at 0.5B - content dependence 0.003, naming the same slot on 88% of probes and the
+same region on 94%. Restricted to the late half it clears its control at both scales. Early
+layers, where a single Qwen2.5-1.5B layer-0 q-k product reaches 152,967, dominate the average
+and carry position rather than content.
 
-Results pending a re-run.
+**Scale separates asking from measuring.** Content dependence from 0.5B to 1.5B:
+
+| elicitation | 0.5B | 1.5B | change |
+|---|---|---|---|
+| generate | 0.055 | 0.021 | **-0.034** |
+| attention | 0.003 | 0.159 | +0.156 |
+| attention_late | 0.081 | 0.266 | **+0.185** |
+| read | 0.206 | 0.240 | +0.034 |
+
+Every measured signal improves with scale; the generated declaration is the only one that
+degrades. Attention probing improves about five times faster than the self-query, so the
+crossover at 1.5B is a trend rather than a tie, and extrapolating favours probing at larger
+models. That is a claim about two points and needs a third scale before it carries weight.
+
+Cost is comparable: `read` issues K region prompts in one batched forward, `attention` one
+pass over the whole context, and both cover roughly the same number of tokens.
 
 ## Pilot runs, superseded
 

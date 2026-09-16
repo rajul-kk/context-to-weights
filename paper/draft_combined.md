@@ -19,6 +19,9 @@ exactly random selection. Signals *measured from the model's behaviour* survive:
 than generated, and on a separate task it routes its own attention to the right region of an
 8k-token context at +9σ when the choice is read off the logits versus no better than naming a
 fixed slot when it is asked to state it — a gap that widens, not closes, from 0.5B to 1.5B.
+Two different measurements of that same model, querying its logits and instrumenting where it
+attends, both recover the signal and swap order between 0.5B and 1.5B, so "measure, do not
+ask" picks out a family of methods rather than a single one.
 We argue that "measure the model, do not ask it" is the governing constraint for
 free-supervision methods below the scales where instruction-following is reliable, and we
 supply the measurement discipline — a matched control beside every signal-strength figure —
@@ -121,8 +124,13 @@ labelled, plus a question whose answer lies in exactly one. Two elicitations:
 
 - **generate** — the model replies `FOCUS: <k>`, parsed like a tool call, as in [5].
 - **read** — for each region we ask whether it contains the answer and take
-  `log p(Yes) − log p(No)` off the logits, choosing the argmax. Costs `K` forward passes
-  instead of one generation.
+  `log p(Yes) − log p(No)` off the logits, choosing the argmax. Costs `K` batched region
+  prompts instead of one generation.
+- **attention** — no elicitation at all: we run the model on the whole context plus the
+  question and read the attention mass the final query position places on each region.
+  **attention_late** restricts this to the second half of the layers. This is the probing
+  route taken by Sentinel and the retrieval-head line, run here on the same model, same
+  layouts and same probes as the other two.
 
 **Controls.** Random choice is `1/K`. Modal share exposes a model that always names the same
 region. The decisive test is the **content shuffle**: permute which content sits in which
@@ -134,25 +142,44 @@ means content-driven, near 1 means position-driven.
 **Results.** HotpotQA trajectories with supporting paragraphs scattered across the whole
 context, `K = 8`, gold region permuted per probe, 384 probes.
 
-| | 0.5B generate | 0.5B read | 1.5B generate | 1.5B read |
-|---|---|---|---|---|
-| hit rate (chance 0.125) | 0.206 | 0.333 | 0.154 | 0.372 |
-| σ over best-constant (0.148) | +2.8 | +7.7 | +0.3 | +9.1 |
-| `content_dependence` | 0.055 | **0.206** | 0.021 | **0.240** |
-| `slot_stable_rate` | 0.328 | 0.125 | 0.422 | 0.141 |
-| unparsed rate | 0.02 | 0.00 | 0.19 | 0.00 |
-| mean attended fraction | 0.145 | 0.135 | 0.291 | 0.137 |
+| model | elicitation | hit (chance 0.125) | σ over constant | `content_dependence` | `slot_stable_rate` | unparsed |
+|---|---|---|---|---|---|---|
+| 0.5B | generate | 0.206 | +2.8 | 0.055 | 0.328 | 0.02 |
+| 0.5B | attention | 0.151 | +0.1 | 0.003 | 0.880 | 0.00 |
+| 0.5B | attention_late | 0.240 | +4.2 | 0.081 | 0.385 | 0.00 |
+| 0.5B | **read** | **0.333** | **+7.7** | **0.206** | 0.125 | 0.00 |
+| 1.5B | generate | 0.154 | +0.3 | 0.021 | 0.422 | 0.19 |
+| 1.5B | attention | 0.310 | +6.8 | 0.159 | 0.453 | 0.00 |
+| 1.5B | **attention_late** | **0.391** | **+9.7** | **0.266** | 0.216 | 0.00 |
+| 1.5B | read | 0.372 | +9.1 | 0.240 | 0.141 | 0.00 |
 
-`read` clears every control at both scales: `content_dependence` 0.21–0.24 and
-`slot_stable_rate` at `1/K`, so when a region's content moves to a new slot the choice
-follows it. `generate` does not track content at either scale. Its raw hit rate clears the
-constant control at 0.5B (+2.8σ), but the shuffle unmasks that as position: `content_dependence`
-is 0.055, a quarter of `read`'s. At 1.5B the generated declaration is indistinguishable from
+**The generated declaration fails at both scales and degrades with size.** Its raw hit rate
+clears the constant control at 0.5B (+2.8σ), but the shuffle unmasks that as position:
+`content_dependence` is 0.055, a quarter of `read`'s. At 1.5B it is indistinguishable from
 naming one fixed region (+0.3σ), the model refuses the `FOCUS:` format on 19% of probes, and
-`slot_stable_rate` rises to 0.42. **The larger model is worse at saying where to look, and
-identical on reading it.** `read` attends 13.6% of tokens — a larger cut than the paper's
-52.0% / 31.1% — but at a 0.33–0.37 hit rate, so the routing is real and roughly 3x chance,
-not yet accurate enough to deploy unsupervised. See `docs/declarative.md`.
+`slot_stable_rate` rises to 0.42.
+
+**Both measured routes work, and which one wins depends on scale.** At 0.5B the self-query is
+clearly ahead of the best attention variant — hit 0.333 vs 0.240 (+2.87σ), content dependence
+0.206 vs 0.081 (+5.02σ). At 1.5B late-layer attention is nominally ahead, 0.391 vs 0.372
+(−0.54σ) and 0.266 vs 0.240 (−0.83σ); neither margin is significant, so the honest reading is
+that `read` wins at 0.5B and the two are level at 1.5B. Cost is comparable: `read` issues `K`
+batched region prompts, `attention` one pass over the whole context, covering roughly the same
+number of tokens.
+
+**Layer choice decides whether probing works at all.** Averaged over every layer, attention is
+useless at 0.5B: content dependence 0.003, naming the same slot on 88% of probes. Restricted
+to the late half it clears its control at both scales. Early layers carry position rather than
+content and dominate the average — one Qwen2.5-1.5B layer-0 query·key product reaches 152,967
+against a late-layer typical peak near 300. A probing baseline reported without this ablation
+would understate itself by a factor of five on `content_dependence`.
+
+**Scale separates asking from measuring.** From 0.5B to 1.5B, content dependence moves
+`generate` 0.055 → 0.021 (**−0.034**), `read` 0.206 → 0.240 (+0.034), `attention` 0.003 → 0.159
+(+0.156) and `attention_late` 0.081 → 0.266 (**+0.185**). Every measured signal improves; the
+generated one is the only one that degrades. Probing improves roughly five times faster than
+the self-query, so the crossover at 1.5B is a trend rather than a tie — on two points, which
+needs a third scale before it carries weight. See `docs/declarative.md`.
 
 ## 6. Salience lift, and why a control is not optional
 
@@ -223,15 +250,25 @@ have run before the experiment rather than after it.
 | attention declaration | generated `FOCUS: k` | 1.5B | +0.021 content dep, at chance |
 | attention declaration | logit read | 0.5B | +0.206 content dep, +7.7σ |
 | attention declaration | logit read | 1.5B | +0.240 content dep, +9.1σ |
+| attention declaration | attention probe, late layers | 0.5B | +0.081 content dep, +4.2σ |
+| attention declaration | attention probe, late layers | 1.5B | +0.266 content dep, +9.7σ |
 
-Two observations.
+Three observations.
 
 **Elicitation dominates scale.** Tripling parameters leaves a generated index list at chance;
 switching the same model to a logit read takes it from 0.53x to 2.56x. The attention
 declaration repeats this exactly: the generated `FOCUS:` at 1.5B carries no content signal
-(`content_dependence` 0.021), the same model's logit read carries a strong one (0.240, +9.1σ).
-The failure is not that small models lack the judgment — it is that they cannot express it in
-a structured format on demand, and asking harder as they scale makes it worse.
+(`content_dependence` 0.021), while the same model's logit read carries a strong one (0.240,
++9.1σ) and its late-layer attention a stronger one still (0.266, +9.7σ). The failure is not
+that small models lack the judgment — it is that they cannot express it in a structured format
+on demand, and asking harder as they scale makes it worse.
+
+**Measured is one claim; *which* measurement is another.** The two measured routes — asking
+the model a semantic question and reading its logits, or instrumenting where it actually
+attends — are not interchangeable, and they swap order between 0.5B and 1.5B (§5). The
+self-query is the safer default at small scale, probing scales better, and an all-layer
+attention average is near-useless at 0.5B while a late-layer one is not. "Measure the model"
+is therefore the start of a design decision, not the end of one.
 
 **Scale is not monotonic.** SmolLM2-360M clears the control at 2.17x while Qwen2.5-0.5B fails
 at 0.42x on identical compaction data with identical code. And on the attention declaration

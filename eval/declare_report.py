@@ -95,28 +95,56 @@ def main():
     body = ["# Declarative attention: asking versus measuring", ""]
     body += [table(rows), ""]
 
-    def mean_of(mode, key):
-        vals = [s.get(key, 0.0) for s in rows if s["label"] == mode]
-        return sum(vals) / len(vals) if vals else float("nan")
+    def se(p, n):
+        return (p * (1 - p) / n) ** 0.5 if n else float("nan")
 
-    modes = sorted({s["label"] for s in rows})
     body += ["## Reading", ""]
-    line = ", ".join(f"{m} {mean_of(m, 'content_dependence'):.3f}" for m in modes)
-    body += [f"Mean `content_dependence` by elicitation: {line}.", ""]
+    body += ["`read` against the best attention variant, per model. Comparing pooled means "
+             "across models hides a reversal, and comparing against all-layer `attention` "
+             "alone understates probing, so neither is reported.", ""]
 
-    rd, ad = mean_of("read", "content_dependence"), mean_of("attention", "content_dependence")
-    if rd == rd and ad == ad:
-        if rd > ad:
-            verdict = (f"The semantic self-query beats attention probing ({rd:.3f} vs {ad:.3f}). "
-                       f"Asking the model which region holds the answer recovers more content "
-                       f"signal than reading where it actually attends.")
-        elif ad > rd:
-            verdict = (f"Attention probing beats the semantic self-query ({ad:.3f} vs {rd:.3f}). "
-                       f"Where the model attends is a better guide than what it says about the "
-                       f"region, so the read elicitation is not the cheapest route to the signal.")
-        else:
-            verdict = f"Self-query and attention probing are level ({rd:.3f} vs {ad:.3f})."
-        body += [verdict, ""]
+    margins = []
+    for model in sorted({s["model"] for s in rows}, key=short):
+        got = {s["label"]: s for s in rows if s["model"] == model}
+        r = got.get("read")
+        atts = [s for lbl, s in got.items() if lbl.startswith("attention")]
+        if not r or not atts:
+            continue
+        best = max(atts, key=lambda s: s.get("content_dependence", 0.0))
+        n = r.get("n", 0)
+        for key, label in (("hit_rate", "hit rate"), ("content_dependence", "content dependence")):
+            d = r.get(key, 0.0) - best.get(key, 0.0)
+            s = (se(r.get(key, 0.0), n) ** 2 + se(best.get(key, 0.0), n) ** 2) ** 0.5
+            sig = d / s if s else float("nan")
+            if key == "content_dependence":
+                margins.append(sig)
+            body.append(f"- **{short(model)}**, {label}: read {r.get(key, 0.0):.3f} vs "
+                        f"{best['label']} {best.get(key, 0.0):.3f}, {d:+.3f} ({sig:+.2f} sigma)")
+    body += [""]
+
+    if margins and min(margins) < 0 < max(margins):
+        body += ["**The ordering reverses with scale.** The self-query wins at the smaller model "
+                 "and loses at the larger one, so neither elicitation dominates. Report the "
+                 "crossover rather than a single winner, and note whether the larger margin is "
+                 "significant before claiming either direction.", ""]
+    elif margins and min(margins) >= 2.0:
+        body += ["The semantic self-query beats attention probing at every model tested.", ""]
+    elif margins and max(margins) <= -2.0:
+        body += ["Attention probing beats the semantic self-query at every model tested.", ""]
+    elif margins:
+        body += ["The two elicitations are within noise of each other; no winner is established "
+                 "by these runs.", ""]
+
+    trend = {}
+    for s in rows:
+        trend.setdefault(s["label"], []).append((short(s["model"]), s.get("content_dependence", 0.0)))
+    body += ["Content dependence by scale:", ""]
+    for label in sorted(trend):
+        pts = sorted(trend[label])
+        arrow = " -> ".join(f"{v:.3f}" for _, v in pts)
+        delta = pts[-1][1] - pts[0][1] if len(pts) > 1 else float("nan")
+        body.append(f"- `{label}`: {arrow} ({delta:+.3f})")
+    body += [""]
 
     body += ["![declare](figures/declare.png)", "",
              "*Left: hit rate by model and elicitation, dashed line at chance. Right: content "
