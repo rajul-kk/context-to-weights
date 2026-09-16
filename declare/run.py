@@ -1,4 +1,5 @@
 import argparse
+import json
 import random
 import sys
 from collections import Counter
@@ -137,6 +138,9 @@ def main():
     ap.add_argument("--no-shuffle-test", action="store_true")
     ap.add_argument("--no-balance", action="store_true")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--expect-gold", default=None,
+                    help="JSON map of region to gold count; refuses to run if the layouts "
+                         "differ from the run this one must be comparable with")
     ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
 
@@ -181,6 +185,16 @@ def main():
                            balance=not args.no_balance)
     gold_seen = Counter(l["gold"] for l in layouts)
     print(f"layouts fixed across modes, gold by region {dict(sorted(gold_seen.items()))}")
+
+    if args.expect_gold:
+        want = {str(k): int(v) for k, v in json.loads(args.expect_gold).items()}
+        got = {str(k): int(v) for k, v in sorted(gold_seen.items())}
+        if got != want:
+            raise SystemExit(
+                f"gold distribution {got} does not match the expected {want}, so these layouts "
+                f"are not the ones the other modes were measured on and the comparison would be "
+                f"invalid. Check n_eval, the data directory and the seed.")
+        print("gold distribution matches the reference run; layouts are comparable")
 
     window = model.config.max_position_embeddings
     probe_len = max(len(tokenizer(render(l["regions"], tokenizer)[0],
