@@ -110,6 +110,7 @@ def main():
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--n-forms", type=int, default=20)
     ap.add_argument("--steps", type=int, default=0)
+    ap.add_argument("--epochs", type=float, default=3.0)
     ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
 
@@ -128,6 +129,19 @@ def main():
     print(f"{len(examples)} augmented examples over {facts} facts "
           f"({len(examples) / facts:.1f} forms each)")
     print(f"dropped {dropped} forms that matched a held-out eval question verbatim")
+
+    batch = cfg["sleep"]["batch_size"]
+    per_epoch = max(1, -(-len(examples) // batch))
+    if not args.steps:
+        cfg["sleep"]["steps"] = int(per_epoch * args.epochs)
+    steps = cfg["sleep"]["steps"]
+    seen = steps * batch
+    print(f"batch {batch}, one epoch is {per_epoch} steps, running {steps} "
+          f"({seen / len(examples):.2f} epochs)")
+    if seen < len(examples):
+        print(f"WARNING: {steps} steps at batch {batch} sees {seen} of {len(examples)} "
+              f"examples, less than one epoch. Augmentation cannot help a fact the "
+              f"optimiser never reaches; raise --epochs or --steps.")
 
     peft_model = attach_lora(model, cfg)
     result = train_sleep_phase(peft_model, tokenizer, cfg, examples)

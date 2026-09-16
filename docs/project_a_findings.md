@@ -136,6 +136,36 @@ run:
 is not enough to recover.** The signal is real and useful — just not for the thing this project
 originally proposed to do with it.
 
+## The oracle control is inconclusive: it was undertrained
+
+The positive control gets perfect selection (ground-truth facts, no compactor) plus 20
+templated surface forms per fact, with the eval phrasing held out. Trained closed-book.
+
+| arm | all-probe | retained | evicted |
+|---|---|---|---|
+| cascading, no adapter | 0.413 | 0.684 | 0.000 |
+| uniform replay | 0.465 | 0.690 | **0.123** |
+| ours | 0.451 | 0.747 | 0.000 |
+| **oracle** | **0.587** | **0.948** | **0.035** |
+| oracle, closed book | 0.031 | — | 0.031 |
+
+**Do not read the evicted column as a ceiling.** `sleep/oracle.py` inherited the sleep-phase
+default of 80 steps, which at batch 4 is **320 of 5,760 examples — 5.6% of a single epoch**,
+in 14.4 seconds. The consolidation arms it is meant to bound each ran 25 phases of 80 steps,
+2,000 in total. Augmentation cannot help a fact the optimiser never reaches, and the closed-book
+score of 0.031 says exactly that: the adapter trained on `question -> answer` pairs still cannot
+answer one closed-book, because it saw 94% of them zero times.
+
+What the run does show is worth keeping. Even on 5.6% of an epoch the oracle adapter reaches
+**0.948 on retained probes** against a 0.684 baseline, the best all-probe score of any adapter
+(0.587 against full context's 0.712), and the lowest mean probe CE in the table. Augmented
+`question -> answer` training sharply improves *reading the context*, long before it injects
+any knowledge.
+
+Fixed: the step budget now scales with the dataset (3 epochs by default, 1,440 steps per epoch
+here) and the script warns when the budget covers less than one epoch. A re-run costs about 13
+minutes. Until then the headroom between uniform's 0.123 and the 0.712 ceiling is unmeasured.
+
 ## The scoring eval is still confounded
 
 | method | MC acc (all) | MC acc (evicted) | σ vs chance |
@@ -163,6 +193,8 @@ pool.
 
 - **Uniform coverage beats importance gating**, replicated on two independent signals with a
   live positive control in each. This is the headline.
+- **The oracle control is pending a re-run** at a real training budget; the first attempt saw
+  5.6% of one epoch and cannot bound anything.
 - **The same free mask supports abstention where it fails at recall**: 0.000 recovered versus a
   72.8% cut in hallucination, both measured on one run. A negative and a positive from one
   signal, which is a more complete claim than either alone.

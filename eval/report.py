@@ -53,8 +53,12 @@ def _sorted(rows):
 
 def collect(report_dir):
     rows = [read_json(p) for p in sorted(Path(report_dir).glob("*.summary.json"))
-            if not p.name.startswith("score_")]
+            if not p.name.startswith(("score_", "abstain_"))]
     return _sorted(rows)
+
+
+def collect_abstain(report_dir):
+    return [read_json(p) for p in sorted(Path(report_dir).glob("abstain_*.summary.json"))]
 
 
 def collect_scores(report_dir):
@@ -284,6 +288,30 @@ def main():
                 f"ours vs uniform on evicted probes: {ours.get('evicted_accuracy', 0.0):.3f} "
                 f"vs {uni.get('evicted_accuracy', 0.0):.3f}, difference {d:+.3f} "
                 f"(combined SE {se:.3f}) - **{verdict}**.", ""]
+
+    abst = collect_abstain(args.report_dir)
+    if abst:
+        body += ["## Abstention arm", "",
+                 "The same compaction mask, asked to refuse when the fact was evicted rather "
+                 "than to recall it.", "",
+                 "| arm | refuses when evicted | refuses when retained | accuracy retained | "
+                 "hallucinates when evicted |", "|---|---|---|---|---|"]
+        for r in sorted(abst, key=lambda r: r["label"]):
+            body.append(
+                f"| {r['label']} | {r['abstain_rate_evicted']:.3f} | "
+                f"{r['abstain_rate_retained']:.3f} | {r['accuracy_retained']:.3f} | "
+                f"{r['hallucination_rate_evicted']:.3f} |")
+        body += [""]
+        base = next((r for r in abst if r["label"] == "no-adapter"), None)
+        best = max(abst, key=lambda r: r.get("abstention_margin", 0.0))
+        if base is not None and best is not base:
+            cut = base["hallucination_rate_evicted"] - best["hallucination_rate_evicted"]
+            rel = 100 * cut / base["hallucination_rate_evicted"] if base["hallucination_rate_evicted"] else 0.0
+            body += [f"`{best['label']}` cuts hallucination on evicted probes by {rel:.1f}% "
+                     f"({base['hallucination_rate_evicted']:.3f} to "
+                     f"{best['hallucination_rate_evicted']:.3f}) while refusing "
+                     f"{best['abstain_rate_retained']:.3f} of still-answerable probes and "
+                     f"holding retained accuracy at {best['accuracy_retained']:.3f}.", ""]
 
     scores = collect_scores(args.report_dir)
     if scores:
