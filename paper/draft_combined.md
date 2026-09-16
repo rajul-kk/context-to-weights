@@ -105,8 +105,38 @@ gradient norm, and applied offline rather than at test time.
 
 ## 3. Signal one: the compaction decision
 
-[Method as in Project A: segment the evictable prefix, keep `ceil(ρ·n)` spans, log
-`(span_text, kept)`, sleep-phase LoRA SFT with reservoir replay. See `paper/draft.md`.]
+Segment the evictable prefix, keep `ceil(ρ·n)` spans, log `(span_text, kept)`, and run
+sleep-phase LoRA SFT on the kept spans with reservoir replay. The label is free: the compactor
+had to make that decision anyway.
+
+**The signal is strong.** On 48 synthetic trajectories with 97 compaction events, fact spans
+are kept at 0.663 against a filler rate of 0.236 — a 2.81x lift, **+15.85σ** over chance and
+**+8.40σ** over a positional control, with zero heuristic fallbacks or empty keeps.
+
+**Consolidating on it is worse than not selecting at all.** Backbone Qwen2.5-0.5B, 25 sleep
+phases, 288 probes of which 114 evicted:
+
+| method | all-probe | evicted |
+|---|---|---|
+| (c) cascading, no adapter | 0.413 | 0.000 |
+| **ours: compaction-supervised** | 0.451 | **0.000** |
+| **(a) uniform replay** | 0.465 | **0.123** |
+| (b) reflection | 0.389 | 0.000 |
+| (d) full context (ceiling) | 0.712 | — |
+
+Uniform recovers 14 of 114 evicted facts, **+4.0σ** above zero; the compaction-gated arm
+recovers none, a **3.1σ** gap in favour of not using the signal. Both adapters memorise their
+targets equally well (validation CE 0.0005 and 0.0003), so the difference is coverage, not
+optimisation: the compactor keeps `db_engine`, `owner` and `version_pin` on 100% of events but
+`auth_header` on 0% and `config_flag` on 3.4%, while uniform samples the same budget across
+everything. These numbers reproduced exactly across two independent sessions.
+
+**The same mask succeeds at the opposite task.** Following arXiv:2608.29934, a LoRA trained on
+the same free label to *refuse* when the evidence was evicted reaches 0.728 abstention on
+evicted probes against 0.000 for the base model (+17.5σ), cutting hallucination by **72.8%**,
+while refusing only 10.9% of probes whose answer is still present and raising retained accuracy
+from 0.684 to 0.770. The compaction mask tells a model what was lost; that is enough to abstain
+and not enough to recover.
 
 ## 4. Signal two: the context gap
 

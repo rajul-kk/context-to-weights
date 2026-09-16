@@ -100,6 +100,42 @@ This is the same result as Project B, on an independent signal: see
 still loses to uniform distillation (0.510 vs 0.708). **Two mechanisms, two verified signals,
 the same conclusion — uniform coverage beats importance gating at this scale.**
 
+## The same mask works for abstention
+
+Compaction-Aware Abstention (arXiv:2608.29934) trains a LoRA on compressor survival masks so a
+7B model *refuses* when the evidence was evicted, reporting a 97% cut in hallucination. It
+explicitly does not try to recover the evicted content. That is the same free label this
+project feeds to consolidation, pointed the other way, so both directions can be run on one
+dataset at one scale.
+
+Trained on the train split, evaluated on eval. n = 288, of which 114 evicted and 174 retained.
+
+| | no adapter | abstain LoRA |
+|---|---|---|
+| refuses when the fact was evicted | 0.000 | **0.728** (+17.5σ) |
+| refuses when the fact is still there | 0.000 | 0.109 |
+| accuracy on retained facts | 0.684 | **0.770** (+1.81σ) |
+| hallucinates on evicted facts | 1.000 | **0.272** |
+| abstention margin | 0.000 | **0.619** |
+
+**Hallucination on evicted probes falls by 72.8%**, and the bidirectional check passes: this is
+not a refuse-everything model. It declines only 10.9% of probes whose answer is still in
+context, and its accuracy on those *rises* from 0.684 to 0.770, though that margin is 1.81σ and
+not individually significant.
+
+This reproduces the direction of arXiv:2608.29934 at 0.5B rather than 7B, with 72.8% instead of
+their 97%. More useful here is the contrast with everything above it, on one signal and one
+run:
+
+| what the mask is asked to do | result |
+|---|---|
+| recover the evicted fact (consolidation) | **0.000** |
+| notice the fact is missing (abstention) | **0.728**, hallucination down 72.8% |
+
+**The compaction mask tells you what was lost. Knowing what was lost is enough to abstain; it
+is not enough to recover.** The signal is real and useful — just not for the thing this project
+originally proposed to do with it.
+
 ## The scoring eval is still confounded
 
 | method | MC acc (all) | MC acc (evicted) | σ vs chance |
@@ -127,6 +163,9 @@ pool.
 
 - **Uniform coverage beats importance gating**, replicated on two independent signals with a
   live positive control in each. This is the headline.
+- **The same free mask supports abstention where it fails at recall**: 0.000 recovered versus a
+  72.8% cut in hallucination, both measured on one run. A negative and a positive from one
+  signal, which is a more complete claim than either alone.
 - **The compaction decision is a strong salience signal** (+15.85σ over chance, +8.40σ over a
   positional control) that is nonetheless the wrong thing to train on.
 - **The elicitation finding**: the decision must be read off the logits, never generated.
