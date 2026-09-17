@@ -46,9 +46,11 @@ version is too old. Preflight reports it either way.
 | `notebooks/b1_skills.ipynb` | KL gate, distillation, report | ~3 h (sweep is a second session) |
 | `notebooks/c1_declare.ipynb` | Declaration reliability vs scale, generate vs read | 20 min quick / ~2 h full |
 
-`a1_main.ipynb` has a `DATASET` switch in its first cell: `hotpotqa` (primary — natural
-prose, no marker, positional control at chance) or `synthetic` (for the compaction-ratio
-sweep and debugging).
+`a1_main.ipynb` has a `DATASET` switch in its first cell: `synthetic` (what every corrected
+result was measured on) or `hotpotqa` (natural prose, no marker, positional control at
+chance). HotpotQA is the more representative set but has not been run since the
+question-scoping fix, and the MC-scoring arm does not work on it — see
+[benchmarks.md](benchmarks.md).
 
 `a0_precondition.ipynb` has a `QUICK` switch in its boot cell. `QUICK = True` is one model,
 one backend, 4 eval trajectories, about fifteen minutes — enough to confirm the chain works.

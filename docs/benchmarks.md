@@ -52,7 +52,7 @@ Report both, and read the unmarked set as a **floor** rather than a neutral test
 filler there are generated from the same template bank in the same register, so they are
 close to stylistically indistinguishable once the marker is gone — harsher than any real
 conversation. HotpotQA, where the compactor reaches 1.61x against a 0.98x control, is the
-more representative number.
+more representative number — but see the staleness warning below before citing it.
 
 ## HotpotQA
 
@@ -121,9 +121,26 @@ beat the random-span control.
 
 ## What to run first
 
-**HotpotQA is now the primary set for the headline claim**, because it is the only one where
-the compaction signal survives with the positional control at chance and no marker or shared
-vocabulary to exploit (1.61x against 0.98x).
+**Every HotpotQA number on this page predates the question-scoping fix and none of them back
+the current headline claim.** They were measured before `f963853`, which rewrote the synthetic
+probe questions after an audit found 58 distinct question strings serving 288 probes. The
+HotpotQA path builds its questions differently — it uses the real multi-hop question text, so
+the specific defect probably does not apply — but nobody has audited it for duplicate
+questions across trajectories, and the arm has not been re-run since. Its last recorded n was
+60 probes at +2.79σ, which is underpowered.
+
+The corrected results live in [project_a_findings.md](project_a_findings.md) and are
+**synthetic only**. Treat HotpotQA as a built, previously-measured arm awaiting a re-run, not
+as a current result.
+
+Note also that `eval/scoring_retention.py` cannot run on HotpotQA at all: it draws distractors
+from `FACT_TEMPLATES`, so a HotpotQA `fact_key` yields an empty candidate list and every probe
+scores `None`. A re-run covers generation-based retention only unless a HotpotQA distractor
+pool is written and audited first.
+
+Historically HotpotQA was the strongest set, because it is the only one where the compaction
+signal survives with the positional control at chance and no marker or shared vocabulary to
+exploit (1.61x against 0.98x).
 
 The synthetic sets are the mechanism-isolation tools around it: the marked variant for
 debugging and for the compaction-ratio sweep, the unmarked variant as the floor case showing

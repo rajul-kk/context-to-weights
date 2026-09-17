@@ -141,6 +141,9 @@ def main():
     ap.add_argument("--expect-gold", default=None,
                     help="JSON map of region to gold count; refuses to run if the layouts "
                          "differ from the run this one must be comparable with")
+    ap.add_argument("--gold-ref", default=None,
+                    help="path holding the gold distribution for this seed; written on the "
+                         "first run and checked against on every later one")
     ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
 
@@ -196,6 +199,21 @@ def main():
                 f"invalid. Check n_eval, the data directory and the seed.")
         print("gold distribution matches the reference run; layouts are comparable")
 
+    if args.gold_ref:
+        ref = Path(args.gold_ref)
+        got = {str(k): int(v) for k, v in sorted(gold_seen.items())}
+        if ref.exists():
+            want = read_json(ref)
+            if got != want:
+                raise SystemExit(
+                    f"gold distribution {got} does not match {ref} ({want}), so these layouts "
+                    f"are not the ones the other runs at this seed were measured on and the "
+                    f"comparison would be invalid. Check n_eval, the data directory and the seed.")
+            print(f"gold distribution matches {ref}; layouts are comparable")
+        else:
+            write_json(ref, got)
+            print(f"first run at this seed; wrote the gold distribution -> {ref}")
+
     window = model.config.max_position_embeddings
     probe_len = max(len(tokenizer(render(l["regions"], tokenizer)[0],
                                   add_special_tokens=False)["input_ids"]) for l in layouts)
@@ -214,6 +232,7 @@ def main():
         records = evaluate(elicitor, layouts)
         s = summarize(records, mode, n_regions)
         s["model"] = cfg["model"]["base"]
+        s["seed"] = cfg["seed"]
         s["elicitor_unparsed"] = elicitor.unparsed
         summaries.append(s)
         write_jsonl(out_dir / f"{mode}.records.jsonl", records)
