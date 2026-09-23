@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common.io import read_jsonl, write_json
+from common.stats import verdict_for
 
 
 def required_token_idx(row):
@@ -86,16 +87,6 @@ def control_coverage(rows, granularity, top_frac, trials=20, seed=0):
     }
 
 
-def verdict_for(sigma):
-    if sigma != sigma:
-        return "no required tokens"
-    if sigma >= 2.0:
-        return "clears control"
-    if sigma <= -2.0:
-        return "below control"
-    return "indistinguishable"
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--scores", required=True)
@@ -136,7 +127,7 @@ def main():
         "control_active_frac": ctrl["active_frac"],
         "coverage_lift": gate["coverage"] / ctrl["coverage"] if ctrl["coverage"] else float("nan"),
         "coverage_sigma_over_control": sigma,
-        "verdict": verdict_for(sigma),
+        "verdict": verdict_for(sigma, nan="no required tokens"),
     }
     for k, v in report.items():
         print(f"{k:<28} {v}")

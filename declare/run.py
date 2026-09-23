@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from common.io import (ensure_dir, load_config, parse_overrides, read_json, read_jsonl, set_seed,
                        write_json, write_jsonl)
 from common.schema import Trajectory
+from common.stats import verdict_for
 from declare.elicit import build_elicitor
 from declare.regions import build_regions, gold_region, permute, region_tokens, render
 from sleep.lm import load_backbone
@@ -81,16 +82,6 @@ def _sigma(rate, baseline, n):
     if not se:
         se = (baseline * (1 - baseline) / n) ** 0.5 if n else 0.0
     return (rate - baseline) / se if se else float("nan")
-
-
-def verdict_for(sigma):
-    if sigma != sigma:
-        return "undetermined"
-    if sigma >= 2.0:
-        return "clears control"
-    if sigma <= -2.0:
-        return "below control"
-    return "indistinguishable"
 
 
 def summarize(records, label, n_regions):

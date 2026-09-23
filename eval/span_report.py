@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common.io import read_jsonl, write_json
+from common.stats import verdict_for
 
 
 def summarize(events):
@@ -71,16 +72,6 @@ def control_margin_sigma(report, pos):
         return float("nan")
     implied = pos["salience_lift"] * report["filler_keep_rate"]
     return (report["fact_keep_rate"] - implied) / sd
-
-
-def verdict_for(sigma):
-    if sigma != sigma:
-        return "unknown"
-    if sigma >= 2.0:
-        return "clears control"
-    if sigma <= -2.0:
-        return "below control"
-    return "indistinguishable from control"
 
 
 def _lift(fact_rate, filler_rate):
@@ -153,7 +144,7 @@ def main():
     chance = chance_margin_sigma(report)
     report["control_margin_sigma"] = sigma
     report["chance_margin_sigma"] = chance
-    report["verdict"] = verdict_for(min(sigma, chance))
+    report["verdict"] = verdict_for(min(sigma, chance), nan="unknown", tie="indistinguishable from control")
     print(f"\npositional control (keep the first N spans):")
     print(f"  fact {pos['fact_keep_rate']:.3f}  filler {pos['filler_keep_rate']:.3f}  "
           f"lift {pos['salience_lift']:.2f}x")
