@@ -39,9 +39,20 @@ def main():
     report_dir = root / "report"
 
     if "data" in stages:
-        sh(["data/generate_synthetic.py", "--out", cfg["data"]["dir"],
-            "--n-train", args.n_train, "--n-eval", args.n_eval,
-            "--n-turns", args.n_turns, "--seed", cfg["seed"]], dry)
+        source = cfg["data"].get("source", "synthetic")
+        if source == "hotpotqa":
+            sh(["data/load_hotpotqa.py", "--out", cfg["data"]["dir"],
+                "--n-train", args.n_train, "--n-eval", args.n_eval, "--seed", cfg["seed"]], dry)
+        elif source == "synthetic":
+            cmd = ["data/generate_synthetic.py", "--out", cfg["data"]["dir"],
+                   "--n-train", args.n_train, "--n-eval", args.n_eval,
+                   "--n-turns", args.n_turns, "--seed", cfg["seed"]]
+            if cfg["data"].get("unmarked"):
+                cmd.append("--unmarked")
+            sh(cmd, dry)
+        else:
+            raise SystemExit(f"data.source {source!r} has no loader in run_all.py; build the "
+                             f"data by hand and drop the data stage")
 
     if "compact" in stages:
         sh(["baselines/cascading.py", "--config", args.config, "--split", "both"], dry)

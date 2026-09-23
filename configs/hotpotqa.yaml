@@ -1,6 +1,7 @@
 _base_: base.yaml
 
 data:
+  source: hotpotqa
   dir: artifacts/data/hotpotqa
 
 compaction:

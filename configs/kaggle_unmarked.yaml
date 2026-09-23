@@ -4,3 +4,4 @@ run_root: /kaggle/working/artifacts/runs_unmarked
 
 data:
   dir: artifacts/data/synthetic_hard
+  unmarked: true

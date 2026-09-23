@@ -2,6 +2,7 @@ run_root: artifacts/runs
 seed: 0
 
 data:
+  source: synthetic
   dir: artifacts/data/synthetic
   train: train.jsonl
   eval: eval.jsonl

@@ -3,6 +3,7 @@ _base_: base.yaml
 run_root: artifacts/runs_declare
 
 data:
+  source: hotpotqa
   dir: artifacts/data/hotpotqa
 
 model:
