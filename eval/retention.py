@@ -9,6 +9,7 @@ from common.prompts import QA_SYSTEM, build_prompt
 from eval.metrics import aggregate, answer_match
 from sleep.lm import batch_generate, chat_text, load_backbone, token_ce
 
+
 def evaluate(model, tokenizer, contexts, cfg, adapter_label="none", compute_ce=True):
     pairs = []
     index = []
