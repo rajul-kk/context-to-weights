@@ -28,7 +28,8 @@ Two backends:
 - `scoring` — the frozen backbone, with a per-span keep probability read off the logits.
   The only configuration that clears the positional control. Used for all reported results.
 - `model` — the frozen backbone asked to generate a ranked index list. Fails at every scale
-  tested; kept only to reproduce that failure.
+  tested: Qwen2.5-0.5B and 1.5B answer `0, 1, 2, ...` on every event regardless of content.
+  Kept only to reproduce that failure.
 - `heuristic` — a cue/identifier/number scorer. CPU-only debugging. Eight of its fourteen
   cue phrases appear verbatim in `data/banks.py`, so its lift measures that overlap rather
   than any judgment. Never report its numbers.

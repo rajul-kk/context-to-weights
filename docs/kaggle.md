@@ -45,6 +45,7 @@ version is too old. Preflight reports it either way.
 | `notebooks/a1_main.ipynb` | Compaction, all sleep runs, all eval arms, figures | ~4 h |
 | `notebooks/b1_skills.ipynb` | KL gate, distillation, report | ~3 h (sweep is a second session) |
 | `notebooks/c1_declare.ipynb` | Declaration reliability vs scale, generate vs read | 20 min quick / ~2 h full |
+| `notebooks/c2_attention.ipynb` | Attention-probing arm alone, seeded (`SEEDS`), one seed per session | ~65 min per seed |
 
 `a1_main.ipynb` has a `DATASET` switch in its first cell: `synthetic` (what every corrected
 result was measured on) or `hotpotqa` (natural prose, no marker, positional control at
