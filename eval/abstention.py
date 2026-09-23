@@ -6,8 +6,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common.io import load_config, parse_overrides, read_jsonl, set_seed, write_json, write_jsonl
+from common.prompts import QA_SYSTEM, build_prompt
 from eval.metrics import answer_match
-from eval.retention import QA_SYSTEM, build_prompt
 from sleep.abstain import survives
 from sleep.lm import batch_generate, load_backbone
 

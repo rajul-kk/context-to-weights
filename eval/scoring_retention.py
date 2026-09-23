@@ -6,8 +6,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common.io import load_config, parse_overrides, read_jsonl, set_seed, write_json, write_jsonl
+from common.prompts import QA_SYSTEM, build_prompt
 from data.banks import FACT_TEMPLATES
-from eval.retention import QA_SYSTEM, build_prompt
 from sleep.lm import chat_text, load_backbone, target_ce_batch
 
 VALUE_SETS = {t["key"]: list(t["values"]) for t in FACT_TEMPLATES}

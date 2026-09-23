@@ -7,8 +7,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common.io import (ensure_dir, load_config, parse_overrides, read_jsonl, set_seed,
                        write_json, write_jsonl)
+from common.prompts import QA_SYSTEM, build_prompt
 from common.schema import Trajectory
-from eval.retention import QA_SYSTEM, build_prompt
 from sleep.examples import SleepExample
 from sleep.lm import chat_text, load_backbone
 from sleep.trainer import attach_lora, train_sleep_phase

@@ -5,21 +5,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common.io import load_config, parse_overrides, read_jsonl, set_seed, write_json, write_jsonl
+from common.prompts import QA_SYSTEM, build_prompt
 from eval.metrics import aggregate, answer_match
 from sleep.lm import batch_generate, chat_text, load_backbone, token_ce
-
-QA_SYSTEM = (
-    "You answer questions about an earlier engineering conversation. "
-    "Reply with the answer only, no explanation."
-)
-
-
-def build_prompt(context, question):
-    body = "\n".join(context).strip()
-    if body:
-        return f"Retained notes from the conversation:\n{body}\n\nQuestion: {question}"
-    return f"Question: {question}"
-
 
 def evaluate(model, tokenizer, contexts, cfg, adapter_label="none", compute_ce=True):
     pairs = []
