@@ -139,9 +139,38 @@ and not enough to recover.
 
 ## 4. Signal two: the context gap
 
-[Method as in Project B: per-token KL between teacher (document present) and student
-reference (document absent), used as both the gate and the loss, with a random-span control
-matched on active-token budget. See `paper/draft_b.md`.]
+**Scoring.** For a skill document `d`, demonstration query `q` and response `r`, form
+`T = chat(system, d ++ q)` and `S = chat(system, q)`, run the frozen backbone on `T ++ r` and
+`S ++ r`, and score each response token by
+
+```
+kl_i = KL( p_teacher(· | T, r_<i) || p_student(· | S, r_<i) )
+```
+
+Tokens are grouped into sentence and code-line spans via the tokenizer's offset mapping; a
+span scores the mean of its tokens.
+
+**Gating and loss.** Keep the top ρ fraction of spans (weight 1) and give the rest a floor
+weight (0 by default); token-level gating is an ablation. The teacher is the same model with
+its LoRA adapter disabled and the document in context, the student the adapter-enabled model
+without it, and the loss is the weighted KL `sum_i w_i KL_i / sum_i w_i`. One model in memory,
+two forward passes per step. One adapter per skill category, so cross-skill interference is
+measurable.
+
+**Setup.** Eight invented tool-use APIs in three categories, each a `SKILL.md`, nine
+demonstrations and twelve held-out tasks; the APIs are fictional so the base model cannot know
+them. Qwen2.5-1.5B-Instruct, LoRA rank 16, one T4. Arms: full document in prompt, S2L-style
+uniform distillation, no document, a random-span control at matched active-token budget, and
+the KL gate. A task passes when every required string appears in the output.
+
+**Gate verification.** Required-token coverage — the fraction of each demo's required API
+identifiers inside the gate's selection — against a matched-budget random control: **0.586 vs
+0.392, +6.40σ**. An earlier cached score file under an older tokenizer gave -5.14σ (§6).
+
+**Result.** Uniform distillation reaches the full-prompt ceiling, 0.708 against 0.708, at
+73.5% fewer runtime tokens, and the internalised skill survives a mismatched retrieved document
+(0.281 vs 0.000 for the prompted skill). The gated arm was trained on the stale gate, so its
+comparison against uniform is pending a re-run on the corrected one.
 
 ## 5. Signal three: the attention declaration
 

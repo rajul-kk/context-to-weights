@@ -8,7 +8,7 @@ internalise into weights?* — and answering it with two different free supervis
 | name | Compaction-Supervised Sleep Consolidation | [Context-Gap Distillation](docs/context_gap.md) | [Declarative Attention at small scale](docs/declarative.md) |
 | signal | the compactor's keep/drop decision | with-vs-without-context KL divergence | which region the model says it must read |
 | source | external, an agent already emits it | internal, two forward passes | external, the model states it |
-| paper | [draft.md](paper/draft.md) | [draft_b.md](paper/draft_b.md) | [draft_combined.md](paper/draft_combined.md) §5 |
+| paper | [draft_combined.md](paper/draft_combined.md) §3 | §4 | §5 |
 
 They share `common/`, `sleep/lm.py`, `sleep/trainer.py` and the config machinery.
 
