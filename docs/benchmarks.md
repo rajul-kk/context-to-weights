@@ -5,13 +5,13 @@
 | Benchmark | Project | State | Loader |
 |---|---|---|---|
 | Synthetic dev conversations | A | **working, all results so far** | `data/generate_synthetic.py` |
-| HotpotQA (distractor) | A | **working, pipeline verified** | `data/load_hotpotqa.py` |
+| HotpotQA (distractor) | A, C | **A: precondition only; C: all results** | `data/load_hotpotqa.py` |
 | LoCoMo | A | loader written, **needs a manual download** | `data/load_locomo.py` |
 | Toy tool-use skills | B | **working, gate verified** | `skills/generate_toy_skills.py` |
 | SWE-Skills-Bench | B | **not implemented** | - |
 
-Every number reported anywhere in this repo so far comes from the **synthetic** set. Treat
-the other rows as plumbing that runs, not as evidence.
+Every Project A consolidation result comes from the **synthetic** set. HotpotQA carries the
+Project A salience precondition and all of Project C. LoCoMo is plumbing, not evidence.
 
 ## Synthetic dev conversations
 

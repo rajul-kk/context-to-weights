@@ -54,16 +54,19 @@ Qwen2.5-0.5B and 1.5B, HotpotQA trajectories with supporting paragraphs scattere
 whole context so position carries no prior, `K = 8`, gold region permuted per probe, **384
 probes**. Chance is 0.125, best-constant control 0.148.
 
-| | 0.5B generate | 0.5B read | 1.5B generate | 1.5B read |
-|---|---|---|---|---|
-| hit rate | 0.206 | 0.333 | 0.154 | 0.372 |
-| σ over random | +3.9 | +8.7 | +1.6 | +10.0 |
-| σ over best-constant | +2.8 | +7.7 | +0.3 | +9.1 |
-| `content_dependence` | 0.055 | **0.206** | 0.021 | **0.240** |
-| `slot_stable_rate` | 0.328 | 0.125 | 0.422 | 0.141 |
-| modal share | 0.263 | 0.146 | 0.312 | 0.133 |
-| unparsed rate | 0.021 | 0.000 | 0.185 | 0.000 |
-| mean attended fraction | 0.145 | 0.135 | 0.291 | 0.137 |
+Four elicitations on identical layouts: `generate` and `read` as above, plus `attention` and
+`attention_late` (see the ablation section below).
+
+| model | mode | hit | σ(random) | σ(const) | content dep | slot stable | modal | unparsed | attended |
+|---|---|---|---|---|---|---|---|---|---|
+| 0.5B | generate | 0.206 | +3.9 | +2.8 | 0.055 | 0.328 | 0.263 | 0.021 | 0.145 |
+| 0.5B | attention | 0.151 | +1.4 | +0.1 | 0.003 | 0.880 | 0.940 | 0.000 | 0.132 |
+| 0.5B | attention_late | 0.240 | +5.3 | +4.2 | 0.081 | 0.385 | 0.438 | 0.000 | 0.135 |
+| 0.5B | **read** | **0.333** | +8.7 | **+7.7** | **0.206** | 0.125 | 0.146 | 0.000 | 0.135 |
+| 1.5B | generate | 0.154 | +1.6 | +0.3 | 0.021 | 0.422 | 0.312 | 0.185 | 0.291 |
+| 1.5B | attention | 0.310 | +7.8 | +6.8 | 0.159 | 0.453 | 0.578 | 0.000 | 0.136 |
+| 1.5B | **attention_late** | **0.391** | +10.7 | **+9.7** | **0.266** | 0.216 | 0.242 | 0.000 | 0.137 |
+| 1.5B | read | 0.372 | +10.0 | +9.1 | 0.240 | 0.141 | 0.133 | 0.000 | 0.137 |
 
 **`read` works at both scales.** +7.7σ and +9.1σ over the constant control,
 `content_dependence` 0.21–0.24, `slot_stable_rate` at `1/K`. When a region's content is
@@ -113,18 +116,7 @@ materialises only the final query row, so cost is `O(heads x seq)` per layer rat
 
 ### Result
 
-384 probes, chance 0.125, best-constant control 0.148.
-
-| model | mode | hit | sigma(const) | content dep | slot stable | unparsed |
-|---|---|---|---|---|---|---|
-| 0.5B | generate | 0.206 | +2.8 | 0.055 | 0.328 | 0.021 |
-| 0.5B | attention | 0.151 | +0.1 | 0.003 | 0.880 | 0.000 |
-| 0.5B | attention_late | 0.240 | +4.2 | 0.081 | 0.385 | 0.000 |
-| 0.5B | **read** | **0.333** | **+7.7** | **0.206** | 0.125 | 0.000 |
-| 1.5B | generate | 0.154 | +0.3 | 0.021 | 0.422 | 0.185 |
-| 1.5B | attention | 0.310 | +6.8 | 0.159 | 0.453 | 0.000 |
-| 1.5B | **attention_late** | **0.391** | **+9.7** | **0.266** | 0.216 | 0.000 |
-| 1.5B | read | 0.372 | +9.1 | 0.240 | 0.141 | 0.000 |
+Rows `attention` and `attention_late` in the table above.
 
 **The ordering reverses with scale.** At 0.5B the self-query is clearly ahead of the best
 attention variant: hit 0.333 vs 0.240 (+2.87 sigma), content dependence 0.206 vs 0.081
@@ -167,7 +159,10 @@ Qwen2.5 models have a 32768 window and are unaffected.
 
 ## Open
 
-- A single seed. A third scale (7B-4bit) would show whether `read` accuracy keeps climbing.
+- Seeds. A three-seed layout-robustness run of `read`, `attention` and `attention_late` has
+  been collected ([c2_attention.ipynb](../notebooks/c2_attention.ipynb)); its aggregated
+  report, with a paired t on the 1.5B crossover, is pending.
+- A third scale (7B-4bit) would show whether the attention-probing trend continues.
 - `read` at 27B+, to see whether it matches or beats the generated declaration [5] reports
   there. We cannot run it.
 - The routing is 3x chance, not deployable unsupervised. A cheap verifier on the chosen
