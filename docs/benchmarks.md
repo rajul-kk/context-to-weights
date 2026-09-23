@@ -51,8 +51,8 @@ ignored the vocabulary and keyed on the marker. Two backends, two different shor
 Report both, and read the unmarked set as a **floor** rather than a neutral test. Facts and
 filler there are generated from the same template bank in the same register, so they are
 close to stylistically indistinguishable once the marker is gone — harsher than any real
-conversation. HotpotQA, where the compactor reaches 1.61x against a 0.98x control, is the
-more representative number — but see the staleness warning below before citing it.
+conversation. HotpotQA, where the compactor reaches 1.34-1.44x against a 0.45x positional
+control ([protocol.md](protocol.md)), is the more representative number.
 
 ## HotpotQA
 
@@ -121,26 +121,21 @@ beat the random-span control.
 
 ## What to run first
 
-**Every HotpotQA number on this page predates the question-scoping fix and none of them back
-the current headline claim.** They were measured before `f963853`, which rewrote the synthetic
-probe questions after an audit found 58 distinct question strings serving 288 probes. The
-HotpotQA path builds its questions differently — it uses the real multi-hop question text, so
-the specific defect probably does not apply — but nobody has audited it for duplicate
-questions across trajectories, and the arm has not been re-run since. Its last recorded n was
-60 probes at +2.79σ, which is underpowered.
-
-The corrected results live in [project_a_findings.md](project_a_findings.md) and are
-**synthetic only**. Treat HotpotQA as a built, previously-measured arm awaiting a re-run, not
-as a current result.
+**HotpotQA status.** The precondition sweep (compactor salience lift, 48 trajectories,
++3.75σ at 1.5B and +4.77σ at 0.5B) measures which spans are kept and asks no probe questions,
+so the question-scoping fix `f963853` does not affect it. HotpotQA **retention and
+consolidation** have not been run since that fix: every corrected consolidation result in
+[project_a_findings.md](project_a_findings.md) is **synthetic only**. HotpotQA probes use the
+real question text, so the synthetic ambiguity defect probably does not apply, but they have
+not been audited for duplicate questions across trajectories.
 
 Note also that `eval/scoring_retention.py` cannot run on HotpotQA at all: it draws distractors
 from `FACT_TEMPLATES`, so a HotpotQA `fact_key` yields an empty candidate list and every probe
 scores `None`. A re-run covers generation-based retention only unless a HotpotQA distractor
 pool is written and audited first.
 
-Historically HotpotQA was the strongest set, because it is the only one where the compaction
-signal survives with the positional control at chance and no marker or shared vocabulary to
-exploit (1.61x against 0.98x).
+HotpotQA is the strongest set for the salience signal: the only one where it survives with
+the positional control below chance and no marker or shared vocabulary to exploit.
 
 The synthetic sets are the mechanism-isolation tools around it: the marked variant for
 debugging and for the compaction-ratio sweep, the unmarked variant as the floor case showing

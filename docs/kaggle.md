@@ -70,8 +70,9 @@ Two things are deliberately dropped from the full sweep. **SmolLM2-360M**, measu
 more GPU time. **The index-list backend** produced 100% prefix answers at every scale tested,
 so it is reduced to a single confirmation run rather than a full arm.
 
-48 eval trajectories puts HotpotQA at roughly 200 fact spans instead of 60. That matters:
-the 1.5B HotpotQA result is +2.79 sigma at n=60, and the whole compaction arm rests on it.
+48 eval trajectories puts HotpotQA at roughly 290-390 fact spans instead of 60. That
+matters: at n=60 the 0.5B compactor read as failing, at n=383 it clears at +4.77σ
+([protocol.md](protocol.md)).
 
 **Each notebook must use a config whose `run_root` matches the path the notebook saves and
 restores.** The `skill_base` and `declare` configs use relative run roots, which resolve

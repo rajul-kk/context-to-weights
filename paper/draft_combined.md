@@ -343,9 +343,10 @@ as published, does not — and §5 measures the cost.
 
 ## 8. Limitations
 
-Single seed per configuration. Evaluation sets for the compaction lift are small — 36 to 60
-fact spans — so the HotpotQA lift of 1.61x sits about 2.6σ above chance and needs widening
-before it carries weight; the declarative-attention arm is larger at 384 probes. Our synthetic
+Single seed per configuration for Projects A and B. The HotpotQA compaction lift (1.34-1.44x,
++3.75σ and +4.77σ at 288-386 fact spans) is a precondition measurement only: consolidation
+on HotpotQA has not been run since the question-scoping fix, so every consolidation result is
+synthetic. The declarative-attention arm is larger at 384 probes. Our synthetic
 generator's unmarked variant is a floor case rather than a neutral test: facts and filler come
 from one template bank in one register, so they are near indistinguishable by construction. We
 cannot test the 27B+ regime where [5] reports, so our declarative-attention result bounds the

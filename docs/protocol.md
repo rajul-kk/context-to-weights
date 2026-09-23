@@ -108,6 +108,9 @@ control. The verdict takes the weaker of the two.
 | Qwen2.5-1.5B | unmarked | 0.344 | 1.37x | 1.71x | +3.47σ | −3.32σ | below control |
 | Qwen2.5-0.5B | unmarked | 0.014 | 0.05x | 1.71x | −9.41σ | −17.21σ | below |
 
+These measure span selection only, so the question-scoping fix `f963853` does not affect
+them. HotpotQA retention has not been re-run since that fix ([benchmarks.md](benchmarks.md)).
+
 **The compaction signal is real on natural text, at both model sizes.** On HotpotQA both
 Qwen models keep fact spans well above chance — 0.5B slightly ahead of 1.5B — with no
 marker phrase and no shared vocabulary to exploit. This is the result the compaction arm
