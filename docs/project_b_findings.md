@@ -1,91 +1,84 @@
 # Project B results
 
-1. **Does the with/without-context KL carry a usable importance signal?** Yes. On the current
-   environment the span gate selects required content at **+6.40σ** over a matched control.
-2. **Does gating distillation on it beat uniform distillation?** Unmeasured. The one
-   comparison run trained on a gate scored under an older tokenizer, which inverted it. A
-   re-run against the corrected gate is pending.
+1. **Does the with/without-context KL carry a usable importance signal?** Yes. The span gate
+   selects required content at **+6.77σ** over a matched-budget control.
+2. **Does gating distillation on it beat uniform distillation?** **No.** With that verified
+   gate, KL-gated distillation reaches 0.510 against uniform's 0.708, and does not beat a
+   random-span control either.
 
 ## The run
 
 `Qwen2.5-1.5B-Instruct`, 8 toy skills in 3 categories, 300 steps per group,
-`gate.granularity: span`, `top_frac: 0.25`, `floor_weight: 0.0`.
+`gate.granularity: span`, `top_frac: 0.25`, `floor_weight: 0.0`. Batch job on a Kaggle T4,
+2026-09-24, source `c37bcd7`, fresh scoring and no restored artifacts.
 
-| method | in-group pass |
+| method | in-group pass (n=96) |
 |---|---|
 | (a) full skill text in prompt (ceiling) | 0.708 |
 | (b) S2L-style uniform distillation | **0.708** |
 | (d) random-span control | 0.583 |
-| ours: KL-gated distillation (stale gate) | 0.510 |
+| ours: KL-gated distillation | **0.510** |
 | (c) no skill (floor) | 0.000 |
 
-**Uniform distillation matches the full-prompt ceiling** at 73.5% fewer runtime tokens
-(234 -> 62), a clean replication of S2L. An internalised skill also keeps working under a
-mismatched retrieved document (**0.281 vs 0.000** for the prompted skill).
+| comparison | difference | margin |
+|---|---|---|
+| ours vs uniform | -0.198 | about -2.9σ |
+| ours vs random-span control | -0.073 | about -1.0σ, not significant |
+| uniform vs random-span control | +0.125 | about +1.8σ |
 
-The `ours` row is not a verdict on gating: it trained on the stale gate described below.
+**Uniform distillation matches the full-prompt ceiling** at 69% fewer runtime tokens
+(201 -> 62), a clean replication of S2L. An internalised skill also keeps partial function
+under a mismatched retrieved document (**0.292 vs 0.000** for the prompted skill).
 
-## The gate, before and after the tokenizer change
+These numbers reproduce an earlier run exactly (0.510 / 0.708 / 0.583), so that run also used
+a correctly scored gate.
+
+## The gate works; training on it does not
 
 `inspect_gate.py` measures **required-token coverage** — the fraction of each demo's
 `required` API identifiers inside the gate's selection — against a **matched-budget random
 control** over 20 permutations.
 
-| score file | granularity | top_frac | coverage | control | margin | verdict |
-|---|---|---|---|---|---|---|
-| **current** (transformers 5.0, 3,326 tokens) | span | 0.25 | **0.586** | 0.392 | **+6.40σ** | clears control |
-| stale (older tokenizer, 3,871 tokens) | span | 0.25 | 0.118 | 0.307 | -5.14σ | below control |
-| stale | span | 0.50 | 0.634 | 0.561 | +1.37σ | indistinguishable |
-| stale | token | 0.25 | 0.299 | 0.252 | +2.62σ | clears control |
-| stale | token | 0.50 | 0.557 | 0.496 | +3.67σ | clears control |
+| score file | coverage | control | margin | verdict |
+|---|---|---|---|---|
+| **batch run** (2026-09-24, transformers 5.0) | **0.597** | 0.392 | **+6.77σ** | clears control |
+| earlier Kaggle scoring | 0.586 | 0.392 | +6.40σ | clears control |
+| stale local file (older tokenizer, 3,871 tokens) | 0.118 | 0.307 | -5.14σ | retracted |
 
-The stale rows come from a local `scores_span.jsonl` scored under an older tokenizer that
-split identifiers such as `vx_stash` into five pieces. A code span then became a few high-KL
-identifier fragments among many near-zero syntax tokens, so its mean was low, while prose
-rule-restatements scored uniformly moderate and won:
+The stale file split identifiers such as `vx_stash` into five pieces, which drowned code spans
+under span-mean pooling. That number is retracted; it never reflected the gate.
 
-```
-5.290  [harrowdb]      'every append must carry an actor; scans without a checkpoint are refused.'
-4.256  [quarrybuild]   'sandbox must be strict for anything published; loose sandboxes are local-only.'
-```
-
-Under that tokenization span-mean pooling bought prose and skipped code. Under the current
-one it clears its control. **The -5.14σ is retracted**; it was a property of the tokenizer,
-not of the gate. The token-granularity rows share the stale file and need re-scoring.
-
-One contributor independent of the tokenizer: `floor_weight: 0.0` gives non-selected tokens
-zero gradient, so the low-surprise prefix that conditions a high-surprise token is never
-trained. This breaks the *path* to the knowledge, the same shape as Project A's
-`cue -> sentence` vs `question -> answer` mismatch
+So selection is not the problem: the gate covers required content at 1.5x its control, and
+the gated adapter still trains worse than one fed random spans. **Coverage of the right tokens
+is not what limits distillation here.** The leading explanation is `floor_weight: 0.0`: every
+non-selected token gets zero gradient, so the low-surprise prefix that conditions each
+high-surprise identifier is never trained, and the path to the knowledge breaks even though
+the knowledge was selected. Random spans break that path less systematically, and uniform
+does not break it at all. This is the same shape as Project A's failure
 ([project_a_findings.md](project_a_findings.md)).
+
+**Recorded prediction, now scored.** Before this run we predicted gated distillation would
+land between the random control and uniform. It landed below the random control. The
+coverage account alone does not explain that; the gradient-path account does.
 
 ## Methodological record
 
 - **The first gate check had no control.** `gate_report.json` recorded
-  `required_in_top_frac: 0.125` beside `top_frac: 0.25` and nothing compared them. An earlier
-  pass at 0.50 on a two-skill debug slice ([kl_gate_check.md](kl_gate_check.md)) had been
-  rationalised in writing. `inspect_gate.py` now reports a σ margin against a matched-budget
-  control with a verdict and a warning.
-- **The same gate scored -5.14σ and +6.40σ on two tokenizers.** Nothing in the code changed.
-  A score file is only valid in the environment that produced it; re-score before trusting a
-  cached one.
+  `required_in_top_frac: 0.125` beside `top_frac: 0.25` and nothing compared them.
+  `inspect_gate.py` now reports a σ margin against a matched-budget control.
+- **A cached score file is only valid in the environment that produced it.** The same gate
+  read -5.14σ from a stale local file and +6.77σ when re-scored, with no code change.
+- **We briefly withdrew a correct result.** Seeing the stale inspection number, we assumed the
+  downstream run had trained on it too and marked Project B's comparison confounded. Re-running
+  reproduced it exactly. A retraction needs the same evidence as a claim.
 
-## Pending
+## Next
 
-Re-run the downstream comparison on the corrected gate (about 40 min):
-
-```bash
-python scripts/run_skills.py --config configs/kaggle_skills.yaml \
-  --granularity span --stages score,distill,eval,report
-```
-
-Add `--granularity token` for the token arm; artifacts are scoped by granularity
-(`scores_token.jsonl`, `report_token/`, `docs/results_skills_token.md`). Both are wired into
-[b1_skills.ipynb](../notebooks/b1_skills.ipynb).
-
-**Prediction, recorded before the run:** gated distillation lands between the random control
-and uniform, still below uniform. Uniform has coverage 1.0 by construction, and at this
-corpus size full coverage is affordable, so a gate is a coverage sacrifice that buys nothing.
-It should start to pay only when the corpus is too large to train on in full.
+- `floor_weight` ablation (e.g. 0.1 and 0.3) at the same gate: the direct test of the
+  gradient-path explanation. If a small floor lifts gated distillation to uniform, gating
+  selects correctly and only needs conditioning context.
+- Token-granularity arm: `scripts/run_skills.py --granularity token --stages
+  score,distill,eval,report`, wired into [b1_skills.ipynb](../notebooks/b1_skills.ipynb) via
+  `RUN_TOKEN_ARM`.
 
 See [paper/draft_combined.md](../paper/draft_combined.md).

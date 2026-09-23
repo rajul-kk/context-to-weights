@@ -28,8 +28,9 @@ supply the measurement discipline — a matched control beside every signal-stre
 that makes the distinction visible. On the compaction signal, uniform replay recovers 12.3%
 of evicted facts while gating on a +15.9σ salience signal recovers none: **uniform coverage
 beats importance gating**, with a positive control showing the setup could have registered a
-win. On the context-gap signal the gate clears its matched control at +6.40σ, but its
-downstream comparison trained on an earlier, inverted version of the gate and is pending.
+win. On the context-gap signal a gate that clears its matched control at +6.77σ still loses
+to uniform distillation, 0.510 against 0.708. **Uniform coverage beats importance gating on
+two independent signals.**
 
 ## 1. Introduction
 
@@ -164,13 +165,16 @@ uniform distillation, no document, a random-span control at matched active-token
 the KL gate. A task passes when every required string appears in the output.
 
 **Gate verification.** Required-token coverage — the fraction of each demo's required API
-identifiers inside the gate's selection — against a matched-budget random control: **0.586 vs
-0.392, +6.40σ**. An earlier cached score file under an older tokenizer gave -5.14σ (§6).
+identifiers inside the gate's selection — against a matched-budget random control: **0.597 vs
+0.392, +6.77σ**. An earlier cached score file under an older tokenizer gave -5.14σ (§6).
 
-**Result.** Uniform distillation reaches the full-prompt ceiling, 0.708 against 0.708, at
-73.5% fewer runtime tokens, and the internalised skill survives a mismatched retrieved document
-(0.281 vs 0.000 for the prompted skill). The gated arm was trained on the stale gate, so its
-comparison against uniform is pending a re-run on the corrected one.
+**Result.** Uniform distillation reaches the full-prompt ceiling, 0.708 against 0.708, at 69%
+fewer runtime tokens. The gated arm reaches **0.510** (about 2.9σ below uniform) and does not
+beat a random-span control at 0.583 (about 1σ, not significant). The gate selects the right
+content at 1.5x its control and still trains worse than random spans: with `floor_weight` at
+0, the prefix that conditions each selected identifier gets no gradient, so selection is not
+the bottleneck. The internalised skill keeps partial function under a mismatched retrieved
+document (0.292 vs 0.000 for the prompted skill).
 
 ## 5. Signal three: the attention declaration
 
@@ -275,7 +279,9 @@ into five pieces, code spans averaged low and prose restatements high: 0.118 req
 coverage against a matched control's 0.307, -5.14σ. We attributed this to mean-pooling.
 Re-scoring in the current environment, with no code change, gives 0.586 against 0.392,
 **+6.40σ**. The first gate check had no control at all: it reported 0.125 next to a
-`top_frac` of 0.25 and nothing compared the two. **A precondition number without a control is
+`top_frac` of 0.25 and nothing compared the two. Seeing the stale number, we then marked the
+downstream comparison confounded; re-running it reproduced the original result exactly. A
+retraction needs the same evidence as a claim. **A precondition number without a control is
 not a test, and a cached score file is only valid in the environment that produced it.**
 
 The last two rows concern metrics rather than signals, and they compound. Consolidation

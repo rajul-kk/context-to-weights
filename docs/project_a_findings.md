@@ -95,10 +95,10 @@ memorise. Compaction keeps 25.6% of spans, heavily concentrated on the fact span
 and it never keeps `auth_header` or `config_flag` at all. Uniform samples the same budget
 across the whole trajectory, so it covers facts the compactor systematically drops.
 
-Project B tests the same question on an independent signal. Its gate now clears its
-matched control at +6.40σ, but the downstream comparison trained on a stale, inverted version
-of the gate and is pending a re-run ([project_b_findings.md](project_b_findings.md)). Until
-then this conclusion rests on Project A alone.
+Project B reaches the same conclusion on an independent signal: a KL gate that clears its
+matched control at +6.77σ still loses to uniform distillation, 0.510 vs 0.708 (about 2.9σ)
+([project_b_findings.md](project_b_findings.md)). **Two mechanisms, two verified signals, the
+same result: uniform coverage beats importance gating at this scale.**
 
 ## The same mask works for abstention
 
@@ -191,8 +191,8 @@ pool.
 
 ## What survives for the writeup
 
-- **Uniform coverage beats importance gating**, with a live positive control. This is the
-  headline. Project B's replication on an independent signal is pending its re-run.
+- **Uniform coverage beats importance gating**, replicated on two independent signals, each
+  with a verified gate and a live positive control. This is the headline.
 - **The oracle control is pending a re-run** at a real training budget; the first attempt saw
   5.6% of one epoch and cannot bound anything.
 - **The same free mask supports abstention where it fails at recall**: 0.000 recovered versus a

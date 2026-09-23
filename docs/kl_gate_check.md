@@ -2,7 +2,7 @@
 
 > **Superseded.** A two-skill debug slice with SmolLM2-360M, reporting
 > `required_in_top_frac = 0.50` with no control. The controlled measurement on the full
-> eight-skill set is in [project_b_findings.md](project_b_findings.md): +6.40σ over a
+> eight-skill set is in [project_b_findings.md](project_b_findings.md): +6.77σ over a
 > matched-budget control on the current environment. Kept as the record of an uncontrolled
 > check.
 
