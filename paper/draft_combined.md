@@ -1,7 +1,7 @@
 # Measured, Not Asked: Salience Signals for Weight Consolidation at Small Scale
 
-*Workshop draft. Combines Projects A and B and adds the declarative-attention arm.
-Numbers marked TBD are filled from `docs/results*.md`.*
+*Workshop draft. Combines Projects A and B and adds the declarative-attention arm. Source
+results: `docs/project_a_findings.md`, `docs/project_b_findings.md`, `docs/declarative.md`.*
 
 ## Abstract
 
@@ -261,10 +261,11 @@ answers. A model with perfect recall of every trajectory could not have exceeded
 ranking distractors were themselves other trajectories' correct answers. **A CE reduction on a
 target is not evidence of knowledge acquisition unless it is checked against distractors from
 the same distribution; and a distractor set must not contain answers that are correct for a
-different item in the same eval.** We report Project A's consolidation result as unresolved
-rather than negative, and the audit -- count the distinct answers each question string
-receives, and compute what a perfect memoriser could score -- as the cheaper check we should
-have run before the experiment rather than after it.
+different item in the same eval.** The audit -- count the distinct answers each question
+string receives, and compute what a perfect memoriser could score -- is what made Project A's
+result measurable: after scoping every question to its trajectory, uniform replay recovers
+0.123 of evicted facts and compaction-gated consolidation 0.000 (§3). It is the cheaper check
+we should have run before the experiment rather than after it.
 
 ## 7. Measured beats asked
 
