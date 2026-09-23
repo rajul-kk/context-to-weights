@@ -1,15 +1,14 @@
 # Project B results
 
-Two questions, answered separately.
-
-1. **Does the with/without-context KL carry a usable importance signal?** Weakly, yes — but
-   only when scored per token. Pooled over spans it inverts.
-2. **Does gating distillation on it beat uniform distillation?** No. The first run was
-   refuted, and the diagnosis is that the gate was selecting the wrong tokens.
+1. **Does the with/without-context KL carry a usable importance signal?** Yes. On the current
+   environment the span gate selects required content at **+6.40σ** over a matched control.
+2. **Does gating distillation on it beat uniform distillation?** Unmeasured. The one
+   comparison run trained on a gate scored under an older tokenizer, which inverted it. A
+   re-run against the corrected gate is pending.
 
 ## The run
 
-`Qwen2.5-1.5B-Instruct`, 8 toy skills grouped into 3 categories, 300 steps per group,
+`Qwen2.5-1.5B-Instruct`, 8 toy skills in 3 categories, 300 steps per group,
 `gate.granularity: span`, `top_frac: 0.25`, `floor_weight: 0.0`.
 
 | method | in-group pass |
@@ -17,131 +16,76 @@ Two questions, answered separately.
 | (a) full skill text in prompt (ceiling) | 0.708 |
 | (b) S2L-style uniform distillation | **0.708** |
 | (d) random-span control | 0.583 |
-| ours: KL-gated distillation | **0.510** |
+| ours: KL-gated distillation (stale gate) | 0.510 |
 | (c) no skill (floor) | 0.000 |
 
-Uniform distillation matches the full-prompt ceiling: the skill *is* fully internalisable at
-this scale, at 73.5% fewer runtime tokens (234 -> 62). That is a clean replication of the S2L
-result and the one positive number in the project.
+**Uniform distillation matches the full-prompt ceiling** at 73.5% fewer runtime tokens
+(234 -> 62), a clean replication of S2L. An internalised skill also keeps working under a
+mismatched retrieved document (**0.281 vs 0.000** for the prompted skill).
 
-The gate then loses to both uniform and its own random control. One secondary result
-survives: **ours-mismatched 0.281 vs prompt-mismatched 0.000** — an internalised skill keeps
-working when the retrieved document is the wrong one, where a prompt-based skill collapses.
+The `ours` row is not a verdict on gating: it trained on the stale gate described below.
 
-## Why the gate failed
+## The gate, before and after the tokenizer change
 
-Not because gating is a bad idea. Because span-mean pooling inverted the signal.
+`inspect_gate.py` measures **required-token coverage** — the fraction of each demo's
+`required` API identifiers inside the gate's selection — against a **matched-budget random
+control** over 20 permutations.
 
-`inspect_gate.py` measures **required-token coverage**: the fraction of each demo's
-`required` strings — the API identifiers the answer must contain — that fall inside the
-gate's selection, against a **matched-budget random control** over 20 permutations.
-
-| granularity | top_frac | gate coverage | control | lift | margin | verdict |
+| score file | granularity | top_frac | coverage | control | margin | verdict |
 |---|---|---|---|---|---|---|
-| **span** (as run) | 0.25 | **0.118** | 0.307 | 0.38x | **-5.14σ** | below control |
-| span | 0.50 | 0.634 | 0.561 | 1.13x | +1.37σ | indistinguishable |
-| **token** | 0.25 | **0.299** | 0.252 | 1.19x | **+2.62σ** | clears control |
-| token | 0.50 | 0.557 | 0.496 | 1.12x | +3.67σ | clears control |
+| **current** (transformers 5.0, 3,326 tokens) | span | 0.25 | **0.586** | 0.392 | **+6.40σ** | clears control |
+| stale (older tokenizer, 3,871 tokens) | span | 0.25 | 0.118 | 0.307 | -5.14σ | below control |
+| stale | span | 0.50 | 0.634 | 0.561 | +1.37σ | indistinguishable |
+| stale | token | 0.25 | 0.299 | 0.252 | +2.62σ | clears control |
+| stale | token | 0.50 | 0.557 | 0.496 | +3.67σ | clears control |
 
-The configuration that was trained selects required content at **a third of chance rate**.
-It is not weakly informative; it is anti-correlated.
-
-The mechanism is visible in the spans. Highest mean-KL:
+The stale rows come from a local `scores_span.jsonl` scored under an older tokenizer that
+split identifiers such as `vx_stash` into five pieces. A code span then became a few high-KL
+identifier fragments among many near-zero syntax tokens, so its mean was low, while prose
+rule-restatements scored uniformly moderate and won:
 
 ```
 5.290  [harrowdb]      'every append must carry an actor; scans without a checkpoint are refused.'
 4.256  [quarrybuild]   'sandbox must be strict for anything published; loose sandboxes are local-only.'
-4.102  [obsidian-flags] 'every flip needs a reason string; Obsidian writes it to the audit trail.'
 ```
 
-These are the prose rule-restatements at the end of each demo. Every token is moderately
-surprising, so the mean is high. A code span — `vx_stash("batch", key=key, ttl_s=3600)` — is
-three genuinely high-KL identifier tokens buried in a dozen near-zero syntax tokens, so its
-mean is low. The gate bought prose and skipped code, and the required content is in the code.
+Under that tokenization span-mean pooling bought prose and skipped code. Under the current
+one it clears its control. **The -5.14σ is retracted**; it was a property of the tokenizer,
+not of the gate. The token-granularity rows share the stale file and need re-scoring.
 
-The signal itself was never the problem. At token level the ranking is exactly right:
+One contributor independent of the tokenizer: `floor_weight: 0.0` gives non-selected tokens
+zero gradient, so the low-surprise prefix that conditions a high-surprise token is never
+trained. This breaks the *path* to the knowledge, the same shape as Project A's
+`cue -> sentence` vs `question -> answer` mismatch
+([project_a_findings.md](project_a_findings.md)).
 
-```
-[veltrix-cache d1 read] 'rejects':7.94, 'V':7.17, 'fetch':7.00, 'x':6.99, 'write':5.79
-```
+## Methodological record
 
-**Mean-pooling a spiky signal destroys it.** `kl_p90 / kl_median` is 7.23 / 0.88, about 8x —
-that ratio alone is a warning not to average.
+- **The first gate check had no control.** `gate_report.json` recorded
+  `required_in_top_frac: 0.125` beside `top_frac: 0.25` and nothing compared them. An earlier
+  pass at 0.50 on a two-skill debug slice ([kl_gate_check.md](kl_gate_check.md)) had been
+  rationalised in writing. `inspect_gate.py` now reports a σ margin against a matched-budget
+  control with a verdict and a warning.
+- **The same gate scored -5.14σ and +6.40σ on two tokenizers.** Nothing in the code changed.
+  A score file is only valid in the environment that produced it; re-score before trusting a
+  cached one.
 
-Coverage also predicts the downstream result monotonically across the three arms actually
-trained:
+## Pending
 
-| | required coverage | in-group pass |
-|---|---|---|
-| ours (span) | 0.118 | 0.510 |
-| random control | ~0.31 | 0.583 |
-| uniform | 1.000 | 0.708 |
-
-Three points is not a fit, but it is consistent, and it is the simplest explanation available.
-
-A second, smaller contributor: `floor_weight: 0.0` gives non-selected tokens zero gradient.
-Training saw the high-surprise tokens with the low-surprise prefix that *conditions* them
-down-weighted to nothing, so the autoregressive path to those tokens was never trained. This
-is the same shape as Project A's failure — see
-[project_a_findings.md](project_a_findings.md), where the adapter was trained on
-`cue -> declarative sentence` and evaluated on `question -> answer`. Both projects broke the
-*path* to the knowledge rather than the knowledge itself.
-
-## The methodological failure
-
-The gate check existed and was run. `gate_report.json` recorded
-`required_in_top_frac: 0.125` beside `top_frac: 0.25`, and nothing compared the two. There
-was no control, so a number that should have stopped the run read as unremarkable.
-
-Worse, the check had *passed* earlier at 0.50 on a two-skill debug slice with SmolLM2-360M
-([kl_gate_check.md](kl_gate_check.md)), and that document contains a written rationalisation
-for why 0.50 was acceptable. The check was then re-run on the real eight-skill scoring set,
-returned 0.125, and the rationalisation carried over unexamined.
-
-Project A had a positional control for its salience signal from early on. Project B had no
-equivalent for its gate until after the run. That asymmetry is the whole story.
-
-**Fixed.** `inspect_gate.py` now reports coverage against a matched-budget random control
-with a σ margin and a `clears control` / `indistinguishable` / `below control` verdict, and
-prints a warning when the gate does not clear. `run_skills.py` scopes every artifact by
-granularity so arms cannot overwrite each other.
-
-## The token-granularity arm
-
-One flag, roughly 40 minutes:
+Re-run the downstream comparison on the corrected gate (about 40 min):
 
 ```bash
 python scripts/run_skills.py --config configs/kaggle_skills.yaml \
-  --granularity token --stages score,distill,eval,report
+  --granularity span --stages score,distill,eval,report
 ```
 
-Writes `scores_token.jsonl`, `gate_report_token.json`, `distill_*_token_0.25/`,
-`report_token/` and `docs/results_skills_token.md`, leaving the span arm intact. Enabled in
-[b1_skills.ipynb](../notebooks/b1_skills.ipynb) via `RUN_TOKEN_ARM`.
+Add `--granularity token` for the token arm; artifacts are scoped by granularity
+(`scores_token.jsonl`, `report_token/`, `docs/results_skills_token.md`). Both are wired into
+[b1_skills.ipynb](../notebooks/b1_skills.ipynb).
 
-**Prediction, recorded before the run:** ours lands between the random control and uniform,
-and still below uniform. Uniform has coverage 1.0 by construction; a 1.19x gate over a 25%
-budget cannot make up that deficit. If that holds, the claim is not "the gate is broken" but
-the stronger and more useful:
-
-> Importance gating cannot beat uniform distillation at this scale, because uniform already
-> achieves perfect coverage of the required content and the corpus is small enough to train
-> on in full. A gate is a coverage sacrifice, and it buys nothing until the corpus is large
-> enough that full coverage is unaffordable.
-
-That is a falsifiable statement about *when* gating should start to pay, rather than a null.
-
-## Consequence for the writeup
-
-The headline claim — KL-gated distillation beats uniform — is **refuted**. What survives:
-
-- **Uniform self-distillation reaches the full-prompt ceiling** at 73.5% fewer runtime
-  tokens, and the internalised skill degrades gracefully under a mismatched retrieved
-  document (0.281 vs 0.000) where prompting does not.
-- **Aggregation can invert a signal.** A real per-token signal, mean-pooled over spans,
-  scored -5.14σ against its own control. This is artifact #8 for the paper's §6 table and
-  the first one that hurt the result rather than flattering it.
-- **Precondition tests need controls, not thresholds.** 0.125 looked like a low number.
-  0.38x-of-chance was the number that mattered, and nothing computed it.
+**Prediction, recorded before the run:** gated distillation lands between the random control
+and uniform, still below uniform. Uniform has coverage 1.0 by construction, and at this
+corpus size full coverage is affordable, so a gate is a coverage sacrifice that buys nothing.
+It should start to pay only when the corpus is too large to train on in full.
 
 See [paper/draft_combined.md](../paper/draft_combined.md).

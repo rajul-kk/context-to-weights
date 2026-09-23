@@ -1,11 +1,10 @@
 # KL gate sanity check
 
-> **Superseded.** This check ran on a two-skill debug slice with SmolLM2-360M and reported
-> `required_in_top_frac = 0.50` with no control to compare it against. On the full eight-skill
-> set with Qwen2.5-1.5B the same measurement is 0.118 against a matched-budget random control
-> of 0.307 — 5.14σ *below* chance. The interpretation section below rationalises a number that
-> should have stopped the run. Kept as written, because that is the finding. See
-> [project_b_findings.md](project_b_findings.md).
+> **Superseded.** A two-skill debug slice with SmolLM2-360M, reporting
+> `required_in_top_frac = 0.50` with no control. The controlled measurement on the full
+> eight-skill set is in [project_b_findings.md](project_b_findings.md): +6.40σ over a
+> matched-budget control on the current environment. Kept as the record of an uncontrolled
+> check.
 
 The dual-forward-pass importance signal is the riskiest part of Project B, so it is verified
 by hand before anything trains on it. This is the check, run on SmolLM2-360M-Instruct over
@@ -60,15 +59,5 @@ scaffolding scores an order of magnitude lower.
 
 ## Interpretation
 
-The gate fires on API identifiers, error codes and rule clauses, and stays quiet on
-formatting and boilerplate. This is the behaviour the method assumes.
-
-`required_in_top_frac = 0.50` looks low until you look at what misses. The required strings
-for write/read tasks include the first positional argument value (`"batch"`, `"internal"`),
-which appears in the *query*. The student model can already predict it without the skill
-doc, so its KL is correctly low. That value is not skill knowledge, and the gate is right to
-skip it. The API function names and error codes — the parts that are skill knowledge — land
-in the top band consistently.
-
-This distinction is worth stating in the paper: the gate scores *what the skill document
-adds*, not *what the answer contains*.
+The written rationale for 0.50 did not hold up: without a control it could not tell a
+weak gate from a working one. See [project_b_findings.md](project_b_findings.md).

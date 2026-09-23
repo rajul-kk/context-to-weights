@@ -25,12 +25,11 @@ ask" picks out a family of methods rather than a single one.
 We argue that "measure the model, do not ask it" is the governing constraint for
 free-supervision methods below the scales where instruction-following is reliable, and we
 supply the measurement discipline — a matched control beside every signal-strength figure —
-that makes the distinction visible. Neither consolidation method we build beats uniform
-training on the same budget. On the compaction signal, uniform replay recovers 12.3% of
-evicted facts while gating on a +15.9σ salience signal recovers none; on the context-gap
-signal a gate that clears its own control still loses to uniform distillation. **Uniform
-coverage beats importance gating on two independent signals**, each with a positive control
-showing the setup could have registered a win.
+that makes the distinction visible. On the compaction signal, uniform replay recovers 12.3%
+of evicted facts while gating on a +15.9σ salience signal recovers none: **uniform coverage
+beats importance gating**, with a positive control showing the setup could have registered a
+win. On the context-gap signal the gate clears its matched control at +6.40σ, but its
+downstream comparison trained on an earlier, inverted version of the gate and is pending.
 
 ## 1. Introduction
 
@@ -231,7 +230,7 @@ control exposed it:
 | Model answered with the first N spans | 1.68x | positional control |
 | `sorted(kept)[:budget]` reimposed position after shuffling | 1.69x | kept-index distribution |
 | Supporting paragraphs stacked at the front of a benchmark | 1.76x | positional control (2.44x) |
-| Span-mean pooling inverted a real per-token gate | 0.38x of chance | matched-budget control |
+| Cached scores from an older tokenizer inverted the gate | -5.14σ | re-scoring in the current environment (+6.40σ) |
 | Falling CE on gold answers read as knowledge transfer | 6.29 -> 2.24 | distractor ranking (at chance) |
 | Eval questions that did not identify which item was meant | 50% ceiling read as 100% | duplicate-answer audit |
 
@@ -239,17 +238,16 @@ None was a modelling error; all were construction. We think that is the norm rat
 misfortune, and that free-supervision work should report a control beside every signal
 strength figure as a matter of course.
 
-The last row is the one we most want to generalise, because it is the only one that moved
-the result *against* us and so was not caught by disbelief. The context-gap gate (§4) is a
-per-token quantity, and we selected on its mean over contiguous spans. Required API
-identifiers occur as two or three high-KL tokens inside a dozen near-zero syntax tokens, so
-code spans average low; prose restatements of a rule are uniformly moderately surprising, so
-they average high. The gate bought prose and skipped code, scoring 0.118 required-token
-coverage against a matched-budget random control's 0.307 — a 5.14σ deficit. Scored per token
-the same signal clears the same control at +2.62σ. The precondition test existed and was run;
-it reported 0.125 next to a `top_frac` of 0.25 and nothing compared the two. **A precondition
-number without a control is not a test**, and the ratio of a signal's p90 to its median (here
-8x) is a cheap advance warning that pooling it by the mean will destroy it.
+The tokenizer row is the one we most want to generalise, because it moved the result
+*against* us, so disbelief did not catch it, and because we misdiagnosed it once. The
+context-gap gate (§4) is per-token and we selected on its mean over spans. Scored from a
+cached file produced under an older tokenizer, which split identifiers such as `vx_stash`
+into five pieces, code spans averaged low and prose restatements high: 0.118 required-token
+coverage against a matched control's 0.307, -5.14σ. We attributed this to mean-pooling.
+Re-scoring in the current environment, with no code change, gives 0.586 against 0.392,
+**+6.40σ**. The first gate check had no control at all: it reported 0.125 next to a
+`top_frac` of 0.25 and nothing compared the two. **A precondition number without a control is
+not a test, and a cached score file is only valid in the environment that produced it.**
 
 The last two rows concern metrics rather than signals, and they compound. Consolidation
 lowered per-token cross-entropy on evicted gold answers from 6.29 to 2.24, which we first read
