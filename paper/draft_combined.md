@@ -226,46 +226,49 @@ that tracks position does not. `content_dependence` is the shuffled hit rate abo
 means content-driven, near 1 means position-driven.
 
 **Results.** HotpotQA trajectories with supporting paragraphs scattered across the whole
-context, `K = 8`, gold region permuted per probe, 384 probes.
+context, `K = 8`, gold region permuted per probe, 384 probes, **three seeds** (mean +/- sd).
 
 | model | elicitation | hit (chance 0.125) | σ over constant | `content_dependence` | `slot_stable_rate` | unparsed |
 |---|---|---|---|---|---|---|
-| 0.5B | generate | 0.206 | +2.8 | 0.055 | 0.328 | 0.02 |
-| 0.5B | attention | 0.151 | +0.1 | 0.003 | 0.880 | 0.00 |
-| 0.5B | attention_late | 0.240 | +4.2 | 0.081 | 0.385 | 0.00 |
-| 0.5B | **read** | **0.333** | **+7.7** | **0.206** | 0.125 | 0.00 |
-| 1.5B | generate | 0.154 | +0.3 | 0.021 | 0.422 | 0.19 |
-| 1.5B | attention | 0.310 | +6.8 | 0.159 | 0.453 | 0.00 |
-| 1.5B | **attention_late** | **0.391** | **+9.7** | **0.266** | 0.216 | 0.00 |
-| 1.5B | read | 0.372 | +9.1 | 0.240 | 0.141 | 0.00 |
+| 0.5B | generate | 0.193 +/- 0.012 | 2.2 | 0.085 +/- 0.021 | 0.281 | 0.019 |
+| 0.5B | attention | 0.151 +/- 0.003 | 0.2 | 0.014 +/- 0.012 | 0.882 | 0.000 |
+| 0.5B | attention_late | 0.234 +/- 0.011 | 4.0 | 0.113 +/- 0.029 | 0.356 | 0.000 |
+| 0.5B | **read** | **0.332 +/- 0.004** | **7.7** | **0.203 +/- 0.003** | 0.136 | 0.000 |
+| 1.5B | generate | 0.150 +/- 0.008 | 0.1 | 0.030 +/- 0.023 | 0.413 | 0.170 |
+| 1.5B | attention | 0.286 +/- 0.023 | 6.0 | 0.163 +/- 0.010 | 0.447 | 0.000 |
+| 1.5B | attention_late | 0.374 +/- 0.017 | 9.2 | 0.258 +/- 0.028 | 0.200 | 0.000 |
+| 1.5B | **read** | **0.378 +/- 0.005** | **9.3** | **0.241 +/- 0.005** | 0.136 | 0.000 |
 
 **The generated declaration fails at both scales and degrades with size.** Its raw hit rate
-clears the constant control at 0.5B (+2.8σ), but the shuffle unmasks that as position:
-`content_dependence` is 0.055, a quarter of `read`'s. At 1.5B it is indistinguishable from
-naming one fixed region (+0.3σ), the model refuses the `FOCUS:` format on 19% of probes, and
-`slot_stable_rate` rises to 0.42.
+clears the constant control at 0.5B (+2.2σ), but the shuffle unmasks that as position:
+`content_dependence` is 0.085, well under half of `read`'s. At 1.5B it is indistinguishable
+from naming one fixed region (+0.1σ), the model refuses the `FOCUS:` format on 17% of probes,
+and `slot_stable_rate` rises to 0.41.
 
-**Both measured routes work, and which one wins depends on scale.** At 0.5B the self-query is
-clearly ahead of the best attention variant — hit 0.333 vs 0.240 (+2.87σ), content dependence
-0.206 vs 0.081 (+5.02σ). At 1.5B late-layer attention is nominally ahead, 0.391 vs 0.372
-(−0.54σ) and 0.266 vs 0.240 (−0.83σ); neither margin is significant, so the honest reading is
-that `read` wins at 0.5B and the two are level at 1.5B. Cost is comparable: `read` issues `K`
-batched region prompts, `attention` one pass over the whole context, covering roughly the same
-number of tokens.
+**`read` wins clearly at 0.5B; at 1.5B it is a tie, not a crossover.** At 0.5B the self-query
+is clearly ahead of the best attention variant — hit 0.332 vs 0.234, content dependence 0.203
+vs 0.113, both significant on a paired t across the three seeds (t(2) = 24.9 and 4.9 against a
+critical value of 4.30). At 1.5B, `read` and `attention_late` are 0.378 vs 0.374 on hit rate
+(t(2) = 0.30) and 0.241 vs 0.258 on content dependence (t(2) = −0.85) — neither margin clears
+significance in either direction. A single-seed run of this ablation had reported late-layer
+attention nominally ahead at 1.5B; three seeds show that was layout noise, not a reversal.
+Cost is comparable: `read` issues `K` batched region prompts, `attention` one pass over the
+whole context, covering roughly the same number of tokens.
 
 **Layer choice decides whether probing works at all.** Averaged over every layer, attention is
-useless at 0.5B: content dependence 0.003, naming the same slot on 88% of probes. Restricted
+useless at 0.5B: content dependence 0.014, naming the same slot on 88% of probes. Restricted
 to the late half it clears its control at both scales. Early layers carry position rather than
 content and dominate the average — one Qwen2.5-1.5B layer-0 query·key product reaches 152,967
 against a late-layer typical peak near 300. A probing baseline reported without this ablation
-would understate itself by a factor of five on `content_dependence`.
+would understate itself by more than an order of magnitude on `content_dependence`.
 
 **Scale separates asking from measuring.** From 0.5B to 1.5B, content dependence moves
-`generate` 0.055 → 0.021 (**−0.034**), `read` 0.206 → 0.240 (+0.034), `attention` 0.003 → 0.159
-(+0.156) and `attention_late` 0.081 → 0.266 (**+0.185**). Every measured signal improves; the
-generated one is the only one that degrades. Probing improves roughly five times faster than
-the self-query, so the crossover at 1.5B is a trend rather than a tie — on two points, which
-needs a third scale before it carries weight. See `docs/declarative.md`.
+`generate` 0.085 → 0.030 (**−0.055**), `read` 0.203 → 0.241 (+0.038), `attention` 0.014 → 0.163
+(+0.149) and `attention_late` 0.113 → 0.258 (+0.145). Every measured signal improves; the
+generated one is the only one that degrades. Attention probing rises about four times faster
+than the self-query in absolute terms, which closes the 0.5B gap by 1.5B — to a tie, confirmed
+only in the negative, not a reversal. A third scale would show whether the trend continues
+into an actual lead for probing, or plateaus. See `docs/declarative.md`.
 
 ## 6. Salience lift, and why a control is not optional
 

@@ -55,23 +55,26 @@ whole context so position carries no prior, `K = 8`, gold region permuted per pr
 probes**. Chance is 0.125, best-constant control 0.148.
 
 Four elicitations on identical layouts: `generate` and `read` as above, plus `attention` and
-`attention_late` (see the ablation section below).
+`attention_late` (see the ablation section below). **Three seeds** (0, 1, 2), mean +/- sd
+across seeds; the seeds reshuffle the layout permutation, not the probe set.
 
-| model | mode | hit | σ(random) | σ(const) | content dep | slot stable | modal | unparsed | attended |
-|---|---|---|---|---|---|---|---|---|---|
-| 0.5B | generate | 0.206 | +3.9 | +2.8 | 0.055 | 0.328 | 0.263 | 0.021 | 0.145 |
-| 0.5B | attention | 0.151 | +1.4 | +0.1 | 0.003 | 0.880 | 0.940 | 0.000 | 0.132 |
-| 0.5B | attention_late | 0.240 | +5.3 | +4.2 | 0.081 | 0.385 | 0.438 | 0.000 | 0.135 |
-| 0.5B | **read** | **0.333** | +8.7 | **+7.7** | **0.206** | 0.125 | 0.146 | 0.000 | 0.135 |
-| 1.5B | generate | 0.154 | +1.6 | +0.3 | 0.021 | 0.422 | 0.312 | 0.185 | 0.291 |
-| 1.5B | attention | 0.310 | +7.8 | +6.8 | 0.159 | 0.453 | 0.578 | 0.000 | 0.136 |
-| 1.5B | **attention_late** | **0.391** | +10.7 | **+9.7** | **0.266** | 0.216 | 0.242 | 0.000 | 0.137 |
-| 1.5B | read | 0.372 | +10.0 | +9.1 | 0.240 | 0.141 | 0.133 | 0.000 | 0.137 |
+| model | mode | hit | σ(const) | content dep | slot stable | unparsed |
+|---|---|---|---|---|---|---|
+| 0.5B | generate | 0.193 +/- 0.012 | 2.2 +/- 0.4 | 0.085 +/- 0.021 | 0.281 +/- 0.053 | 0.019 |
+| 0.5B | attention | 0.151 +/- 0.003 | 0.2 +/- 0.4 | 0.014 +/- 0.012 | 0.882 +/- 0.003 | 0.000 |
+| 0.5B | attention_late | 0.234 +/- 0.011 | 4.0 +/- 0.8 | 0.113 +/- 0.029 | 0.356 +/- 0.045 | 0.000 |
+| 0.5B | **read** | **0.332 +/- 0.004** | **7.7 +/- 0.5** | **0.203 +/- 0.003** | 0.136 +/- 0.017 | 0.000 |
+| 1.5B | generate | 0.150 +/- 0.008 | 0.1 +/- 0.9 | 0.030 +/- 0.023 | 0.413 +/- 0.029 | 0.170 |
+| 1.5B | attention | 0.286 +/- 0.023 | 6.0 +/- 0.7 | 0.163 +/- 0.010 | 0.447 +/- 0.005 | 0.000 |
+| 1.5B | attention_late | 0.374 +/- 0.017 | 9.2 +/- 0.5 | 0.258 +/- 0.028 | 0.200 +/- 0.016 | 0.000 |
+| 1.5B | **read** | **0.378 +/- 0.005** | **9.3 +/- 0.3** | **0.241 +/- 0.005** | 0.136 +/- 0.005 | 0.000 |
 
-**`read` works at both scales.** +7.7σ and +9.1σ over the constant control,
-`content_dependence` 0.21–0.24, `slot_stable_rate` at `1/K`. When a region's content is
-shuffled to a new slot the choice follows it. This is a content-tracking signal, and it is
-slightly stronger at 1.5B.
+best-constant control 0.148 +/- 0.009, chance 0.125.
+
+**`read` works at both scales, and it replicates across seeds tightly.** +7.7σ and +9.3σ
+over the constant control, standard deviation under 0.005 on `content_dependence` at both
+scales. When a region's content is shuffled to a new slot the choice follows it. This is a
+content-tracking signal, essentially flat from 0.5B to 1.5B (0.203 to 0.241).
 
 **`generate` does not track content at either scale.** At 0.5B the raw hit rate clears the
 constant control (+2.8σ) — but `content_dependence` is only 0.055, a quarter of `read`'s, and
@@ -116,13 +119,23 @@ materialises only the final query row, so cost is `O(heads x seq)` per layer rat
 
 ### Result
 
-Rows `attention` and `attention_late` in the table above.
+Rows `attention` and `attention_late` in the table above. Margins below are a **paired t
+across the three seeds**, not a binomial sigma, since the seeds share a probe set and only the
+layout permutation is resampled; the t(2) critical value is 4.30.
 
-**The ordering reverses with scale.** At 0.5B the self-query is clearly ahead of the best
-attention variant: hit 0.333 vs 0.240 (+2.87 sigma), content dependence 0.206 vs 0.081
-(+5.02 sigma). At 1.5B late-layer attention is nominally ahead, 0.391 vs 0.372 (-0.54 sigma)
-and 0.266 vs 0.240 (-0.83 sigma), but neither margin is significant. The honest statement is
-that read wins at 0.5B and the two are level at 1.5B.
+| model | metric | read | attention_late | diff | t(2) | significant |
+|---|---|---|---|---|---|---|
+| 0.5B | hit rate | 0.332 | 0.234 | +0.099 | +24.9 | **yes** |
+| 0.5B | content dependence | 0.203 | 0.113 | +0.090 | +4.91 | **yes** |
+| 1.5B | hit rate | 0.378 | 0.374 | +0.003 | +0.30 | no |
+| 1.5B | content dependence | 0.241 | 0.258 | -0.016 | -0.85 | no |
+
+**Read wins clearly at 0.5B. At 1.5B it is a tie, not a crossover.** The single-seed run this
+section originally reported had late-layer attention nominally ahead at 1.5B (0.391 vs 0.372);
+with two more seeds the mean moves to 0.374 vs 0.378, a difference of 0.003 in hit rate, not
+distinguishable from zero (t=0.30). Content dependence still points attention's way at 1.5B
+(-0.016) but the paired t (-0.85) is far short of significant. Report 1.5B as level, not as
+attention ahead.
 
 **Layer choice decides whether attention probing works at all.** Averaged over every layer it
 is useless at 0.5B - content dependence 0.003, naming the same slot on 88% of probes and the
@@ -130,19 +143,21 @@ same region on 94%. Restricted to the late half it clears its control at both sc
 layers, where a single Qwen2.5-1.5B layer-0 q-k product reaches 152,967, dominate the average
 and carry position rather than content.
 
-**Scale separates asking from measuring.** Content dependence from 0.5B to 1.5B:
+**Scale separates asking from measuring.** Content dependence from 0.5B to 1.5B, 3-seed means:
 
 | elicitation | 0.5B | 1.5B | change |
 |---|---|---|---|
-| generate | 0.055 | 0.021 | **-0.034** |
-| attention | 0.003 | 0.159 | +0.156 |
-| attention_late | 0.081 | 0.266 | **+0.185** |
-| read | 0.206 | 0.240 | +0.034 |
+| generate | 0.085 | 0.030 | **-0.055** |
+| attention | 0.014 | 0.163 | +0.149 |
+| attention_late | 0.113 | 0.258 | +0.145 |
+| read | 0.203 | 0.241 | +0.038 |
 
 Every measured signal improves with scale; the generated declaration is the only one that
-degrades. Attention probing improves about five times faster than the self-query, so the
-crossover at 1.5B is a trend rather than a tie, and extrapolating favours probing at larger
-models. That is a claim about two points and needs a third scale before it carries weight.
+degrades. Attention probing rises about four times faster than the self-query in absolute
+terms, which is what closes the 0.5B gap by 1.5B — but closing a gap this size lands on a
+tie, confirmed only in the negative (read's 0.5B lead is real; the 1.5B tie is also real, not
+a reversal in progress). A third scale would show whether the trend continues past a tie into
+an actual lead for attention, or plateaus.
 
 Cost is comparable: `read` issues K region prompts in one batched forward, `attention` one
 pass over the whole context, and both cover roughly the same number of tokens.
@@ -159,10 +174,9 @@ Qwen2.5 models have a 32768 window and are unaffected.
 
 ## Open
 
-- Seeds. A three-seed layout-robustness run of `read`, `attention` and `attention_late` has
-  been collected ([c2_attention.ipynb](../notebooks/c2_attention.ipynb)); its aggregated
-  report, with a paired t on the 1.5B crossover, is pending.
-- A third scale (7B-4bit) would show whether the attention-probing trend continues.
+- A third scale (7B-4bit) would settle whether attention probing overtakes `read` past 1.5B,
+  or plateaus at a tie. Three seeds at two scales rules out the 1.5B crossover being real; it
+  does not rule out a real crossover further out.
 - `read` at 27B+, to see whether it matches or beats the generated declaration [5] reports
   there. We cannot run it.
 - The routing is 3x chance, not deployable unsupervised. A cheap verifier on the chosen
