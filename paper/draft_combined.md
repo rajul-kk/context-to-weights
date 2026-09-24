@@ -123,8 +123,10 @@ phases, 288 probes of which 114 evicted:
 |---|---|---|
 | (c) cascading, no adapter | 0.413 | 0.000 |
 | **ours: compaction-supervised** | 0.451 | **0.000** |
-| compaction, 25% dropped-span mix | — | 0.018 |
-| compaction, 50% dropped-span mix | — | 0.009 |
+| compaction, 25% random mix | — | 0.018 |
+| compaction, 50% random mix | — | 0.009 |
+| compaction, 25% stratified mix | — | 0.035 |
+| compaction, 50% stratified mix | — | 0.000 |
 | **(a) uniform replay** | 0.465 | **0.123** |
 | (b) reflection | 0.389 | 0.000 |
 | (d) full context (ceiling) | 0.712 | — |
@@ -139,11 +141,14 @@ everything. These numbers reproduced exactly across two independent sessions.
 Mixing a random 25% or 50% of the compactor's *dropped* spans back into the training budget,
 holding the total budget fixed, moves recovery from 0.000 to essentially nothing (2 and 1 of
 114). The dropped pool is 5,956 filler spans against a handful of fact spans per trajectory,
-so a random draw from it rarely lands on the specific facts the compactor excludes; uniform's
-0.123 comes from sampling every span, kept and dropped, across 25 phases, not from one
-proportional mixing pass. This is a different failure from Project B's (below): A excludes
-whole fact spans from the training set across every phase, and reintroducing a random slice
-of what was excluded does not reliably reintroduce the specific facts that matter.
+so a random draw from it rarely lands on the specific facts the compactor excludes. Grouping
+dropped spans by fact key and round-robining across keys instead of drawing flat-random
+roughly doubles recovery at 25% mix (4 of 114) but falls to zero at 50% — one run each, and
+still an order of magnitude short of uniform. Uniform's 0.123 comes from sampling every span,
+kept and dropped, across 25 phases, not from one proportional mixing pass, targeted or not.
+This is a different failure from Project B's (below): A excludes whole fact spans from the
+training set across every phase, and no remixing strategy tested reintroduces them at
+anything close to uniform's rate.
 
 **The same mask succeeds at the opposite task.** Following arXiv:2608.29934, a LoRA trained on
 the same free label to *refuse* when the evidence was evicted reaches 0.728 abstention on

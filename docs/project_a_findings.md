@@ -105,8 +105,10 @@ the total budget equal to `compaction`'s.
 | method | evicted (n=114) | note |
 |---|---|---|
 | ours: compaction, 0% mix | 0.000 (0/114) | reproduces the run above exactly |
-| compaction, 25% mix | 0.018 (2/114) | |
-| compaction, 50% mix | 0.009 (1/114) | |
+| compaction, 25% random mix | 0.018 (2/114) | draws uniformly from the dropped pool |
+| compaction, 50% random mix | 0.009 (1/114) | |
+| compaction, 25% stratified mix | 0.035 (4/114) | round-robins one dropped span per distinct fact key |
+| compaction, 50% stratified mix | 0.000 (0/114) | |
 | (a) uniform replay | 0.123 (14/114) | reproduces the run above exactly |
 
 **This does not work, and it is not the same failure as Project B's.** Swapping in a random
@@ -118,14 +120,25 @@ diversity. Uniform's 0.123 comes from sampling **all** spans, kept and dropped t
 sleep phase, across 25 phases; that is a much larger number of independent draws at a better
 mixing ratio than a one-shot 25-50% swap into an already fact-concentrated budget.
 
+**Targeting the sampling helps a little, and does not fix it either.** `from_compaction_stratified`
+groups each event's dropped spans by fact key and round-robins across keys instead of drawing
+flat-random, verified on a synthetic 200:1 filler-to-fact skew to hit the rare key on every
+trial versus 2-5% for random draws. At 25% mix this roughly doubles recovery over random
+mixing (0.035 vs 0.018, 4 vs 2 of 114) — the intended direction, and still an order of
+magnitude short of uniform's 0.123. **At 50% mix it drops to zero**, worse than random mixing
+at the same budget. One run each, so this could be small-sample noise: at ~11 evicted
+instances per fact key, one training run learning or not learning a single key swings the
+count by several probes. It could also mean the round-robin, applied per event rather than
+across the whole corpus, starves an event's well-covered facts (`db_engine`, `owner`) to make
+room for a rare one it happens to see, without the reverse ever correcting for it. Either way,
+neither ablation closes the gap, and stratification is not the one-line fix floor-weight was
+for Project B.
+
 **So the two projects fail for related but distinct reasons.** B's gate excluded knowledge
 from the gradient entirely at the token level within an otherwise-trained example; a small
-floor weight restored it. A's gate excludes entire fact spans from the training set across
-every phase; re-including a random slice of what it excluded does not reliably re-include
-the *specific* facts that matter, because they are rare relative to filler even among what
-was dropped. A's fix would need targeted resampling of specific fact keys, not proportional
-random mixing — a stronger and more specific claim than "the two problems are one problem"
-would have been.
+floor weight restored it fully. A's gate excludes entire fact spans from the training set
+across every phase; re-including them, whether at random or targeted by key, recovers at most
+4 of 114 facts against uniform's 14. A's failure is not a weighting artifact the way B's was.
 
 Project B's gate, independently, clears its matched control at +6.77σ, and once its own
 weighting defect is fixed it is no worse than a random-selection arm with the same masking
