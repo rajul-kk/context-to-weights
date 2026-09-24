@@ -110,6 +110,30 @@ random and uniform. At floor 0 it landed below both. At floor 0.1 the correct co
 (against random) shows no gap at all — the prediction of an intermediate position was wrong
 both times; there is no ordering between kl_top and random to be intermediate to.
 
+## Token-granularity arm
+
+The gate at token granularity (each response token scored individually, not pooled by span)
+clears its own matched control too, more weakly than span: **0.363 vs 0.247, +4.29σ**
+(against span's +6.77σ). Single-seed, floor 0 and 0.1, same three policies:
+
+| floor | KL-gated | random-span | uniform |
+|---|---|---|---|
+| 0 | 0.344 | 0.260 | 0.708 |
+| 0.1 | 0.771 | 0.760 | 0.708 |
+
+- **The floor-0 defect reproduces at token granularity.** Both masked arms sit far below
+  full-weight `uniform` until the floor is fixed, matching span.
+- **At floor 0, kl_top leads random by 0.084 here — in the opposite direction from span**,
+  where kl_top *lost* to random at floor 0 (0.510 vs 0.583). One seed each; floor 0 is the
+  known-defective setting for both granularities, so this reads as noise in a regime already
+  established as broken, not a granularity effect worth chasing.
+- **At floor 0.1, the KL ranking's edge over random shrinks to 0.010** — consistent with
+  span's 5-seed finding that the ranking adds nothing once the floor is fixed. One seed here,
+  so this doesn't add statistical power to that claim, only a second granularity pointing the
+  same direction.
+- **Both masked arms again beat full-weight `uniform`** at floor 0.1 (kl +0.063, random
+  +0.052), the same shape as span's significant `random - uniform` result.
+
 ## Methodological record
 
 - **The first gate check had no control.** `gate_report.json` recorded
@@ -126,6 +150,7 @@ both times; there is no ordering between kl_top and random to be intermediate to
 - Whether masked-at-floor-0.1 beats unmasked `uniform` in general, or only at 300 steps: a
   longer step budget or an LR sweep for `uniform` would tell whether that's a real training
   effect or an artifact of a step count picked for `kl_top`, not for it.
-- Token-granularity arm, run and pending write-up: see below.
+- Seeds on the token-granularity arm: it's single-seed above, so its floor-0 reversal against
+  span (kl leads random there, loses at span) can't yet be told from noise.
 
 See [paper/draft_combined.md](../paper/draft_combined.md).
