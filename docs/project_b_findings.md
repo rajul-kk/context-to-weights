@@ -2,10 +2,12 @@
 
 1. **Does the with/without-context KL carry a usable importance signal?** Yes. The span gate
    selects required content at **+6.77σ** over a matched-budget control.
-2. **Does gating distillation on it beat uniform distillation?** At `floor_weight: 0` it
-   loses (0.510 vs 0.708). Fixing the floor to 0.1 flips this: across three seeds, gated
-   distillation numerically leads uniform on all three and random-span on two of three, though
-   the margin is not significant at this seed count (t(2)=2.78 vs uniform, 2.0 vs random).
+2. **Does gating distillation on it beat uniform distillation?** **No, and it doesn't beat
+   random selection either.** At `floor_weight: 0` it loses to both (0.510 vs 0.583 and
+   0.708). Fixing the floor to 0.1 lifts it above 0.65 on every seed, but paired against
+   `random` — the arm with identical masking and no signal at all — the KL ranking adds
+   nothing (5 seeds, t(4)=0.74). The gate selects the right tokens (+6.77σ at selection) and
+   that selection does not translate into better training.
 
 ## The run
 
@@ -56,7 +58,15 @@ the gated adapter still trains worse than one fed random spans.
 
 At `floor_weight: 0` every non-selected token gets zero gradient, so the low-surprise prefix
 that conditions each selected identifier is never trained. Same gate (+6.77σ), same 300
-steps, non-selected tokens given a small weight instead (batch job, 2026-09-24):
+steps, non-selected tokens given a small weight instead (batch job, 2026-09-24 to 2026-09-25,
+5 seeds).
+
+**`uniform` and `random` are not the same kind of arm.** In `distill/gate.py`, `uniform` gives
+every token weight 1.0 — full-weight training on everything, no subsetting at all.
+`random`, like `kl_top`, gives weight 1.0 to a 25% subset and the floor weight to the rest;
+the only difference between `random` and `kl_top` is *which* 25% is chosen. So `kl_top` vs
+`random` isolates whether the KL ranking matters; `random` or `kl_top` vs `uniform` compares
+masked training against unmasked training, a different question entirely.
 
 | floor weight | seed | KL-gated | random-span | uniform |
 |---|---|---|---|---|
@@ -64,27 +74,41 @@ steps, non-selected tokens given a small weight instead (batch job, 2026-09-24):
 | 0.1 | 0 | 0.729 | 0.729 | 0.708 |
 | 0.1 | 1 | 0.823 | 0.750 | 0.729 |
 | 0.1 | 2 | 0.802 | 0.719 | 0.698 |
+| 0.1 | 3 | 0.813 | 0.792 | 0.729 |
+| 0.1 | 4 | 0.656 | 0.729 | 0.677 |
 | 0.3 | 0 | 0.708 | 0.656 | 0.708 |
 
-In-group pass, n=96 each.
+In-group pass, n=96 each. Paired across all five floor-0.1 seeds:
 
-- **The zero floor was the defect.** A 0.1 floor lifts gated distillation by +0.219 (about
-  3.2σ) at seed 0. Confirmed on two more seeds: floor 0.1 never scores below 0.708.
-- **With more seeds, the gate looks ahead rather than tied.** Seed 0 was an exact tie with
-  random-span (0.729 each); seeds 1 and 2 both put the gate ahead of random by 0.07-0.08 and
-  ahead of uniform by 0.09-0.10. Paired across all three seeds: **kl_top - uniform mean
-  +0.073, t(2) = 2.78**; **kl_top - random mean +0.052, t(2) = 2.0**. Neither clears the
-  t(2) critical value of 4.30, so this is not yet a significant result, but the earlier
-  "ties, adds nothing" reading was one seed away from "leads, not yet significant" — the
-  honest statement is that three seeds point the same direction and need a fourth and fifth
-  to settle it.
-- `random - uniform` is +0.021 on all three seeds exactly, which is small enough to be a
-  fixed rounding artifact of `n=96` rather than a real, reseedable effect; not interpreted
-  further here.
+| comparison | mean diff | t(4) | crit | significant |
+|---|---|---|---|---|
+| kl_top - random (isolates the KL ranking) | +0.021 | 0.74 | 2.78 | no |
+| kl_top - uniform (masked vs unmasked) | +0.056 | 2.33 | 2.78 | no |
+| random - uniform (masked vs unmasked) | +0.035 | 3.90 | 2.78 | **yes** |
 
-**Recorded prediction, scored.** We predicted gated distillation would land between random
-and uniform. At floor 0 it landed below both. With the floor fixed and pooled across three
-seeds it nominally leads both, not significantly. Revise, don't discard, on new evidence.
+**The zero floor was still the defect** — floor 0.1 never scores below 0.656, against 0.510
+at floor 0. That holds.
+
+**The KL ranking itself adds nothing over random selection.** Seeds 0-3 put the gate ahead of
+random by 0 to 0.08; seed 4 reverses it, gate below random by 0.07. Paired across all five,
++0.021, t(4)=0.74 — not remotely significant, and the sign is not even consistent. The
+"nominal lead" read from three seeds does not survive a fourth and fifth. Selecting by KL rank
+is indistinguishable from selecting at random, at this scale and step budget.
+
+**A masked 25% at floor 0.1 tends to beat unmasked full-weight training, and this part is
+real.** `random - uniform` is positive on all five seeds (0.021 to 0.062) with small variance,
+significant at t(4)=3.90. `kl_top - uniform` points the same way but seed 4's reversal keeps
+it short of significance (t=2.33). This is not a claim about selection quality — `random`
+picks its 25% with no signal at all — it is a claim that training on a smaller, full-weight
+subset plus a low-weight remainder outperforms training on everything at full weight, at 300
+steps. Plausibly a fixed-step-budget effect: masked training concentrates gradient on fewer
+tokens per step. Untested whether it survives a longer step budget or a learning-rate sweep
+for the uniform arm; report it as a real but narrow finding, not a general claim about masking.
+
+**Recorded prediction, scored, twice.** We predicted gated distillation would land between
+random and uniform. At floor 0 it landed below both. At floor 0.1 the correct comparison
+(against random) shows no gap at all — the prediction of an intermediate position was wrong
+both times; there is no ordering between kl_top and random to be intermediate to.
 
 ## Methodological record
 
@@ -99,15 +123,9 @@ seeds it nominally leads both, not significantly. Revise, don't discard, on new 
 
 ## Next
 
-- Seeds on the floor-0.1 comparison: gated, random and uniform are within 0.02, so a claim of
-  equality needs more than one run.
-- Token-granularity arm: `scripts/run_skills.py --granularity token --stages
-  score,distill,eval,report`, wired into [b1_skills.ipynb](../notebooks/b1_skills.ipynb) via
-  `RUN_TOKEN_ARM`.
-
-## More seeds needed before this is a claim
-
-n=3 seeds is what decided "tied" was actually "leads, not yet significant" above. Two more
-seeds at floor 0.1 (about 45 min) would either confirm the lead or fold it back into noise.
+- Whether masked-at-floor-0.1 beats unmasked `uniform` in general, or only at 300 steps: a
+  longer step budget or an LR sweep for `uniform` would tell whether that's a real training
+  effect or an artifact of a step count picked for `kl_top`, not for it.
+- Token-granularity arm, run and pending write-up: see below.
 
 See [paper/draft_combined.md](../paper/draft_combined.md).

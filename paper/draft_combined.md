@@ -30,9 +30,10 @@ of evicted facts while gating on a +15.9σ salience signal recovers none, and mi
 the dropped spans back into training does not close the gap: **uniform coverage beats
 importance gating**, with a positive control showing the setup could have registered a win.
 On an independent context-gap signal, a gate that clears its matched control at +6.77σ loses
-to uniform distillation at a zero floor weight, but once a weighting defect is fixed it
-nominally leads both uniform and random-span selection across three seeds, not yet
-significantly. The two signals do not point at one mechanism; we report them separately.
+to full-weight uniform training at a zero floor weight, and once that weighting defect is
+fixed the KL ranking performs identically to random selection under the same masking (5
+seeds, t(4)=0.74) — neutral, not beneficial. The two signals fail for different reasons; we
+report them separately rather than as one mechanism.
 
 ## 1. Introduction
 
@@ -181,14 +182,18 @@ the KL gate. A task passes when every required string appears in the output.
 identifiers inside the gate's selection — against a matched-budget random control: **0.597 vs
 0.392, +6.77σ**. An earlier cached score file under an older tokenizer gave -5.14σ (§6).
 
-**Result.** Uniform distillation reaches the full-prompt ceiling, 0.708 against 0.708, at 69%
-fewer runtime tokens. With `floor_weight` at 0 the gated arm reaches **0.510**, about 2.9σ
-below uniform and below a random-span control at 0.583: the prefix that conditions each
-selected identifier gets no gradient. Giving non-selected tokens a 0.1 weight lifts it above
-0.70 at every one of three seeds; pooled across seeds the gated arm leads uniform by a mean of
-0.073 (t(2)=2.78) and random-span by 0.052 (t(2)=2.0) — nominally ahead on both, not
-significant at n=3. The internalised skill keeps partial function under a mismatched
-retrieved document (0.292 vs 0.000 for the prompted skill).
+**Result.** `uniform` here trains on every token at full weight, with no subsetting; `random`
+uses the same 25%-selected, floor-weighted masking as the gate but with no signal behind the
+choice. With `floor_weight` at 0 the gated arm reaches **0.510**, about 2.9σ below `uniform`
+and below `random` at 0.583: the prefix that conditions each selected identifier gets no
+gradient. A 0.1 floor lifts it above 0.65 on all five seeds tested. The comparison that
+isolates the KL signal is `kl_top` against `random`, which share identical masking: paired
+across five seeds the mean difference is +0.021 (t(4)=0.74) and the sign is inconsistent
+seed to seed — the ranking adds nothing over random selection. Both masked arms nominally
+beat full-weight `uniform` (`random`: +0.035, t(4)=3.90, significant; `kl_top`: +0.056,
+t(4)=2.33, not quite), a separate, narrower finding about masked versus full-weight training
+at a fixed step budget, not about selection quality. The internalised skill keeps partial
+function under a mismatched retrieved document (0.292 vs 0.000 for the prompted skill).
 
 ## 5. Signal three: the attention declaration
 

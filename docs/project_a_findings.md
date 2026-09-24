@@ -127,12 +127,14 @@ was dropped. A's fix would need targeted resampling of specific fact keys, not p
 random mixing — a stronger and more specific claim than "the two problems are one problem"
 would have been.
 
-Project B's gate, independently, clears its matched control at +6.77σ and — once its own
-defect is fixed — nominally leads both uniform and random-span selection across three seeds,
-not yet significantly ([project_b_findings.md](project_b_findings.md)). **The two projects no
-longer point at the same conclusion**: A's compaction gate is confirmed strictly harmful
-relative to uniform; B's gate, once its weighting defect is fixed, is not shown to be harmful
-and may modestly help. Report them separately.
+Project B's gate, independently, clears its matched control at +6.77σ, and once its own
+weighting defect is fixed it is no worse than a random-selection arm with the same masking
+(5 seeds, t(4)=0.74) — but no better either
+([project_b_findings.md](project_b_findings.md)). **Neither project shows importance gating
+beating uniform coverage, but for different reasons**: A's gate is confirmed strictly harmful
+because it excludes whole facts from training; B's gate is neutral because, once its own
+defect is fixed, selecting by KL rank performs identically to selecting at random. Report
+them separately rather than as one mechanism.
 
 ## The same mask works for abstention
 
@@ -227,9 +229,10 @@ pool.
 
 - **Project A's compaction gate is strictly harmful**: 0.000 vs uniform's 0.123, and mixing
   a share of the dropped spans back in does not close the gap. This is the headline for A.
-- **Project B's gate is not harmful once a weighting defect is fixed**, and nominally leads
-  both baselines across three seeds — not yet significant. The two projects do not point at
-  one conclusion; report them separately rather than as one mechanism.
+- **Project B's gate is neutral, not harmful, once its weighting defect is fixed**: the KL
+  ranking performs identically to random selection under the same masking (5 seeds, t(4)=0.74).
+  The two projects fail for different reasons; report them separately rather than as one
+  mechanism.
 - **The oracle control is pending a re-run** at a real training budget; the first attempt saw
   5.6% of one epoch and cannot bound anything.
 - **The same free mask supports abstention where it fails at recall**: 0.000 recovered versus a
