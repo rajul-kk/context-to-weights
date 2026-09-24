@@ -37,6 +37,24 @@ def from_compaction(event, include_dropped=False):
     return out
 
 
+def from_compaction_mix(event, rng, mix):
+    kept = [s for s in event.spans if s.kept]
+    dropped = [s for s in event.spans if not s.kept]
+    n_drop = min(round(mix * len(kept)), len(dropped))
+    picks = rng.sample(kept, k=len(kept) - n_drop) + rng.sample(dropped, k=n_drop)
+    return [
+        SleepExample(
+            prompt=CONSOLIDATION_CUE.format(traj_id=event.traj_id),
+            target=s.text,
+            kept=s.kept,
+            source="compaction_mix",
+            traj_id=event.traj_id,
+            fact_key=s.carries_fact,
+        )
+        for s in picks
+    ]
+
+
 def from_uniform(event, rng, n=None):
     spans = list(event.spans)
     n = n or sum(1 for s in spans if s.kept)

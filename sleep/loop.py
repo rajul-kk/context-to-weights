@@ -10,17 +10,20 @@ from common.io import (append_jsonl, ensure_dir, load_config, parse_overrides, r
 from common.schema import CompactionEvent
 from sleep.checkpoint import (load_state, mark_best, resume_adapter, resume_mask_head,
                               save_phase)
-from sleep.examples import ReplayBuffer, from_compaction, from_reflection, from_uniform
+from sleep.examples import (ReplayBuffer, from_compaction, from_compaction_mix, from_reflection,
+                            from_uniform)
 from sleep.lm import load_backbone
 from sleep.trainer import MaskHead, load_or_attach, train_sleep_phase
 
 METHODS = ["compaction", "uniform", "reflection"]
 
 
-def build_examples(method, events, rng, reflections, include_dropped):
+def build_examples(method, events, rng, reflections, include_dropped, mix=0.0):
     out = []
     for ev in events:
-        if method == "compaction":
+        if method == "compaction" and mix > 0:
+            out.extend(from_compaction_mix(ev, rng, mix))
+        elif method == "compaction":
             out.extend(from_compaction(ev, include_dropped=include_dropped))
         elif method == "uniform":
             out.extend(from_uniform(ev, rng))
@@ -60,9 +63,11 @@ def main():
 
     use_replay = cfg["sleep"]["replay"]["enabled"] and not args.no_replay
     use_mask = cfg["sleep"]["mask_head"]["enabled"] or args.mask_head
-    tag = args.method + ("+mask" if use_mask else "") + ("" if use_replay else "-noreplay")
+    mix = cfg["sleep"].get("dropped_mix", 0.0) if args.method == "compaction" else 0.0
+    tag = (args.method + (f"-mix{round(mix * 100)}" if mix else "") + ("+mask" if use_mask else "")
+           + ("" if use_replay else "-noreplay"))
     run_dir = ensure_dir(args.run_dir or Path(cfg["run_root"]) / f"sleep_{tag}")
-    write_json(run_dir / "config.json", {"cfg": cfg, "method": args.method,
+    write_json(run_dir / "config.json", {"cfg": cfg, "method": args.method, "dropped_mix": mix,
                                          "replay": use_replay, "mask_head": use_mask})
 
     events = [CompactionEvent.from_dict(d) for d in read_jsonl(args.events)]
@@ -114,7 +119,7 @@ def main():
         window = events[cursor: cursor + k]
         cursor += len(window)
         train_examples = build_examples(args.method, window, rng, reflections,
-                                        include_dropped=use_mask)
+                                        include_dropped=use_mask, mix=mix)
         if use_replay:
             train_examples = train_examples + replay.sample(cfg["sleep"]["replay"]["capacity"] // 2)
         if not train_examples:
@@ -122,7 +127,7 @@ def main():
 
         result = train_sleep_phase(model, tokenizer, cfg, train_examples, val_examples,
                                    mask_head, log_every=args.log_every)
-        replay.add_all([e for e in build_examples(args.method, window, rng, reflections, False)])
+        replay.add_all(build_examples(args.method, window, rng, reflections, False, mix))
         phase += 1
 
         record = {

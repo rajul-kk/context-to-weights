@@ -33,6 +33,7 @@ sleep:
   steps: 200
   batch_size: 4
   grad_accum: 2
+  dropped_mix: 0.0
   replay:
     enabled: true
     capacity: 40
