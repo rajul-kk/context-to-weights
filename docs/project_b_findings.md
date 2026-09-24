@@ -2,9 +2,10 @@
 
 1. **Does the with/without-context KL carry a usable importance signal?** Yes. The span gate
    selects required content at **+6.77σ** over a matched-budget control.
-2. **Does gating distillation on it beat uniform distillation?** **No.** With that verified
-   gate, KL-gated distillation reaches 0.510 against uniform's 0.708, and does not beat a
-   random-span control either.
+2. **Does gating distillation on it beat uniform distillation?** **No.** At the original
+   `floor_weight: 0` it loses (0.510 vs 0.708). With a 0.1 floor it ties uniform (0.729) — and
+   so does random-span selection at the same floor (0.729). The signal is real at selection
+   time and confers no downstream advantage.
 
 ## The run
 
@@ -49,17 +50,32 @@ The stale file split identifiers such as `vx_stash` into five pieces, which drow
 under span-mean pooling. That number is retracted; it never reflected the gate.
 
 So selection is not the problem: the gate covers required content at 1.5x its control, and
-the gated adapter still trains worse than one fed random spans. **Coverage of the right tokens
-is not what limits distillation here.** The leading explanation is `floor_weight: 0.0`: every
-non-selected token gets zero gradient, so the low-surprise prefix that conditions each
-high-surprise identifier is never trained, and the path to the knowledge breaks even though
-the knowledge was selected. Random spans break that path less systematically, and uniform
-does not break it at all. This is the same shape as Project A's failure
-([project_a_findings.md](project_a_findings.md)).
+the gated adapter still trains worse than one fed random spans.
 
-**Recorded prediction, now scored.** Before this run we predicted gated distillation would
-land between the random control and uniform. It landed below the random control. The
-coverage account alone does not explain that; the gradient-path account does.
+## Floor-weight ablation
+
+At `floor_weight: 0` every non-selected token gets zero gradient, so the low-surprise prefix
+that conditions each selected identifier is never trained. Same gate (+6.77σ), same 300
+steps, non-selected tokens given a small weight instead (batch job, 2026-09-24):
+
+| floor weight | KL-gated | random-span | uniform |
+|---|---|---|---|
+| 0 | 0.510 | 0.583 | 0.708 |
+| **0.1** | **0.729** | **0.729** | 0.708 |
+| 0.3 | 0.708 | 0.656 | 0.708 |
+
+In-group pass, n=96 each.
+
+- **The zero floor was the defect.** A 0.1 floor lifts gated distillation by +0.219 (about
+  3.2σ), to uniform's level. The gradient-path account is confirmed.
+- **The gate then adds nothing over random selection.** At 0.1 both reach 0.729. At 0.3 the
+  gate leads by 0.052 (about 0.8σ, not significant).
+- **So the loss to uniform at floor 0 was an artifact of the weighting, not evidence that
+  gating hurts.** What survives is weaker and cleaner: a verified importance signal (+6.77σ at
+  selection) buys no downstream advantage over random spans or uniform training.
+
+**Recorded prediction, scored.** We predicted gated distillation would land between random
+and uniform. At floor 0 it landed below random; with a floor it ties both. Neither matches.
 
 ## Methodological record
 
@@ -74,9 +90,8 @@ coverage account alone does not explain that; the gradient-path account does.
 
 ## Next
 
-- `floor_weight` ablation (e.g. 0.1 and 0.3) at the same gate: the direct test of the
-  gradient-path explanation. If a small floor lifts gated distillation to uniform, gating
-  selects correctly and only needs conditioning context.
+- Seeds on the floor-0.1 comparison: gated, random and uniform are within 0.02, so a claim of
+  equality needs more than one run.
 - Token-granularity arm: `scripts/run_skills.py --granularity token --stages
   score,distill,eval,report`, wired into [b1_skills.ipynb](../notebooks/b1_skills.ipynb) via
   `RUN_TOKEN_ARM`.
