@@ -100,10 +100,18 @@ real.** `random - uniform` is positive on all five seeds (0.021 to 0.062) with s
 significant at t(4)=3.90. `kl_top - uniform` points the same way but seed 4's reversal keeps
 it short of significance (t=2.33). This is not a claim about selection quality — `random`
 picks its 25% with no signal at all — it is a claim that training on a smaller, full-weight
-subset plus a low-weight remainder outperforms training on everything at full weight, at 300
-steps. Plausibly a fixed-step-budget effect: masked training concentrates gradient on fewer
-tokens per step. Untested whether it survives a longer step budget or a learning-rate sweep
-for the uniform arm; report it as a real but narrow finding, not a general claim about masking.
+subset plus a low-weight remainder outperforms training on everything at full weight.
+
+**Not a step-budget artifact — the opposite.** `uniform` at 300, 600, 900 and 1200 steps: 0.708,
+0.688, 0.677, 0.656. It gets monotonically *worse* with more training, not better, so the gap
+to the masked arms (0.73-0.82 at floor 0.1) is not `uniform` being undertrained. The likely
+cause is the target itself: `uniform` back-propagates through every token of a full document
+response, filler included, at full weight, so more steps mean more capacity spent fitting
+verbose content rather than the API calls the task actually scores. Masking to 25% plus a
+small floor is, in effect, a curriculum that spends the gradient on a smaller, still-covered
+target. This generalises past 300 steps; it does not generalise past `uniform`'s own training
+regime, which may simply be a weaker way to train the same corpus, not a comparison to be
+tuned away.
 
 **Recorded prediction, scored, twice.** We predicted gated distillation would land between
 random and uniform. At floor 0 it landed below both. At floor 0.1 the correct comparison
@@ -147,9 +155,9 @@ clears its own matched control too, more weakly than span: **0.363 vs 0.247, +4.
 
 ## Next
 
-- Whether masked-at-floor-0.1 beats unmasked `uniform` in general, or only at 300 steps: a
-  longer step budget or an LR sweep for `uniform` would tell whether that's a real training
-  effect or an artifact of a step count picked for `kl_top`, not for it.
+- Whether `uniform` is simply mistuned (an LR sweep, not just a step sweep, would settle
+  it), or whether full-weight training on verbose targets is a structurally weaker recipe
+  than masked training at this task. The step sweep rules out undertraining but not tuning.
 - Seeds on the token-granularity arm: it's single-seed above, so its floor-0 reversal against
   span (kl leads random there, loses at span) can't yet be told from noise.
 
