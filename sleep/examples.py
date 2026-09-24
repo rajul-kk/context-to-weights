@@ -55,6 +55,41 @@ def from_compaction_mix(event, rng, mix):
     ]
 
 
+def from_compaction_stratified(event, rng, mix):
+    kept = [s for s in event.spans if s.kept]
+    dropped = [s for s in event.spans if not s.kept]
+    n_drop = min(round(mix * len(kept)), len(dropped))
+    buckets = {}
+    for s in dropped:
+        buckets.setdefault(s.carries_fact, []).append(s)
+    keys = list(buckets)
+    rng.shuffle(keys)
+    picks = []
+    i = 0
+    while len(picks) < n_drop and keys:
+        key = keys[i % len(keys)]
+        bucket = buckets[key]
+        if not bucket:
+            keys.pop(i % len(keys))
+            if not keys:
+                break
+            continue
+        picks.append(bucket.pop(rng.randrange(len(bucket))))
+        i += 1
+    remaining = rng.sample(kept, k=len(kept) - len(picks)) if len(kept) > len(picks) else []
+    return [
+        SleepExample(
+            prompt=CONSOLIDATION_CUE.format(traj_id=event.traj_id),
+            target=s.text,
+            kept=s.kept,
+            source="compaction_stratified",
+            traj_id=event.traj_id,
+            fact_key=s.carries_fact,
+        )
+        for s in remaining + picks
+    ]
+
+
 def from_uniform(event, rng, n=None):
     spans = list(event.spans)
     n = n or sum(1 for s in spans if s.kept)

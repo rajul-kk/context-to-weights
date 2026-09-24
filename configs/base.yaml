@@ -34,6 +34,7 @@ sleep:
   batch_size: 4
   grad_accum: 2
   dropped_mix: 0.0
+  mix_mode: random
   replay:
     enabled: true
     capacity: 40
