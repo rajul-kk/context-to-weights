@@ -2,10 +2,10 @@
 
 1. **Does the with/without-context KL carry a usable importance signal?** Yes. The span gate
    selects required content at **+6.77σ** over a matched-budget control.
-2. **Does gating distillation on it beat uniform distillation?** **No.** At the original
-   `floor_weight: 0` it loses (0.510 vs 0.708). With a 0.1 floor it ties uniform (0.729) — and
-   so does random-span selection at the same floor (0.729). The signal is real at selection
-   time and confers no downstream advantage.
+2. **Does gating distillation on it beat uniform distillation?** At `floor_weight: 0` it
+   loses (0.510 vs 0.708). Fixing the floor to 0.1 flips this: across three seeds, gated
+   distillation numerically leads uniform on all three and random-span on two of three, though
+   the margin is not significant at this seed count (t(2)=2.78 vs uniform, 2.0 vs random).
 
 ## The run
 
@@ -58,24 +58,33 @@ At `floor_weight: 0` every non-selected token gets zero gradient, so the low-sur
 that conditions each selected identifier is never trained. Same gate (+6.77σ), same 300
 steps, non-selected tokens given a small weight instead (batch job, 2026-09-24):
 
-| floor weight | KL-gated | random-span | uniform |
-|---|---|---|---|
-| 0 | 0.510 | 0.583 | 0.708 |
-| **0.1** | **0.729** | **0.729** | 0.708 |
-| 0.3 | 0.708 | 0.656 | 0.708 |
+| floor weight | seed | KL-gated | random-span | uniform |
+|---|---|---|---|---|
+| 0 | 0 | 0.510 | 0.583 | 0.708 |
+| 0.1 | 0 | 0.729 | 0.729 | 0.708 |
+| 0.1 | 1 | 0.823 | 0.750 | 0.729 |
+| 0.1 | 2 | 0.802 | 0.719 | 0.698 |
+| 0.3 | 0 | 0.708 | 0.656 | 0.708 |
 
 In-group pass, n=96 each.
 
 - **The zero floor was the defect.** A 0.1 floor lifts gated distillation by +0.219 (about
-  3.2σ), to uniform's level. The gradient-path account is confirmed.
-- **The gate then adds nothing over random selection.** At 0.1 both reach 0.729. At 0.3 the
-  gate leads by 0.052 (about 0.8σ, not significant).
-- **So the loss to uniform at floor 0 was an artifact of the weighting, not evidence that
-  gating hurts.** What survives is weaker and cleaner: a verified importance signal (+6.77σ at
-  selection) buys no downstream advantage over random spans or uniform training.
+  3.2σ) at seed 0. Confirmed on two more seeds: floor 0.1 never scores below 0.708.
+- **With more seeds, the gate looks ahead rather than tied.** Seed 0 was an exact tie with
+  random-span (0.729 each); seeds 1 and 2 both put the gate ahead of random by 0.07-0.08 and
+  ahead of uniform by 0.09-0.10. Paired across all three seeds: **kl_top - uniform mean
+  +0.073, t(2) = 2.78**; **kl_top - random mean +0.052, t(2) = 2.0**. Neither clears the
+  t(2) critical value of 4.30, so this is not yet a significant result, but the earlier
+  "ties, adds nothing" reading was one seed away from "leads, not yet significant" — the
+  honest statement is that three seeds point the same direction and need a fourth and fifth
+  to settle it.
+- `random - uniform` is +0.021 on all three seeds exactly, which is small enough to be a
+  fixed rounding artifact of `n=96` rather than a real, reseedable effect; not interpreted
+  further here.
 
 **Recorded prediction, scored.** We predicted gated distillation would land between random
-and uniform. At floor 0 it landed below random; with a floor it ties both. Neither matches.
+and uniform. At floor 0 it landed below both. With the floor fixed and pooled across three
+seeds it nominally leads both, not significantly. Revise, don't discard, on new evidence.
 
 ## Methodological record
 
@@ -95,5 +104,10 @@ and uniform. At floor 0 it landed below random; with a floor it ties both. Neith
 - Token-granularity arm: `scripts/run_skills.py --granularity token --stages
   score,distill,eval,report`, wired into [b1_skills.ipynb](../notebooks/b1_skills.ipynb) via
   `RUN_TOKEN_ARM`.
+
+## More seeds needed before this is a claim
+
+n=3 seeds is what decided "tied" was actually "leads, not yet significant" above. Two more
+seeds at floor 0.1 (about 45 min) would either confirm the lead or fold it back into noise.
 
 See [paper/draft_combined.md](../paper/draft_combined.md).

@@ -26,12 +26,13 @@ We argue that "measure the model, do not ask it" is the governing constraint for
 free-supervision methods below the scales where instruction-following is reliable, and we
 supply the measurement discipline — a matched control beside every signal-strength figure —
 that makes the distinction visible. On the compaction signal, uniform replay recovers 12.3%
-of evicted facts while gating on a +15.9σ salience signal recovers none: **uniform coverage
-beats importance gating**, with a positive control showing the setup could have registered a
-win. On the context-gap signal a gate that clears its matched control at +6.77σ loses to
-uniform distillation until non-selected tokens get a small weight, after which it ties uniform
-and random-span selection alike (0.729). **On two independent verified signals, importance
-gating never beats uniform training.**
+of evicted facts while gating on a +15.9σ salience signal recovers none, and mixing a share of
+the dropped spans back into training does not close the gap: **uniform coverage beats
+importance gating**, with a positive control showing the setup could have registered a win.
+On an independent context-gap signal, a gate that clears its matched control at +6.77σ loses
+to uniform distillation at a zero floor weight, but once a weighting defect is fixed it
+nominally leads both uniform and random-span selection across three seeds, not yet
+significantly. The two signals do not point at one mechanism; we report them separately.
 
 ## 1. Introduction
 
@@ -121,6 +122,8 @@ phases, 288 probes of which 114 evicted:
 |---|---|---|
 | (c) cascading, no adapter | 0.413 | 0.000 |
 | **ours: compaction-supervised** | 0.451 | **0.000** |
+| compaction, 25% dropped-span mix | — | 0.018 |
+| compaction, 50% dropped-span mix | — | 0.009 |
 | **(a) uniform replay** | 0.465 | **0.123** |
 | (b) reflection | 0.389 | 0.000 |
 | (d) full context (ceiling) | 0.712 | — |
@@ -131,6 +134,15 @@ targets equally well (validation CE 0.0005 and 0.0003), so the difference is cov
 optimisation: the compactor keeps `db_engine`, `owner` and `version_pin` on 100% of events but
 `auth_header` on 0% and `config_flag` on 3.4%, while uniform samples the same budget across
 everything. These numbers reproduced exactly across two independent sessions.
+
+Mixing a random 25% or 50% of the compactor's *dropped* spans back into the training budget,
+holding the total budget fixed, moves recovery from 0.000 to essentially nothing (2 and 1 of
+114). The dropped pool is 5,956 filler spans against a handful of fact spans per trajectory,
+so a random draw from it rarely lands on the specific facts the compactor excludes; uniform's
+0.123 comes from sampling every span, kept and dropped, across 25 phases, not from one
+proportional mixing pass. This is a different failure from Project B's (below): A excludes
+whole fact spans from the training set across every phase, and reintroducing a random slice
+of what was excluded does not reliably reintroduce the specific facts that matter.
 
 **The same mask succeeds at the opposite task.** Following arXiv:2608.29934, a LoRA trained on
 the same free label to *refuse* when the evidence was evicted reaches 0.728 abstention on
@@ -172,11 +184,11 @@ identifiers inside the gate's selection — against a matched-budget random cont
 **Result.** Uniform distillation reaches the full-prompt ceiling, 0.708 against 0.708, at 69%
 fewer runtime tokens. With `floor_weight` at 0 the gated arm reaches **0.510**, about 2.9σ
 below uniform and below a random-span control at 0.583: the prefix that conditions each
-selected identifier gets no gradient. Giving non-selected tokens a 0.1 weight lifts it to
-**0.729**, level with uniform, but random-span selection at the same floor also reaches
-0.729; at 0.3 the gate leads random by 0.052 (about 0.8σ). The signal selects the right
-content at 1.5x its control and buys nothing downstream. The internalised skill keeps partial
-function under a mismatched retrieved document (0.292 vs 0.000 for the prompted skill).
+selected identifier gets no gradient. Giving non-selected tokens a 0.1 weight lifts it above
+0.70 at every one of three seeds; pooled across seeds the gated arm leads uniform by a mean of
+0.073 (t(2)=2.78) and random-span by 0.052 (t(2)=2.0) — nominally ahead on both, not
+significant at n=3. The internalised skill keeps partial function under a mismatched
+retrieved document (0.292 vs 0.000 for the prompted skill).
 
 ## 5. Signal three: the attention declaration
 

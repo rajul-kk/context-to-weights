@@ -95,12 +95,44 @@ memorise. Compaction keeps 25.6% of spans, heavily concentrated on the fact span
 and it never keeps `auth_header` or `config_flag` at all. Uniform samples the same budget
 across the whole trajectory, so it covers facts the compactor systematically drops.
 
-Project B tests the same question on an independent signal. Its KL gate clears its matched
-control at +6.77σ, loses to uniform at `floor_weight: 0` (0.510 vs 0.708), and ties both
-uniform and random-span selection once non-selected tokens get a 0.1 weight (0.729 each)
-([project_b_findings.md](project_b_findings.md)). **Across two verified signals, importance
-gating never beats uniform training at this scale**: here it is strictly worse through
-coverage, in Project B it is no better than random once its weighting defect is fixed.
+## Fixing coverage directly does not fix it
+
+Project B's analogous failure (zero gradient on non-selected tokens) was fixed by a small
+floor weight, which closed the gap to uniform. We tested whether A's failure is the same
+shape: mix a share of the compactor's *dropped* spans back into the training budget, holding
+the total budget equal to `compaction`'s.
+
+| method | evicted (n=114) | note |
+|---|---|---|
+| ours: compaction, 0% mix | 0.000 (0/114) | reproduces the run above exactly |
+| compaction, 25% mix | 0.018 (2/114) | |
+| compaction, 50% mix | 0.009 (1/114) | |
+| (a) uniform replay | 0.123 (14/114) | reproduces the run above exactly |
+
+**This does not work, and it is not the same failure as Project B's.** Swapping in a random
+quarter or half of the *dropped* pool moves evicted recovery from 0.000 to essentially nothing
+(1-2 of 114). The reason is the dropped pool's composition: the compactor drops 5,956 filler
+spans against only a handful of fact spans per trajectory, so a random draw from it almost
+never lands on `auth_header` or `config_flag` specifically — it mostly adds more filler
+diversity. Uniform's 0.123 comes from sampling **all** spans, kept and dropped together, every
+sleep phase, across 25 phases; that is a much larger number of independent draws at a better
+mixing ratio than a one-shot 25-50% swap into an already fact-concentrated budget.
+
+**So the two projects fail for related but distinct reasons.** B's gate excluded knowledge
+from the gradient entirely at the token level within an otherwise-trained example; a small
+floor weight restored it. A's gate excludes entire fact spans from the training set across
+every phase; re-including a random slice of what it excluded does not reliably re-include
+the *specific* facts that matter, because they are rare relative to filler even among what
+was dropped. A's fix would need targeted resampling of specific fact keys, not proportional
+random mixing — a stronger and more specific claim than "the two problems are one problem"
+would have been.
+
+Project B's gate, independently, clears its matched control at +6.77σ and — once its own
+defect is fixed — nominally leads both uniform and random-span selection across three seeds,
+not yet significantly ([project_b_findings.md](project_b_findings.md)). **The two projects no
+longer point at the same conclusion**: A's compaction gate is confirmed strictly harmful
+relative to uniform; B's gate, once its weighting defect is fixed, is not shown to be harmful
+and may modestly help. Report them separately.
 
 ## The same mask works for abstention
 
@@ -193,9 +225,11 @@ pool.
 
 ## What survives for the writeup
 
-- **Importance gating never beats uniform training**, on two independent verified signals.
-  Here it is strictly worse (0.000 vs 0.123); in Project B it ties random selection once a
-  zero-weight defect is fixed. This is the headline.
+- **Project A's compaction gate is strictly harmful**: 0.000 vs uniform's 0.123, and mixing
+  a share of the dropped spans back in does not close the gap. This is the headline for A.
+- **Project B's gate is not harmful once a weighting defect is fixed**, and nominally leads
+  both baselines across three seeds — not yet significant. The two projects do not point at
+  one conclusion; report them separately rather than as one mechanism.
 - **The oracle control is pending a re-run** at a real training budget; the first attempt saw
   5.6% of one epoch and cannot bound anything.
 - **The same free mask supports abstention where it fails at recall**: 0.000 recovered versus a
