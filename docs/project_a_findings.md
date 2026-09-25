@@ -95,6 +95,25 @@ memorise. Compaction keeps 25.6% of spans, heavily concentrated on the fact span
 and it never keeps `auth_header` or `config_flag` at all. Uniform samples the same budget
 across the whole trajectory, so it covers facts the compactor systematically drops.
 
+### Across data seeds
+
+The table above is one synthetic corpus (seed 0). Two more corpora, each regenerated from
+scratch (`generate_synthetic --seed N`) and run through cascading, compaction and uniform:
+
+| data seed | n evicted | cascading | compaction | uniform |
+|---|---|---|---|---|
+| 0 | 114 | 0.000 | 0.000 | **0.123** (14) |
+| 1 | 102 | 0.000 | 0.029 (3) | **0.078** (8) |
+| 2 | 112 | 0.000 | 0.000 | **0.009** (1) |
+| mean | | 0.000 | 0.010 | **0.070** |
+
+**The direction holds; the size does not.** Uniform beats compaction on every corpus, and
+cascading recovers nothing on any of them. But the margin is 0.123, 0.049 and 0.009: a paired t
+of **1.81 on 2 df**, under the 4.30 needed. Seed 0 was the most favourable draw. Three for three
+in the same direction is suggestive (p = 0.125 on a sign test), not established. Uniform's
+all-probe accuracy is also lower than compaction's on seed 1 (0.385 vs 0.458) and level on
+seed 2 (0.382 vs 0.372), so the evicted gain is not free.
+
 ## Fixing coverage directly does not fix it
 
 Project B's analogous failure (zero gradient on non-selected tokens) was fixed by a small
@@ -240,8 +259,10 @@ pool.
 
 ## What survives for the writeup
 
-- **Project A's compaction gate is strictly harmful**: 0.000 vs uniform's 0.123, and mixing
-  a share of the dropped spans back in does not close the gap. This is the headline for A.
+- **Project A's compaction gate never helps and usually loses to uniform**: uniform wins on
+  all three data seeds (0.070 vs 0.010 mean evicted recovery), but the paired margin is not
+  significant (t(2)=1.81), and mixing dropped spans back in does not close the gap. This is
+  the headline for A, stated as a consistent direction rather than a significant effect.
 - **Project B's gate is neutral, not harmful, once its weighting defect is fixed**: the KL
   ranking performs identically to random selection under the same masking (5 seeds, t(4)=0.74).
   The two projects fail for different reasons; report them separately rather than as one

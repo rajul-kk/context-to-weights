@@ -38,7 +38,8 @@ replay buffer, and the adapter carries across phases. Pure SFT: no RL, no reward
 | floor | No context | `baselines/full_context.py --mode none` |
 
 **Result.** The keep decision is a strong salience signal (+15.85σ), yet uniform replay
-recovers 0.123 of evicted facts and compaction-supervised consolidation 0.000. The same mask
+recovers more evicted facts than compaction-supervised consolidation on all three synthetic
+corpora (0.070 vs 0.010 mean; paired t(2)=1.81, not significant). The same mask
 trained for abstention cuts hallucination on evicted facts by 72.8%.
 
 ```bash

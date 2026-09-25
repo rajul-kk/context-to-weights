@@ -174,38 +174,33 @@ Qwen2.5 models have a 32768 window and are unaffected.
 
 ## A third scale: Qwen2.5-7B-Instruct, nf4
 
-`read` leads again at 7B, more clearly than at 1.5B. Single seed, 128 probes (a third of the
-384 used at 0.5B/1.5B, to keep a 4-bit 7B model inside one Kaggle session), 4-bit quantised
-(`model.quantization: nf4`, `sleep/lm.py`), same probe-parity guard passing on the quantised
-model.
+`read` leads again at 7B. Three seeds, 128 probes (a third of the 384 used at 0.5B/1.5B, to
+keep a 4-bit 7B model inside one Kaggle session), 4-bit quantised (`model.quantization: nf4`,
+`sleep/lm.py`), gold distribution pinned per seed with `--gold-ref`. `generate` was not run.
 
 | mode | hit | σ(const) | content dep | slot stable |
 |---|---|---|---|---|
-| attention | 0.242 | +2.3 | 0.008 | 0.586 |
-| attention_late | 0.359 | +4.8 | 0.148 | 0.281 |
-| **read** | **0.398** | **+5.6** | **0.258** | 0.094 |
+| attention | 0.216 +/- 0.023 | 1.1 | 0.044 +/- 0.039 | 0.615 |
+| attention_late | 0.333 +/- 0.024 | 3.8 | 0.174 +/- 0.024 | 0.242 |
+| **read** | **0.388 +/- 0.009** | **5.0** | **0.247 +/- 0.018** | 0.109 |
 
-Chance 0.125, best-constant control 0.156 (differs slightly from the 0.148 at n=384 since
-this is a smaller, independently drawn probe set).
+Chance 0.125, best-constant control 0.174 +/- 0.025.
 
-**The extrapolated trend from 0.5B/1.5B does not continue.** Content dependence for
-`attention_late` was 0.113 at 0.5B, rose to 0.258 at 1.5B, and **falls back to 0.148 at
-7B** — not the continued climb that motivated running a third scale in the first place.
-`read`'s content dependence keeps rising modestly across all three (0.203, 0.241, 0.258).
-Read's raw lead over `attention_late` is wider at 7B (+0.110 hit rate, +0.110 content
-dependence) than the near-tie measured at 1.5B.
+**`read` over `attention_late`: hit rate significant, content dependence not.** Paired t across
+seeds: hit +0.055, t(2) = 6.06 (critical 4.30); content dependence +0.073, t(2) = 3.21. The
+report's verdict keys on content dependence, so it calls this a non-significant lead; the hit
+rate clears.
 
-**One seed, one third the probes, one data point.** This does not settle the trend so much as
-show it isn't monotonic; a single run at each of three scales is not enough to fit a curve
-through, and the 128-probe set is a different draw from the 384-probe one used elsewhere, so
-absolute numbers are not directly comparable across scales without matching n. What it does
-rule out is the specific speculative claim in the single-seed 1.5B report — "attention
-probing rises faster and may overtake `read` beyond 1.5B" — at least at 7B under this setup.
+**The extrapolated trend from 0.5B/1.5B does not continue.** `attention_late`'s content
+dependence runs 0.113, 0.258, **0.174** across the three scales; `read`'s runs 0.203, 0.241,
+0.247. The 1.5B tie reopens into a `read` lead at 7B. The 128-probe set is a different draw
+from the 384-probe one, so cross-scale absolutes are not strictly matched, but within 7B the
+comparison is paired. This rules out the claim that attention probing keeps closing the gap
+past 1.5B.
 
 ## Open
 
-- Seeds at 7B, and matching probe count (384) to the other scales, before trusting the
-  non-monotonic attention_late result over noise.
+- Matching probe count (384) at 7B, and `generate` at 7B.
 - `read` at 27B+, to see whether it matches or beats the generated declaration [5] reports
   there. We cannot run it.
 - The routing is 3x chance, not deployable unsupervised. A cheap verifier on the chosen

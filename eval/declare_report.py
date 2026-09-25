@@ -237,8 +237,8 @@ def main():
     for label in sorted(trend):
         pts = sorted(trend[label])
         arrow = " -> ".join(f"{v:.3f}" for _, v in pts)
-        delta = pts[-1][1] - pts[0][1] if len(pts) > 1 else float("nan")
-        body.append(f"- `{label}`: {arrow} ({delta:+.3f})")
+        delta = f" ({pts[-1][1] - pts[0][1]:+.3f})" if len(pts) > 1 else ""
+        body.append(f"- `{label}`: {arrow}{delta}")
     body += [""]
 
     body += ["![declare](figures/declare.png)", "",

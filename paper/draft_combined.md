@@ -20,13 +20,14 @@ than generated, and on a separate task it routes its own attention to the right 
 8k-token context at +9σ when the choice is read off the logits versus no better than naming a
 fixed slot when it is asked to state it — a gap that widens, not closes, from 0.5B to 1.5B.
 Two different measurements of that same model, querying its logits and instrumenting where it
-attends, both recover the signal and swap order between 0.5B and 1.5B, so "measure, do not
+attends, both recover the signal, with the logit read ahead or level at 0.5B, 1.5B and 7B, so "measure, do not
 ask" picks out a family of methods rather than a single one.
 We argue that "measure the model, do not ask it" is the governing constraint for
 free-supervision methods below the scales where instruction-following is reliable, and we
 supply the measurement discipline — a matched control beside every signal-strength figure —
-that makes the distinction visible. On the compaction signal, uniform replay recovers 12.3%
-of evicted facts while gating on a +15.9σ salience signal recovers none, and mixing a share of
+that makes the distinction visible. On the compaction signal, uniform replay recovers more
+evicted facts than gating on a +15.9σ salience signal on all three synthetic corpora (7.0% vs
+1.0% mean, a consistent direction but not significant at t(2)=1.81), and mixing a share of
 the dropped spans back into training does not close the gap: **uniform coverage beats
 importance gating**, with a positive control showing the setup could have registered a win.
 On an independent context-gap signal, a gate that clears its matched control at +6.77σ loses
@@ -132,7 +133,10 @@ phases, 288 probes of which 114 evicted:
 | (d) full context (ceiling) | 0.712 | — |
 
 Uniform recovers 14 of 114 evicted facts, **+4.0σ** above zero; the compaction-gated arm
-recovers none, a **3.1σ** gap in favour of not using the signal. Both adapters memorise their
+recovers none, a **3.1σ** gap in favour of not using the signal. On two further synthetic
+corpora the direction holds but shrinks: uniform 0.078 and 0.009, compaction 0.029 and 0.000,
+for means of 0.070 against 0.010 and a paired t(2) of 1.81, short of significance. Seed 0 was
+the most favourable draw. Both adapters memorise their
 targets equally well (validation CE 0.0005 and 0.0003), so the difference is coverage, not
 optimisation: the compactor keeps `db_engine`, `owner` and `version_pin` on 100% of events but
 `auth_header` on 0% and `config_flag` on 3.4%, while uniform samples the same budget across
@@ -266,12 +270,12 @@ would understate itself by more than an order of magnitude on `content_dependenc
 dependence moves `generate` 0.085 → 0.030 (**−0.055**), `read` 0.203 → 0.241 (+0.038),
 `attention` 0.014 → 0.163 (+0.149) and `attention_late` 0.113 → 0.258 (+0.145): every measured
 signal improves except the generated one, which closes the 0.5B gap between `read` and
-`attention_late` to a tie by 1.5B. A single-seed run at a third scale, Qwen2.5-7B-Instruct in
-nf4 (128 probes), does not continue that trend: `attention_late`'s content dependence falls
-back to 0.148 and `read` leads clearly again (0.398 vs 0.359 hit rate, 0.258 vs 0.148 content
-dependence). One seed at one third the probe count is not enough to fit a curve through, but
-it rules out the specific extrapolation that attention probing keeps closing the gap past
-1.5B. See `docs/declarative.md`.
+`attention_late` to a tie by 1.5B. A third scale, Qwen2.5-7B-Instruct in nf4 (three seeds,
+128 probes), does not continue that trend: `attention_late`'s content dependence falls back to
+0.174 while `read` holds at 0.247, and `read` leads on hit rate 0.388 vs 0.333 (t(2) = 6.06,
+significant) and on content dependence (t(2) = 3.21, not significant). It rules out the
+extrapolation that attention probing keeps closing the gap past 1.5B. See
+`docs/declarative.md`.
 
 ## 6. Salience lift, and why a control is not optional
 
@@ -329,7 +333,7 @@ the same distribution; and a distractor set must not contain answers that are co
 different item in the same eval.** The audit -- count the distinct answers each question
 string receives, and compute what a perfect memoriser could score -- is what made Project A's
 result measurable: after scoping every question to its trajectory, uniform replay recovers
-0.123 of evicted facts and compaction-gated consolidation 0.000 (§3). It is the cheaper check
+0.123 of evicted facts and compaction-gated consolidation 0.000 on the first corpus (§3). It is the cheaper check
 we should have run before the experiment rather than after it.
 
 ## 7. Measured beats asked
@@ -340,34 +344,36 @@ we should have run before the experiment rather than after it.
 | compaction decision | logit read | 360M | 2.17x, clears |
 | compaction decision | logit read | 1.5B | 2.56x, clears |
 | context gap | measured, no elicitation | 360M | separates identifiers from markdown |
-| attention declaration | generated `FOCUS: k` | 0.5B | +0.055 content dep, positional |
-| attention declaration | generated `FOCUS: k` | 1.5B | +0.021 content dep, at chance |
-| attention declaration | logit read | 0.5B | +0.206 content dep, +7.7σ |
-| attention declaration | logit read | 1.5B | +0.240 content dep, +9.1σ |
-| attention declaration | attention probe, late layers | 0.5B | +0.081 content dep, +4.2σ |
-| attention declaration | attention probe, late layers | 1.5B | +0.266 content dep, +9.7σ |
+| attention declaration | generated `FOCUS: k` | 0.5B | +0.085 content dep, positional |
+| attention declaration | generated `FOCUS: k` | 1.5B | +0.030 content dep, at chance |
+| attention declaration | logit read | 0.5B | +0.203 content dep, +7.7σ |
+| attention declaration | logit read | 1.5B | +0.241 content dep, +9.3σ |
+| attention declaration | logit read | 7B nf4 | +0.247 content dep, +5.0σ |
+| attention declaration | attention probe, late layers | 0.5B | +0.113 content dep, +4.0σ |
+| attention declaration | attention probe, late layers | 1.5B | +0.258 content dep, +9.2σ |
+| attention declaration | attention probe, late layers | 7B nf4 | +0.174 content dep, +3.8σ |
 
 Three observations.
 
 **Elicitation dominates scale.** Tripling parameters leaves a generated index list at chance;
 switching the same model to a logit read takes it from 0.53x to 2.56x. The attention
 declaration repeats this exactly: the generated `FOCUS:` at 1.5B carries no content signal
-(`content_dependence` 0.021), while the same model's logit read carries a strong one (0.240,
-+9.1σ) and its late-layer attention a stronger one still (0.266, +9.7σ). The failure is not
+(`content_dependence` 0.030), while the same model's logit read (0.241, +9.3σ) and its
+late-layer attention (0.258, +9.2σ) both carry a strong one. The failure is not
 that small models lack the judgment — it is that they cannot express it in a structured format
 on demand, and asking harder as they scale makes it worse.
 
 **Measured is one claim; *which* measurement is another.** The two measured routes — asking
 the model a semantic question and reading its logits, or instrumenting where it actually
-attends — are not interchangeable, and they swap order between 0.5B and 1.5B (§5). The
-self-query is the safer default at small scale, probing scales better, and an all-layer
-attention average is near-useless at 0.5B while a late-layer one is not. "Measure the model"
+attends — are not interchangeable: the self-query leads at 0.5B, ties at 1.5B and leads
+again at 7B (§5), and an all-layer attention average is near-useless at 0.5B while a
+late-layer one is not. The self-query is the safer default at every scale we tested. "Measure the model"
 is therefore the start of a design decision, not the end of one.
 
 **Scale is not monotonic.** SmolLM2-360M clears the control at 2.17x while Qwen2.5-0.5B fails
 at 0.42x on identical compaction data with identical code. And on the attention declaration
 the 1.5B model is *worse* than the 0.5B at the generated `FOCUS:` — its hit rate falls from
-0.206 to 0.154, its unparsed rate rises from 2% to 19%, and it leans harder on naming a fixed
+0.193 to 0.150, its unparsed rate rises from 2% to 17%, and it leans harder on naming a fixed
 slot. Whether a model carries a usable signal in a given elicitation is a property of its
 behaviour on the probe, not of its size, and has to be measured per model rather than assumed.
 
@@ -379,15 +385,16 @@ as published, does not — and §5 measures the cost.
 
 ## 8. Limitations
 
-Single seed per configuration for Projects A and B. The HotpotQA compaction lift (1.34-1.44x,
+Project A has three data seeds for the main comparison and one for every ablation; Project
+B has five seeds for the gate comparison and one for each sweep. The HotpotQA compaction lift (1.34-1.44x,
 +3.75σ and +4.77σ at 288-386 fact spans) is a precondition measurement only: consolidation
 on HotpotQA has not been run since the question-scoping fix, so every consolidation result is
-synthetic. The declarative-attention arm is larger at 384 probes. Our synthetic
+synthetic. The declarative-attention arm is larger at 384 probes (128 at 7B). Our synthetic
 generator's unmarked variant is a floor case rather than a neutral test: facts and filler come
 from one template bank in one register, so they are near indistinguishable by construction. We
 cannot test the 27B+ regime where [5] reports, so our declarative-attention result bounds the
-generated declaration from below — it does not work at 1.5B or, on a single-seed reduced-probe
-check, at 7B — and does not contradict the accuracy [5] reports at 27B. The `read` substitute
+generated declaration from below — it does not work at 1.5B, and we did not run it at 7B —
+and does not contradict the accuracy [5] reports at 27B. The `read` substitute
 we propose is untested at their scale. All compute is one T4 except the 7B point, which needed
 4-bit quantisation to fit.
 
