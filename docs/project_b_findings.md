@@ -118,6 +118,28 @@ random and uniform. At floor 0 it landed below both. At floor 0.1 the correct co
 (against random) shows no gap at all — the prediction of an intermediate position was wrong
 both times; there is no ordering between kl_top and random to be intermediate to.
 
+## Uniform, LR-swept
+
+One more way `uniform` could be mistuned: not steps, but learning rate. Single seed, 300
+steps, `distill.lr` in {5e-5, 1e-4, 2e-4, 4e-4, 8e-4}:
+
+| lr | in-group pass |
+|---|---|
+| 5e-5 | 0.719 |
+| 1e-4 (default) | 0.708 |
+| 2e-4 | 0.750 |
+| 4e-4 | 0.698 |
+| 8e-4 | 0.719 |
+
+**Tuning the LR moves `uniform` by at most 0.04, still short of the masked arms.** The best LR
+found (2e-4, 0.750) sits between the floor-0.1 means for `random` (0.744) and `kl_top` (0.765)
+across the earlier 5-seed run at the default LR, not clearly above either. Combined with the
+step sweep (§ above, monotonically worse from 300 to 1200 steps), neither the obvious tuning
+knob closes the gap. `uniform`'s weaker showing at floor 0.1 looks structural to training on
+every token of a verbose target at full weight, not a tuning artifact — though this sweep is
+one seed per LR and the masked-arm numbers it's compared against are a different run, so
+treat the comparison as suggestive, not paired.
+
 ## Token-granularity arm
 
 The gate at token granularity (each response token scored individually, not pooled by span)
@@ -155,9 +177,7 @@ clears its own matched control too, more weakly than span: **0.363 vs 0.247, +4.
 
 ## Next
 
-- Whether `uniform` is simply mistuned (an LR sweep, not just a step sweep, would settle
-  it), or whether full-weight training on verbose targets is a structurally weaker recipe
-  than masked training at this task. The step sweep rules out undertraining but not tuning.
+- Seeds on the LR sweep below, and a joint LR x step grid rather than each swept alone.
 - Seeds on the token-granularity arm: it's single-seed above, so its floor-0 reversal against
   span (kl leads random there, loses at span) can't yet be told from noise.
 

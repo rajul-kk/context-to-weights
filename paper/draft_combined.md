@@ -262,13 +262,16 @@ content and dominate the average — one Qwen2.5-1.5B layer-0 query·key product
 against a late-layer typical peak near 300. A probing baseline reported without this ablation
 would understate itself by more than an order of magnitude on `content_dependence`.
 
-**Scale separates asking from measuring.** From 0.5B to 1.5B, content dependence moves
-`generate` 0.085 → 0.030 (**−0.055**), `read` 0.203 → 0.241 (+0.038), `attention` 0.014 → 0.163
-(+0.149) and `attention_late` 0.113 → 0.258 (+0.145). Every measured signal improves; the
-generated one is the only one that degrades. Attention probing rises about four times faster
-than the self-query in absolute terms, which closes the 0.5B gap by 1.5B — to a tie, confirmed
-only in the negative, not a reversal. A third scale would show whether the trend continues
-into an actual lead for probing, or plateaus. See `docs/declarative.md`.
+**Scale separates asking from measuring, up to a point.** From 0.5B to 1.5B, content
+dependence moves `generate` 0.085 → 0.030 (**−0.055**), `read` 0.203 → 0.241 (+0.038),
+`attention` 0.014 → 0.163 (+0.149) and `attention_late` 0.113 → 0.258 (+0.145): every measured
+signal improves except the generated one, which closes the 0.5B gap between `read` and
+`attention_late` to a tie by 1.5B. A single-seed run at a third scale, Qwen2.5-7B-Instruct in
+nf4 (128 probes), does not continue that trend: `attention_late`'s content dependence falls
+back to 0.148 and `read` leads clearly again (0.398 vs 0.359 hit rate, 0.258 vs 0.148 content
+dependence). One seed at one third the probe count is not enough to fit a curve through, but
+it rules out the specific extrapolation that attention probing keeps closing the gap past
+1.5B. See `docs/declarative.md`.
 
 ## 6. Salience lift, and why a control is not optional
 
@@ -383,9 +386,10 @@ synthetic. The declarative-attention arm is larger at 384 probes. Our synthetic
 generator's unmarked variant is a floor case rather than a neutral test: facts and filler come
 from one template bank in one register, so they are near indistinguishable by construction. We
 cannot test the 27B+ regime where [5] reports, so our declarative-attention result bounds the
-generated declaration from below — it does not work at 1.5B — and does not contradict the
-accuracy [5] reports at 27B. The `read` substitute we propose is untested at their scale. All
-compute is one T4.
+generated declaration from below — it does not work at 1.5B or, on a single-seed reduced-probe
+check, at 7B — and does not contradict the accuracy [5] reports at 27B. The `read` substitute
+we propose is untested at their scale. All compute is one T4 except the 7B point, which needed
+4-bit quantisation to fit.
 
 ## References
 
