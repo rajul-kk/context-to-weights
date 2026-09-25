@@ -29,8 +29,21 @@ def load_backbone(cfg, device=None, attn_implementation=None):
     kwargs = {"dtype": dtype}
     if attn_implementation:
         kwargs["attn_implementation"] = attn_implementation
+    quant = cfg["model"].get("quantization")
+    if quant:
+        if device != "cuda":
+            raise SystemExit(f"model.quantization={quant!r} needs a CUDA device; got {device}")
+        from transformers import BitsAndBytesConfig
+        if quant == "nf4":
+            kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_4bit=True, bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=dtype, bnb_4bit_use_double_quant=True)
+        else:
+            raise SystemExit(f"unknown model.quantization {quant!r}, only 'nf4' is wired up")
+        kwargs["device_map"] = {"": 0}
     model = AutoModelForCausalLM.from_pretrained(name, **kwargs)
-    model.to(device)
+    if not quant:
+        model.to(device)
     model.eval()
     return model, tokenizer
 
