@@ -136,14 +136,10 @@ def _repeat_kv(states, groups):
     return states[:, :, None].expand(b, h, groups, s, d).reshape(b, h * groups, s, d)
 
 
-def probe_attention(module, query, key, value, attention_mask=None, scaling=None,
-                    dropout=0.0, **kwargs):
+def _sdpa(query, key, value, attention_mask):
     groups = query.shape[1] // key.shape[1]
     k = _repeat_kv(key, groups)
     v = _repeat_kv(value, groups)
-    if scaling is None:
-        scaling = query.shape[-1] ** -0.5
-
     mask = attention_mask
     if mask is not None:
         mask = mask[:, :, :, : k.shape[-2]]
@@ -152,7 +148,19 @@ def probe_attention(module, query, key, value, attention_mask=None, scaling=None
     out = torch.nn.functional.scaled_dot_product_attention(
         query, k, v, attn_mask=mask, dropout_p=0.0,
         is_causal=mask is None and query.shape[-2] > 1)
-    out = out.transpose(1, 2).contiguous()
+    return out.transpose(1, 2).contiguous(), k, mask
+
+
+def repeat_attention(module, query, key, value, attention_mask=None, scaling=None,
+                     dropout=0.0, **kwargs):
+    return _sdpa(query, key, value, attention_mask)[0], None
+
+
+def probe_attention(module, query, key, value, attention_mask=None, scaling=None,
+                    dropout=0.0, **kwargs):
+    if scaling is None:
+        scaling = query.shape[-1] ** -0.5
+    out, k, mask = _sdpa(query, key, value, attention_mask)
 
     if query.shape[-2] > 1:
         logits = (query[:, :, -1:, :].float() @ k.float().transpose(-1, -2)) * scaling
@@ -173,6 +181,15 @@ def register_probe():
     type(ALL_ATTENTION_FUNCTIONS).register("myrios_probe", probe_attention)
     AttentionMaskInterface.register("myrios_probe", sdpa_mask)
     return "myrios_probe"
+
+
+def register_repeat():
+    from transformers.masking_utils import AttentionMaskInterface, sdpa_mask
+    from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
+
+    type(ALL_ATTENTION_FUNCTIONS).register("myrios_repeat", repeat_attention)
+    AttentionMaskInterface.register("myrios_repeat", sdpa_mask)
+    return "myrios_repeat"
 
 
 def check_probe_parity(model, tokenizer, tol=0.1):

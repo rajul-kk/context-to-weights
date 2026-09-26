@@ -152,6 +152,10 @@ def main():
         impl = register_probe()
         print(f"attention probing on: loaded with the {impl} attention implementation, "
               "which keeps SDPA for the forward pass and captures only the final query row")
+    else:
+        from declare.elicit import register_repeat
+
+        impl = register_repeat()
     model, tokenizer = load_backbone(cfg, attn_implementation=impl)
     if probing:
         from declare.elicit import check_probe_parity
