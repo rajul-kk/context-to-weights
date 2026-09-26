@@ -18,7 +18,7 @@ exactly random selection. Signals *measured from the model's behaviour* survive:
 1.5B model reaches 2.56x salience lift when its keep decision is read off the logits rather
 than generated, and on a separate task it routes its own attention to the right region of an
 8k-token context at +9σ when the choice is read off the logits versus no better than naming a
-fixed slot when it is asked to state it — a gap that widens, not closes, from 0.5B to 1.5B.
+fixed slot when it is asked to state it — a gap that holds at 0.5B, 1.5B and 7B.
 Two different measurements of that same model, querying its logits and instrumenting where it
 attends, both recover the signal, with the logit read ahead or level at 0.5B, 1.5B and 7B, so "measure, do not
 ask" picks out a family of methods rather than a single one.
@@ -256,11 +256,15 @@ context, `K = 8`, gold region permuted per probe, 384 probes, **three seeds** (m
 | 1.5B | attention_late | 0.374 +/- 0.017 | 9.2 | 0.258 +/- 0.028 | 0.200 | 0.000 |
 | 1.5B | **read** | **0.378 +/- 0.005** | **9.3** | **0.241 +/- 0.005** | 0.136 | 0.000 |
 
-**The generated declaration fails at both scales and degrades with size.** Its raw hit rate
+**The generated declaration fails at every scale.** Its raw hit rate
 clears the constant control at 0.5B (+2.2σ), but the shuffle unmasks that as position:
 `content_dependence` is 0.085, well under half of `read`'s. At 1.5B it is indistinguishable
 from naming one fixed region (+0.1σ), the model refuses the `FOCUS:` format on 17% of probes,
-and `slot_stable_rate` rises to 0.41.
+and `slot_stable_rate` rises to 0.41. At 7B (three seeds, 128 probes) the format refusals
+disappear and content dependence recovers to 0.109, but the raw hit rate still equals the
+constant control (0.172 vs 0.174, −0.1σ), and `read` beats it by 0.216 on hit rate
+(t(2) = 13.7). The decline from 0.5B to 1.5B is not a trend that continues; the failure to
+beat a fixed slot is.
 
 **`read` wins clearly at 0.5B; at 1.5B it is a tie, not a crossover.** At 0.5B the self-query
 is clearly ahead of the best attention variant — hit 0.332 vs 0.234, content dependence 0.203
@@ -359,6 +363,7 @@ we should have run before the experiment rather than after it.
 | context gap | measured, no elicitation | 360M | separates identifiers from markdown |
 | attention declaration | generated `FOCUS: k` | 0.5B | +0.085 content dep, positional |
 | attention declaration | generated `FOCUS: k` | 1.5B | +0.030 content dep, at chance |
+| attention declaration | generated `FOCUS: k` | 7B nf4 | +0.109 content dep, at constant control |
 | attention declaration | logit read | 0.5B | +0.203 content dep, +7.7σ |
 | attention declaration | logit read | 1.5B | +0.241 content dep, +9.3σ |
 | attention declaration | logit read | 7B nf4 | +0.247 content dep, +5.0σ |
@@ -372,9 +377,10 @@ Three observations.
 switching the same model to a logit read takes it from 0.53x to 2.56x. The attention
 declaration repeats this exactly: the generated `FOCUS:` at 1.5B carries no content signal
 (`content_dependence` 0.030), while the same model's logit read (0.241, +9.3σ) and its
-late-layer attention (0.258, +9.2σ) both carry a strong one. The failure is not
-that small models lack the judgment — it is that they cannot express it in a structured format
-on demand, and asking harder as they scale makes it worse.
+late-layer attention (0.258, +9.2σ) both carry a strong one. At 7B the generated
+declaration follows the format on every probe and still does no better than naming a fixed
+region. The failure is not that small models lack the judgment — it is that they cannot
+express it in a structured format on demand, and more scale up to 7B does not fix that.
 
 **Measured is one claim; *which* measurement is another.** The two measured routes — asking
 the model a semantic question and reading its logits, or instrumenting where it actually
@@ -387,7 +393,8 @@ is therefore the start of a design decision, not the end of one.
 at 0.42x on identical compaction data with identical code. And on the attention declaration
 the 1.5B model is *worse* than the 0.5B at the generated `FOCUS:` — its hit rate falls from
 0.193 to 0.150, its unparsed rate rises from 2% to 17%, and it leans harder on naming a fixed
-slot. Whether a model carries a usable signal in a given elicitation is a property of its
+slot; at 7B the unparsed rate drops to zero and content dependence recovers, without the hit
+rate clearing its control. Whether a model carries a usable signal in a given elicitation is a property of its
 behaviour on the probe, not of its size, and has to be measured per model rather than assumed.
 
 The practical rule for anyone building free-supervision pipelines below frontier scale:
@@ -412,7 +419,7 @@ B has five seeds for the gate comparison and one for each sweep. The HotpotQA co
 generator's unmarked variant is a floor case rather than a neutral test: facts and filler come
 from one template bank in one register, so they are near indistinguishable by construction. We
 cannot test the 27B+ regime where [5] reports, so our declarative-attention result bounds the
-generated declaration from below — it does not work at 1.5B, and we did not run it at 7B —
+generated declaration from below — it does not beat a fixed-slot control at 1.5B or 7B —
 and does not contradict the accuracy [5] reports at 27B. The `read` substitute
 we propose is untested at their scale. All compute is one T4 except the 7B point, which needed
 4-bit quantisation to fit.

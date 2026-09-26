@@ -16,11 +16,11 @@ METRICS = ("hit_rate", "random_control", "best_constant_control", "sigma_over_ra
 
 def load(run_root):
     rows = []
-    for p in sorted(glob.glob(str(Path(run_root) / "*" / "summary_all.json"))):
-        for s in json.load(open(p)):
-            if s.get("n"):
-                s.setdefault("seed", 0)
-                rows.append(s)
+    for p in sorted(glob.glob(str(Path(run_root) / "*" / "*.summary.json"))):
+        s = json.load(open(p))
+        if s.get("n"):
+            s.setdefault("seed", 0)
+            rows.append(s)
     return rows
 
 

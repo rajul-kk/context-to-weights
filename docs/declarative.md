@@ -82,8 +82,8 @@ constant control (+2.8σ) — but `content_dependence` is only 0.055, a quarter 
 declaration is statistically indistinguishable from always naming one region (+0.3σ), the
 model refuses the `FOCUS:` format on 19% of probes, and `slot_stable_rate` climbs to 0.42.
 
-**Scale makes the generated declaration worse.** Every `generate` number degrades from 0.5B
-to 1.5B: hit rate 0.206 → 0.154, σ over constant +2.8 → +0.3, unparsed 2% → 19%,
+**From 0.5B to 1.5B the generated declaration gets worse** (7B reverses part of this; see the
+third-scale section). Every `generate` number degrades from 0.5B to 1.5B: hit rate 0.206 → 0.154, σ over constant +2.8 → +0.3, unparsed 2% → 19%,
 `slot_stable_rate` 0.33 → 0.42. The `read` numbers are flat to slightly better. The larger
 model is worse at *saying* where to look and identical at *reading* it.
 
@@ -152,8 +152,8 @@ and carry position rather than content.
 | attention_late | 0.113 | 0.258 | +0.145 |
 | read | 0.203 | 0.241 | +0.038 |
 
-Every measured signal improves with scale; the generated declaration is the only one that
-degrades. Attention probing rises about four times faster than the self-query in absolute
+Every measured signal improves from 0.5B to 1.5B; the generated declaration is the only one
+that degrades. Attention probing rises about four times faster than the self-query in absolute
 terms, which is what closes the 0.5B gap by 1.5B — but closing a gap this size lands on a
 tie, confirmed only in the negative (read's 0.5B lead is real; the 1.5B tie is also real, not
 a reversal in progress). A third scale would show whether the trend continues past a tie into
@@ -176,13 +176,14 @@ Qwen2.5 models have a 32768 window and are unaffected.
 
 `read` leads again at 7B. Three seeds, 128 probes (a third of the 384 used at 0.5B/1.5B, to
 keep a 4-bit 7B model inside one Kaggle session), 4-bit quantised (`model.quantization: nf4`,
-`sleep/lm.py`), gold distribution pinned per seed with `--gold-ref`. `generate` was not run.
+`sleep/lm.py`), gold distribution pinned per seed with `--gold-ref`.
 
-| mode | hit | σ(const) | content dep | slot stable |
-|---|---|---|---|---|
-| attention | 0.216 +/- 0.023 | 1.1 | 0.044 +/- 0.039 | 0.615 |
-| attention_late | 0.333 +/- 0.024 | 3.8 | 0.174 +/- 0.024 | 0.242 |
-| **read** | **0.388 +/- 0.009** | **5.0** | **0.247 +/- 0.018** | 0.109 |
+| mode | hit | σ(const) | content dep | slot stable | unparsed |
+|---|---|---|---|---|---|
+| generate | 0.172 +/- 0.021 | −0.1 | 0.109 +/- 0.041 | 0.260 | 0.000 |
+| attention | 0.216 +/- 0.023 | 1.1 | 0.044 +/- 0.039 | 0.615 | 0.000 |
+| attention_late | 0.333 +/- 0.024 | 3.8 | 0.174 +/- 0.024 | 0.242 | 0.000 |
+| **read** | **0.388 +/- 0.009** | **5.0** | **0.247 +/- 0.018** | 0.109 | 0.000 |
 
 Chance 0.125, best-constant control 0.174 +/- 0.025.
 
@@ -198,9 +199,24 @@ from the 384-probe one, so cross-scale absolutes are not strictly matched, but w
 comparison is paired. This rules out the claim that attention probing keeps closing the gap
 past 1.5B.
 
+**The generated declaration still fails at 7B, but it stops getting worse.** Its raw hit rate
+equals the best-constant control on every seed (σ 0.0, −0.2, 0.0): no better than always naming
+the model's favourite region. But the 1.5B collapse does not continue. The model now follows
+the `FOCUS:` format on every probe (unparsed 17% at 1.5B, 0% at 7B), and content dependence
+comes back to 0.109, above 1.5B's 0.030 and near 0.5B's 0.085. There is some content signal
+in what it says, not enough to beat a fixed slot. `read` beats it on hit rate by 0.216
+(t(2) = 13.7) and on content dependence by 0.138 (t(2) = 4.08, just under the 4.30 critical
+value). So "`generate` degrades with scale" holds from 0.5B to 1.5B only. What holds at all
+three scales is that `generate` never clears its constant control above 0.5B, and `read`
+always does.
+
+`generate` at 7B needed a repeat-kv SDPA attention (`declare/elicit.py`, `myrios_repeat`):
+stock SDPA on a T4 falls back to materialising a 5 GB attention matrix for 9k-token prompts.
+It matches stock SDPA exactly on logprobs and greedy output.
+
 ## Open
 
-- Matching probe count (384) at 7B, and `generate` at 7B.
+- Matching probe count (384) at 7B.
 - `read` at 27B+, to see whether it matches or beats the generated declaration [5] reports
   there. We cannot run it.
 - The routing is 3x chance, not deployable unsupervised. A cheap verifier on the chosen
