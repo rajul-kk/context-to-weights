@@ -25,16 +25,17 @@ ask" picks out a family of methods rather than a single one.
 We argue that "measure the model, do not ask it" is the governing constraint for
 free-supervision methods below the scales where instruction-following is reliable, and we
 supply the measurement discipline — a matched control beside every signal-strength figure —
-that makes the distinction visible. On the compaction signal, uniform replay recovers more
-evicted facts than gating on a +15.9σ salience signal on all five synthetic corpora (7.6% vs
-1.7% mean, paired t(4)=3.10), and mixing a share of
-the dropped spans back into training does not close the gap: **uniform coverage beats
-importance gating**, with a positive control showing the setup could have registered a win.
-On an independent context-gap signal, a gate that clears its matched control at +6.77σ loses
-to full-weight uniform training at a zero floor weight, and once that weighting defect is
-fixed the KL ranking performs identically to random selection under the same masking (5
-seeds, t(4)=0.74) — neutral, not beneficial. The two signals fail for different reasons; we
-report them separately rather than as one mechanism.
+that makes the distinction visible. Measuring a signal correctly is necessary but not
+sufficient: **a salience signal can be real and still be the wrong training target.** Gating
+consolidation on the compactor's +15.9σ keep decision recovers fewer evicted facts than
+training on uniformly sampled spans on all five synthetic corpora we generate (1.7% vs 7.6%
+mean, paired t(4)=3.10), because the compactor has systematic blind spots that uniform
+coverage does not; mixing a share of the dropped spans back in does not close the gap. On
+the context-gap signal, once a weighting defect is fixed, the KL ranking performs identically
+to random selection under the same masking (5 seeds, t(4)=0.74). Neither free signal beats
+uncurated coverage as a training target, and they fail for different reasons. The
+consolidation results are on a controlled synthetic benchmark; a HotpotQA run is too small,
+with too high a no-training floor, to separate the arms.
 
 ## 1. Introduction
 
@@ -56,22 +57,31 @@ We ask what is already free, and find three candidates:
 - **The attention declaration.** Declarative Attention [5] has a model state which region of
   context it needs to read. That statement is also a salience label.
 
-All three are free. They are not equally usable, and the axis that separates them is the
-contribution of this paper.
+All three are free. We test each as a training or routing signal, and the results sort along
+two axes: whether the signal is *measured* from the model or *asked* of it, and whether a
+signal that is measured correctly is also the right thing to train on. The first decides
+whether a signal exists at small scale; the second decides whether it helps once it does.
 
-**Contributions.**
+**Contributions.** This is a measurement paper: the methods are the hypotheses under test,
+and two of the three come back negative.
 
-1. Compaction-supervised consolidation: LoRA SFT on compactor-kept spans, with reservoir
-   replay, in periodic sleep phases (§3).
-2. Context-gap distillation: importance-weighted KL distillation gated on with-versus-without
-   context divergence (§4).
-3. Declarative attention below the scale at which declaring works: the elicitation threshold,
-   and a logit-read substitute that clears it (§5).
-4. **A matched control beside every signal-strength figure** — a cheap precondition test for
+1. **Measured beats asked.** Generated signals fail and measured signals survive, on three
+   independent mechanisms, at every scale we can afford: a generated span list is exactly
+   random, while the same model's keep decision read off the logits reaches a 2.56x salience
+   lift; a generated attention declaration carries no content signal at 1.5B, while a logit
+   read clears its control at 0.5B, 1.5B and 7B (§5, §7).
+2. **Salient is not trainable.** Two free signals that clear matched controls do not beat
+   uniform coverage as consolidation targets. Compaction-supervised consolidation — LoRA SFT
+   on compactor-kept spans with reservoir replay — is significantly worse than uniform replay
+   across five corpora (§3); context-gap distillation, once its floor-weight defect is fixed,
+   is indistinguishable from random token selection (§4). The two fail for different reasons,
+   coverage and neutrality, and we report them separately.
+3. **A matched control beside every signal-strength figure** — a cheap precondition test for
    whether a candidate signal carries information at all, which caught eight separate artifacts
    in our own pipeline, six inflating a result favourably and two hiding a possible positive (§6).
-5. The governing finding: generated signals fail and measured signals survive, on three
-   independent mechanisms, at every scale we can afford (§7).
+4. **Declarative attention below the scale at which declaring works**: the elicitation
+   threshold, and a logit-read substitute that clears it where the generated declaration does
+   not (§5).
 
 ## 2. Related work
 
@@ -385,6 +395,15 @@ The practical rule for anyone building free-supervision pipelines below frontier
 gap obeys this by construction, which is why it works on a 360M backbone. Compaction
 supervision obeys it once the decision is read rather than generated. Declarative attention,
 as published, does not — and §5 measures the cost.
+
+**Obeying the rule is necessary, not sufficient.** The compaction decision and the context
+gap both obey it, both clear their matched controls, and neither beats uniform coverage as a
+training target: the compaction gate is significantly worse (§3), the KL ranking no better
+than random (§4). A signal's strength says whether it carries information; it does not say
+whether that information is what the weights are missing. A compactor that never keeps
+`auth_header` is a strong salience signal with a blind spot, and consolidation inherits the
+blind spot. Before gating training on any free signal, compare it against uniform sampling
+at a matched budget — the same discipline as the matched control in §6, one level up.
 
 ## 8. Limitations
 
