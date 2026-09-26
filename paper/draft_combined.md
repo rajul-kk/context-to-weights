@@ -26,8 +26,8 @@ We argue that "measure the model, do not ask it" is the governing constraint for
 free-supervision methods below the scales where instruction-following is reliable, and we
 supply the measurement discipline — a matched control beside every signal-strength figure —
 that makes the distinction visible. On the compaction signal, uniform replay recovers more
-evicted facts than gating on a +15.9σ salience signal on all three synthetic corpora (7.0% vs
-1.0% mean, a consistent direction but not significant at t(2)=1.81), and mixing a share of
+evicted facts than gating on a +15.9σ salience signal on all five synthetic corpora (7.6% vs
+1.7% mean, paired t(4)=3.10), and mixing a share of
 the dropped spans back into training does not close the gap: **uniform coverage beats
 importance gating**, with a positive control showing the setup could have registered a win.
 On an independent context-gap signal, a gate that clears its matched control at +6.77σ loses
@@ -133,10 +133,13 @@ phases, 288 probes of which 114 evicted:
 | (d) full context (ceiling) | 0.712 | — |
 
 Uniform recovers 14 of 114 evicted facts, **+4.0σ** above zero; the compaction-gated arm
-recovers none, a **3.1σ** gap in favour of not using the signal. On two further synthetic
-corpora the direction holds but shrinks: uniform 0.078 and 0.009, compaction 0.029 and 0.000,
-for means of 0.070 against 0.010 and a paired t(2) of 1.81, short of significance. Seed 0 was
-the most favourable draw. Both adapters memorise their
+recovers none, a **3.1σ** gap in favour of not using the signal. Across five independently
+generated corpora uniform wins every time, 0.076 against 0.017 mean evicted recovery, paired
+t(4) = 3.10 (critical 2.78); seed 0 was the most favourable draw. All-probe accuracy is level
+(t(4) = −0.88), so the gain is specific to evicted facts. On HotpotQA (one seed, 92 evicted
+probes) nothing separates: cascading with no adapter recovers 4, compaction 3, uniform 5,
+because some answers survive in other paragraphs or the model's prior. That run neither
+replicates nor contradicts the synthetic result. Both adapters memorise their
 targets equally well (validation CE 0.0005 and 0.0003), so the difference is coverage, not
 optimisation: the compactor keeps `db_engine`, `owner` and `version_pin` on 100% of events but
 `auth_header` on 0% and `config_flag` on 3.4%, while uniform samples the same budget across
@@ -385,11 +388,8 @@ as published, does not — and §5 measures the cost.
 
 ## 8. Limitations
 
-Project A has three data seeds for the main comparison and one for every ablation; Project
-B has five seeds for the gate comparison and one for each sweep. The HotpotQA compaction lift (1.34-1.44x,
-+3.75σ and +4.77σ at 288-386 fact spans) is a precondition measurement only: consolidation
-on HotpotQA has not been run since the question-scoping fix, so every consolidation result is
-synthetic. The declarative-attention arm is larger at 384 probes (128 at 7B). Our synthetic
+Project A has five data seeds for the main comparison and one for every ablation; Project
+B has five seeds for the gate comparison and one for each sweep. The HotpotQA compaction lift (1.34-1.44x, +3.75σ and +4.77σ at 288-386 fact spans) is a precondition measurement; HotpotQA consolidation is one seed at 92 evicted probes with a non-zero no-adapter floor, and does not separate the arms. The headline consolidation result is synthetic. The declarative-attention arm is larger at 384 probes (128 at 7B). Our synthetic
 generator's unmarked variant is a floor case rather than a neutral test: facts and filler come
 from one template bank in one register, so they are near indistinguishable by construction. We
 cannot test the 27B+ regime where [5] reports, so our declarative-attention result bounds the

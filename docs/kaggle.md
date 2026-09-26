@@ -49,8 +49,9 @@ version is too old. Preflight reports it either way.
 
 `a1_main.ipynb` has a `DATASET` switch in its first cell: `synthetic` (what every corrected
 result was measured on) or `hotpotqa` (natural prose, no marker, positional control at
-chance). HotpotQA is the more representative set but has not been run since the
-question-scoping fix, and the MC-scoring arm does not work on it — see
+chance). HotpotQA is the more representative set; its one post-fix consolidation run does not
+separate the arms (see [project_a_findings.md](project_a_findings.md)), and the MC-scoring arm
+does not work on it — see
 [benchmarks.md](benchmarks.md).
 
 `a0_precondition.ipynb` has a `QUICK` switch in its boot cell. `QUICK = True` is one model,
