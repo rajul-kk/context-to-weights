@@ -174,41 +174,38 @@ Qwen2.5 models have a 32768 window and are unaffected.
 
 ## A third scale: Qwen2.5-7B-Instruct, nf4
 
-`read` leads again at 7B. Three seeds, 128 probes (a third of the 384 used at 0.5B/1.5B, to
-keep a 4-bit 7B model inside one Kaggle session), 4-bit quantised (`model.quantization: nf4`,
-`sleep/lm.py`), gold distribution pinned per seed with `--gold-ref`.
+Three seeds on the same 384 probes and the same layouts as 0.5B/1.5B (gold distributions
+pinned per seed with `--gold-ref`), 4-bit quantised (`model.quantization: nf4`,
+`sleep/lm.py`). One Kaggle session per seed, one `declare/run.py` call per mode.
 
 | mode | hit | σ(const) | content dep | slot stable | unparsed |
 |---|---|---|---|---|---|
-| generate | 0.172 +/- 0.021 | −0.1 | 0.109 +/- 0.041 | 0.260 | 0.000 |
-| attention | 0.216 +/- 0.023 | 1.1 | 0.044 +/- 0.039 | 0.615 | 0.000 |
-| attention_late | 0.333 +/- 0.024 | 3.8 | 0.174 +/- 0.024 | 0.242 | 0.000 |
-| **read** | **0.388 +/- 0.009** | **5.0** | **0.247 +/- 0.018** | 0.109 | 0.000 |
+| generate | 0.230 +/- 0.010 | 3.8 | 0.116 +/- 0.020 | 0.260 | 0.000 |
+| attention | 0.229 +/- 0.009 | 3.8 | 0.085 +/- 0.018 | 0.595 | 0.000 |
+| attention_late | 0.359 +/- 0.017 | 8.6 | 0.223 +/- 0.019 | 0.242 | 0.000 |
+| **read** | **0.418 +/- 0.011** | **10.7** | **0.285 +/- 0.004** | 0.135 | 0.000 |
 
-Chance 0.125, best-constant control 0.174 +/- 0.025.
+Chance 0.125, best-constant control 0.148 +/- 0.009.
 
-**`read` over `attention_late`: hit rate significant, content dependence not.** Paired t across
-seeds: hit +0.055, t(2) = 6.06 (critical 4.30); content dependence +0.073, t(2) = 3.21. The
-report's verdict keys on content dependence, so it calls this a non-significant lead; the hit
-rate clears.
+**`read` beats `attention_late` significantly on both metrics**: hit +0.058, t(2) = 12.0;
+content dependence +0.062, t(2) = 4.69 (critical 4.30). Across scales `read` wins at 0.5B and
+7B and ties at 1.5B.
 
-**The extrapolated trend from 0.5B/1.5B does not continue.** `attention_late`'s content
-dependence runs 0.113, 0.258, **0.174** across the three scales; `read`'s runs 0.203, 0.241,
-0.247. The 1.5B tie reopens into a `read` lead at 7B. The 128-probe set is a different draw
-from the 384-probe one, so cross-scale absolutes are not strictly matched, but within 7B the
-comparison is paired. This rules out the claim that attention probing keeps closing the gap
-past 1.5B.
+**The attention-closes-the-gap trend does not continue.** `attention_late`'s content
+dependence runs 0.113, 0.258, 0.223; `read`'s runs 0.203, 0.241, 0.285, the only signal that
+rises at every step.
 
-**The generated declaration still fails at 7B, but it stops getting worse.** Its raw hit rate
-equals the best-constant control on every seed (σ 0.0, −0.2, 0.0): no better than always naming
-the model's favourite region. But the 1.5B collapse does not continue. The model now follows
-the `FOCUS:` format on every probe (unparsed 17% at 1.5B, 0% at 7B), and content dependence
-comes back to 0.109, above 1.5B's 0.030 and near 0.5B's 0.085. There is some content signal
-in what it says, not enough to beat a fixed slot. `read` beats it on hit rate by 0.216
-(t(2) = 13.7) and on content dependence by 0.138 (t(2) = 4.08, just under the 4.30 critical
-value). So "`generate` degrades with scale" holds from 0.5B to 1.5B only. What holds at all
-three scales is that `generate` never clears its constant control above 0.5B, and `read`
-always does.
+**The generated declaration recovers partly at 7B.** It follows the `FOCUS:` format on every
+probe (17% refused at 1.5B) and clears the constant control again (+3.8σ, every seed between
++3.7σ and +4.0σ), with content dependence 0.116 — the 0.5B pattern rather than the 1.5B
+collapse. It stays far below the measured routes: `read` beats it by 0.188 on hit rate
+(t(2) = 24.0) and 0.168 on content dependence (t(2) = 12.3). So "`generate` degrades with
+scale" holds from 0.5B to 1.5B only; "`generate` carries a fraction of what `read` does" holds
+at all three.
+
+A 128-probe pilot at 7B had the stated choice exactly at its constant control (−0.1σ). On the
+full 384-probe set it clears it; the pilot was underpowered, and its layouts were a different
+draw.
 
 `generate` at 7B needed a repeat-kv SDPA attention (`declare/elicit.py`, `myrios_repeat`):
 stock SDPA on a T4 falls back to materialising a 5 GB attention matrix for 9k-token prompts.
@@ -216,7 +213,6 @@ It matches stock SDPA exactly on logprobs and greedy output.
 
 ## Open
 
-- Matching probe count (384) at 7B.
 - `read` at 27B+, to see whether it matches or beats the generated declaration [5] reports
   there. We cannot run it.
 - The routing is 3x chance, not deployable unsupervised. A cheap verifier on the chosen

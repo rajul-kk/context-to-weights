@@ -189,6 +189,7 @@ def main():
                  "true variability.", ""]
 
     margins = []
+    margin_models = []
     for model in sorted({g["model"] for g in groups}, key=short):
         got = {g["label"]: g for g in groups if g["model"] == model}
         r = got.get("read")
@@ -200,23 +201,24 @@ def main():
             d, stat, name, kk = paired(r, best, key)
             if key == "content_dependence":
                 margins.append((stat, critical(kk)))
+                margin_models.append(short(model))
             body.append(f"- **{short(model)}**, {label}: read {r.get(key, 0.0):.3f} vs "
                         f"{best['label']} {best.get(key, 0.0):.3f}, {d:+.3f} "
                         f"({stat:+.2f} {name}, {kk} seed{'s' if kk > 1 else ''})")
     body += [""]
 
-    stats = [m[0] for m in margins]
-    if margins and min(stats) < 0 < max(stats):
-        sig = [f"{s:+.2f} vs +/-{c:.2f}" for s, c in margins if abs(s) >= c]
-        body += ["**The ordering reverses with scale.** The self-query wins at the smaller model "
-                 "and loses at the larger one, so neither elicitation dominates. Report the "
-                 "crossover rather than a single winner.", ""]
-        if sig:
-            body += [f"Margins clearing their own critical value: {', '.join(sig)}. A crossover "
-                     f"is only a finding if at least one side of it is significant.", ""]
-        else:
-            body += ["**Neither side of the crossover is significant at its own critical value**, "
-                     "so this is a tie, not a reversal. Do not report it as one.", ""]
+    wins = [m for m, (s, c) in zip(margin_models, margins) if s >= c]
+    losses = [m for m, (s, c) in zip(margin_models, margins) if s <= -c]
+    ties = [m for m, (s, c) in zip(margin_models, margins) if -c < s < c]
+    if wins and losses:
+        body += [f"**The ordering reverses.** The self-query wins significantly at "
+                 f"{', '.join(wins)} and loses significantly at {', '.join(losses)}. Report the "
+                 f"crossover rather than a single winner.", ""]
+    elif margins and ties and (wins or losses):
+        side = "the self-query" if wins else "attention probing"
+        body += [f"{side[0].upper() + side[1:]} wins significantly at "
+                 f"{', '.join(wins or losses)}; {', '.join(ties)} "
+                 f"{'is a tie' if len(ties) == 1 else 'are ties'}, not a reversal.", ""]
     elif margins and all(s >= c for s, c in margins):
         body += ["The semantic self-query beats attention probing at every model tested.", ""]
     elif margins and all(s <= -c for s, c in margins):

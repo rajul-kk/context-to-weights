@@ -18,7 +18,8 @@ exactly random selection. Signals *measured from the model's behaviour* survive:
 1.5B model reaches 2.56x salience lift when its keep decision is read off the logits rather
 than generated, and on a separate task it routes its own attention to the right region of an
 8k-token context at +9σ when the choice is read off the logits versus no better than naming a
-fixed slot when it is asked to state it — a gap that holds at 0.5B, 1.5B and 7B.
+fixed slot when it is asked to state it. The logit read beats the stated choice at 0.5B, 1.5B
+and 7B, by 0.19 in hit rate at 7B (t(2)=24).
 Two different measurements of that same model, querying its logits and instrumenting where it
 attends, both recover the signal, with the logit read ahead or level at 0.5B, 1.5B and 7B, so "measure, do not
 ask" picks out a family of methods rather than a single one.
@@ -244,6 +245,8 @@ means content-driven, near 1 means position-driven.
 
 **Results.** HotpotQA trajectories with supporting paragraphs scattered across the whole
 context, `K = 8`, gold region permuted per probe, 384 probes, **three seeds** (mean +/- sd).
+The layouts are identical across scales. 7B runs in nf4 4-bit quantisation; 0.5B and 1.5B in
+fp16.
 
 | model | elicitation | hit (chance 0.125) | σ over constant | `content_dependence` | `slot_stable_rate` | unparsed |
 |---|---|---|---|---|---|---|
@@ -255,30 +258,37 @@ context, `K = 8`, gold region permuted per probe, 384 probes, **three seeds** (m
 | 1.5B | attention | 0.286 +/- 0.023 | 6.0 | 0.163 +/- 0.010 | 0.447 | 0.000 |
 | 1.5B | attention_late | 0.374 +/- 0.017 | 9.2 | 0.258 +/- 0.028 | 0.200 | 0.000 |
 | 1.5B | **read** | **0.378 +/- 0.005** | **9.3** | **0.241 +/- 0.005** | 0.136 | 0.000 |
+| 7B | generate | 0.230 +/- 0.010 | 3.8 | 0.116 +/- 0.020 | 0.260 | 0.000 |
+| 7B | attention | 0.229 +/- 0.009 | 3.8 | 0.085 +/- 0.018 | 0.595 | 0.000 |
+| 7B | attention_late | 0.359 +/- 0.017 | 8.6 | 0.223 +/- 0.019 | 0.242 | 0.000 |
+| 7B | **read** | **0.418 +/- 0.011** | **10.7** | **0.285 +/- 0.004** | 0.135 | 0.000 |
 
-**The generated declaration fails at every scale.** Its raw hit rate
+**The generated declaration never matches a measured one.** Its raw hit rate
 clears the constant control at 0.5B (+2.2σ), but the shuffle unmasks that as position:
 `content_dependence` is 0.085, well under half of `read`'s. At 1.5B it is indistinguishable
 from naming one fixed region (+0.1σ), the model refuses the `FOCUS:` format on 17% of probes,
-and `slot_stable_rate` rises to 0.41. At 7B (three seeds, 128 probes) the format refusals
-disappear and content dependence recovers to 0.109, but the raw hit rate still equals the
-constant control (0.172 vs 0.174, −0.1σ), and `read` beats it by 0.216 on hit rate
-(t(2) = 13.7). The decline from 0.5B to 1.5B is not a trend that continues; the failure to
-beat a fixed slot is.
+and `slot_stable_rate` rises to 0.41. At 7B the format refusals disappear and the stated
+choice clears the constant control again (+3.8σ), with content dependence 0.116 — the 0.5B
+pattern, not the 1.5B collapse. It is still well under half of `read`'s content dependence,
+and `read` beats it by 0.188 on hit rate (t(2) = 24.0) and 0.168 on content dependence
+(t(2) = 12.3). The 0.5B-to-1.5B decline does not continue; the large gap to the measured
+routes does.
 
-**`read` wins clearly at 0.5B; at 1.5B it is a tie, not a crossover.** At 0.5B the self-query
+**`read` wins at 0.5B and 7B; at 1.5B it is a tie, not a crossover.** At 0.5B the self-query
 is clearly ahead of the best attention variant — hit 0.332 vs 0.234, content dependence 0.203
 vs 0.113, both significant on a paired t across the three seeds (t(2) = 24.9 and 4.9 against a
 critical value of 4.30). At 1.5B, `read` and `attention_late` are 0.378 vs 0.374 on hit rate
 (t(2) = 0.30) and 0.241 vs 0.258 on content dependence (t(2) = −0.85) — neither margin clears
 significance in either direction. A single-seed run of this ablation had reported late-layer
 attention nominally ahead at 1.5B; three seeds show that was layout noise, not a reversal.
+At 7B `read` leads again on both, 0.418 vs 0.359 on hit rate (t(2) = 12.0) and 0.285 vs 0.223
+on content dependence (t(2) = 4.69), both significant.
 Cost is comparable: `read` issues `K` batched region prompts, `attention` one pass over the
 whole context, covering roughly the same number of tokens.
 
 **Layer choice decides whether probing works at all.** Averaged over every layer, attention is
 useless at 0.5B: content dependence 0.014, naming the same slot on 88% of probes. Restricted
-to the late half it clears its control at both scales. Early layers carry position rather than
+to the late half it clears its control at every scale. Early layers carry position rather than
 content and dominate the average — one Qwen2.5-1.5B layer-0 query·key product reaches 152,967
 against a late-layer typical peak near 300. A probing baseline reported without this ablation
 would understate itself by more than an order of magnitude on `content_dependence`.
@@ -287,11 +297,10 @@ would understate itself by more than an order of magnitude on `content_dependenc
 dependence moves `generate` 0.085 → 0.030 (**−0.055**), `read` 0.203 → 0.241 (+0.038),
 `attention` 0.014 → 0.163 (+0.149) and `attention_late` 0.113 → 0.258 (+0.145): every measured
 signal improves except the generated one, which closes the 0.5B gap between `read` and
-`attention_late` to a tie by 1.5B. A third scale, Qwen2.5-7B-Instruct in nf4 (three seeds,
-128 probes), does not continue that trend: `attention_late`'s content dependence falls back to
-0.174 while `read` holds at 0.247, and `read` leads on hit rate 0.388 vs 0.333 (t(2) = 6.06,
-significant) and on content dependence (t(2) = 3.21, not significant). It rules out the
-extrapolation that attention probing keeps closing the gap past 1.5B. See
+`attention_late` to a tie by 1.5B. At 7B the trend does not continue: `attention_late`'s
+content dependence falls back to 0.223 while `read`'s keeps rising to 0.285, the only signal
+that improves monotonically across all three scales (0.203, 0.241, 0.285). This rules out
+the extrapolation that attention probing keeps closing the gap past 1.5B. See
 `docs/declarative.md`.
 
 ## 6. Salience lift, and why a control is not optional
@@ -363,13 +372,13 @@ we should have run before the experiment rather than after it.
 | context gap | measured, no elicitation | 360M | separates identifiers from markdown |
 | attention declaration | generated `FOCUS: k` | 0.5B | +0.085 content dep, positional |
 | attention declaration | generated `FOCUS: k` | 1.5B | +0.030 content dep, at chance |
-| attention declaration | generated `FOCUS: k` | 7B nf4 | +0.109 content dep, at constant control |
+| attention declaration | generated `FOCUS: k` | 7B nf4 | +0.116 content dep, +3.8σ, under half of read |
 | attention declaration | logit read | 0.5B | +0.203 content dep, +7.7σ |
 | attention declaration | logit read | 1.5B | +0.241 content dep, +9.3σ |
-| attention declaration | logit read | 7B nf4 | +0.247 content dep, +5.0σ |
+| attention declaration | logit read | 7B nf4 | +0.285 content dep, +10.7σ |
 | attention declaration | attention probe, late layers | 0.5B | +0.113 content dep, +4.0σ |
 | attention declaration | attention probe, late layers | 1.5B | +0.258 content dep, +9.2σ |
-| attention declaration | attention probe, late layers | 7B nf4 | +0.174 content dep, +3.8σ |
+| attention declaration | attention probe, late layers | 7B nf4 | +0.223 content dep, +8.6σ |
 
 Three observations.
 
@@ -378,9 +387,10 @@ switching the same model to a logit read takes it from 0.53x to 2.56x. The atten
 declaration repeats this exactly: the generated `FOCUS:` at 1.5B carries no content signal
 (`content_dependence` 0.030), while the same model's logit read (0.241, +9.3σ) and its
 late-layer attention (0.258, +9.2σ) both carry a strong one. At 7B the generated
-declaration follows the format on every probe and still does no better than naming a fixed
-region. The failure is not that small models lack the judgment — it is that they cannot
-express it in a structured format on demand, and more scale up to 7B does not fix that.
+declaration recovers some signal (0.116, +3.8σ), but the same model's logit read carries
+two and a half times as much (0.285). The failure is not that small models lack the
+judgment — it is that they express it far less well in a structured format on demand than
+the model's own logits reveal it, and scale up to 7B narrows that only partly.
 
 **Measured is one claim; *which* measurement is another.** The two measured routes — asking
 the model a semantic question and reading its logits, or instrumenting where it actually
@@ -393,8 +403,7 @@ is therefore the start of a design decision, not the end of one.
 at 0.42x on identical compaction data with identical code. And on the attention declaration
 the 1.5B model is *worse* than the 0.5B at the generated `FOCUS:` — its hit rate falls from
 0.193 to 0.150, its unparsed rate rises from 2% to 17%, and it leans harder on naming a fixed
-slot; at 7B the unparsed rate drops to zero and content dependence recovers, without the hit
-rate clearing its control. Whether a model carries a usable signal in a given elicitation is a property of its
+slot; at 7B the unparsed rate drops to zero and it clears its control again. Whether a model carries a usable signal in a given elicitation is a property of its
 behaviour on the probe, not of its size, and has to be measured per model rather than assumed.
 
 The practical rule for anyone building free-supervision pipelines below frontier scale:
@@ -415,12 +424,12 @@ at a matched budget — the same discipline as the matched control in §6, one l
 ## 8. Limitations
 
 Project A has five data seeds for the main comparison and one for every ablation; Project
-B has five seeds for the gate comparison and one for each sweep. The HotpotQA compaction lift (1.34-1.44x, +3.75σ and +4.77σ at 288-386 fact spans) is a precondition measurement; HotpotQA consolidation is one seed at 92 evicted probes with a non-zero no-adapter floor, and does not separate the arms. The headline consolidation result is synthetic. The declarative-attention arm is larger at 384 probes (128 at 7B). Our synthetic
+B has five seeds for the gate comparison and one for each sweep. The HotpotQA compaction lift (1.34-1.44x, +3.75σ and +4.77σ at 288-386 fact spans) is a precondition measurement; HotpotQA consolidation is one seed at 92 evicted probes with a non-zero no-adapter floor, and does not separate the arms. The headline consolidation result is synthetic. The declarative-attention arm is larger at 384 probes. Our synthetic
 generator's unmarked variant is a floor case rather than a neutral test: facts and filler come
 from one template bank in one register, so they are near indistinguishable by construction. We
 cannot test the 27B+ regime where [5] reports, so our declarative-attention result bounds the
-generated declaration from below — it does not beat a fixed-slot control at 1.5B or 7B —
-and does not contradict the accuracy [5] reports at 27B. The `read` substitute
+generated declaration from below — it falls to a fixed-slot control at 1.5B and carries
+under half the logit read's signal at 7B — and does not contradict the accuracy [5] reports at 27B. The `read` substitute
 we propose is untested at their scale. All compute is one T4 except the 7B point, which needed
 4-bit quantisation to fit.
 
