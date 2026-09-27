@@ -36,7 +36,7 @@ the weights, and read only the part of the context that a given question needs. 
 mechanics of both are routine by now (a LoRA update in one case, a sparse KV-cache read in
 the other). The hard part is knowing what matters.
 
-Most prior work pays for that knowledge. Nightly consolidation (Dennis et al.) writes
+Most prior work pays for that knowledge. Nightly consolidation writes
 reflections with a second generation pass [1], SCoL learns where to write with meta-RL [2],
 and CompactionRL trains the compactor itself with reinforcement learning [4]. We asked what
 an agent already has for free, and found three candidates.
@@ -211,7 +211,7 @@ standard deviation over three seeds. The logit read is the best or tied-best rou
 scale; the stated declaration collapses at 1.5B and partly recovers at
 7B.](figures/fig_routing.pdf){width=100%}
 
-**The stated declaration stays well below the measured routes at every scale.** At 0.5B its
+The stated declaration stays well below the measured routes at every scale. At 0.5B its
 hit rate clears the constant control (+2.2σ), but the shuffle shows that this is mostly
 position: its content dependence is 0.085, less than half that of `read`. At 1.5B it cannot
 be told apart from always naming one region (+0.1σ). The model also refuses the `FOCUS:`
@@ -222,7 +222,7 @@ beats it by 0.188 in hit rate (t(2) = 24.0) and by 0.168 in content dependence
 (t(2) = 12.3). So the decline from 0.5B to 1.5B is not a trend that continues to 7B, but the
 gap between stated and measured routing persists at every scale we tested.
 
-**Between the two measured routes, `read` wins at 0.5B and 7B and ties at 1.5B.** At 0.5B it
+Between the two measured routes, `read` wins at 0.5B and 7B and ties at 1.5B. At 0.5B it
 leads the better attention variant in hit rate (0.332 vs 0.234, t(2) = 24.9) and in content
 dependence (0.203 vs 0.113, t(2) = 4.91). At 1.5B the two are level, 0.378 vs 0.374
 (t(2) = 0.30) and 0.241 vs 0.258 (t(2) = −0.85). At 7B `read` leads again, 0.418 vs 0.359
@@ -231,7 +231,7 @@ dependence (0.203 vs 0.113, t(2) = 4.91). At 1.5B the two are level, 0.378 vs 0.
 (0.113, 0.258, 0.223). An earlier single-seed run had suggested that attention overtook
 `read` at 1.5B; with three seeds that difference disappears into layout noise.
 
-**Probing only works from the late layers.** Summed over all layers, attention is useless at
+Probing only works from the late layers. Summed over all layers, attention is useless at
 0.5B, with content dependence 0.014 and the same slot chosen on 88% of probes. Restricted to
 the second half of the layers, it clears its control at every scale. The early layers attend
 by position and swamp the sum: one layer-0 query·key product in Qwen2.5-1.5B reaches
@@ -317,7 +317,7 @@ training data. Because the compactor never keeps `auth_header` and almost never 
 `config_flag` (§4.1), the gated adapter never sees those facts, while uniform sampling does.
 Whatever the compactor systematically leaves out, the adapter never learns.
 
-**Mixing dropped spans back in does not fix it.** Swapping 25% or 50% of the gated budget for
+Mixing dropped spans back in does not fix it. Swapping 25% or 50% of the gated budget for
 randomly chosen dropped spans, with the total budget unchanged, recovers 2 and 1 of the 114
 evicted facts. The dropped pool is mostly filler (5,956 filler spans), so random draws rarely
 hit the missing facts. Drawing round-robin across fact types instead roughly doubles recovery
@@ -325,7 +325,7 @@ at 25% (4 of 114) but drops to zero at 50%. These are single runs, and all of th
 short of uniform's 14. Uniform replay's advantage seems to come from covering every span over
 25 phases rather than from any one-off adjustment to the mix.
 
-**The same mask works for abstention.** Following [12], we trained a LoRA on the same free
+The same mask works for abstention. Following [12], we trained a LoRA on the same free
 label to refuse when the evidence had been evicted. It abstains on 0.728 of evicted probes,
 against 0.000 for the base model (+17.5σ), which cuts hallucination on those probes by 72.8%.
 It refuses on only 10.9% of probes whose answer is still in context, and it raises accuracy
@@ -364,12 +364,12 @@ output. The arms are `uniform`, which trains on every token at full weight in th
 [6]; `random`, which gives full weight to a random 25% of spans and the floor weight to the
 rest; and `kl_top`, which does the same with the 25% selected by KL.
 
-**The gate carries a signal.** Required-token coverage is the share of each demonstration's
+The gate carries a signal. Required-token coverage is the share of each demonstration's
 required API identifiers that fall inside the selected spans. For the gate it is 0.597,
 against 0.392 for a random selection of the same size (+6.77σ). At token granularity the
 figures are 0.363 and 0.247 (+4.29σ).
 
-**It does not improve training.** With the floor weight at 0, `kl_top` passes 0.510 of tasks,
+It does not improve training. With the floor weight at 0, `kl_top` passes 0.510 of tasks,
 below `random` (0.583) and `uniform` (0.708). The tokens leading up to each selected
 identifier get no gradient at all. A floor weight of 0.1 fixes this.
 
