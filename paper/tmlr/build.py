@@ -23,6 +23,9 @@ PREAMBLE = r"""\documentclass[10pt]{article}
 \usepackage{array}
 \usepackage{calc}
 \usepackage{newunicodechar}
+\usepackage{graphicx}
+\graphicspath{{../}}
+\providecommand{\pandocbounded}[1]{#1}
 \providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 \newunicodechar{σ}{\ensuremath{\sigma}}
 \newunicodechar{±}{\ensuremath{\pm}}
