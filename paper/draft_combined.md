@@ -82,15 +82,16 @@ confound. Their recipe is our baseline. SCoL [2] learns *where* to write consoli
 knowledge — the complementary axis to our *what*. What to Keep, What to Forget [3] frames
 compaction as rate-distortion and stops at the compactor; we consume its decisions as
 training signal. CompactionRL [4] trains the compactor with RL; we hold it frozen and train
-the backbone, and the two compose. Compaction-Aware Abstention [12] trains a LoRA on
-compressor survival masks to refuse when evidence was evicted; we reproduce its direction at
+the backbone, and the two compose. Compression-Aware Abstention [12] trains a model on
+KV-compression masks to refuse when compression removed the answer evidence; we reproduce its direction at
 0.5B (§5.1).
 
 **Importance-gated distillation and token selection.** Skill-to-LoRA [6] distils each skill
 into its own adapter by uniform self-distillation, and is our baseline in §5.2. ThinkSwitch
-[7] removes reasoning traces structurally, also ungated. PEAM [8] gates on a
-parameterisation-worthiness score over episodic trajectories — the nearest neighbour to our
-gate, on different objects with a different signal. Titans [9] uses the gradient of an
+[7] distils context into LoRA adapters with weight interpolation, also ungated. PEAM [8]
+internalises an embodied agent's episodic experience into its parameters by contrasting
+trajectories — the nearest neighbour to our gate, on different objects with a different
+signal. Titans [9] uses the gradient of an
 associative-memory loss as surprise at test time; our context gap is a surprise signal in the
 same spirit, computed as a divergence between two forward passes and applied offline. Rho-1
 [14] and TIP [13] report the opposite of our §5.2 result in their settings: selective loss on
@@ -461,21 +462,31 @@ trained on.
 
 ## References
 
-[1] Beyond Inference-Only Deployment. arXiv:2605.24657.
-[2] SCoL: Self-Consolidating Language Models. arXiv:2605.07076.
-[3] What to Keep, What to Forget. arXiv:2607.08032.
-[4] CompactionRL. arXiv:2607.05378.
+[1] S. Dennis, K. Shabahang, H. Guo, R. Patil. Beyond Inference-Only Deployment: Comparing
+    Weight-Based Consolidation Against Cascading Compaction. arXiv:2605.24657, 2026.
+[2] Z. Wang, A. Gupta, Z. Dong, C. J. MacLellan. Self-Consolidating Language Models:
+    Continual Knowledge Incorporation from Context. arXiv:2605.07076, 2026.
+[3] A. G. Colaco, N. Lahjouji. What to Keep, What to Forget: A Rate–Distortion View of Memory
+    Compaction in LLMs and Agents. arXiv:2607.08032, 2026.
+[4] Y. Li, Z. Hou, Y. Jing, J. Tang, Y. Dong. CompactionRL: Reinforcement Learning with
+    Context Compaction for Long-Horizon Agents. arXiv:2607.05378, 2026.
 [5] N. Ho, H. Ahmad, W. Koh, S.-Y. Yun, T. Schuster, C. Nogueira dos Santos. Language Models
     Can Control Their Own Attention. arXiv:2609.02737, 2026.
-[6] Skill-to-LoRA. arXiv:2606.16769.
-[7] ThinkSwitch. arXiv:2606.01080.
-[8] PEAM. arXiv:2605.27762.
+[6] T. Zhang, Z. Qi. Skill-to-LoRA: From Using Skills to Learning Behaviors for
+    Token-Efficient LLM Agents. arXiv:2606.16769, 2026.
+[7] D. Saini, R. Pandey. ThinkSwitch: Context Distillation with LoRA and Weight Interpolation
+    for Specific-Purpose Reasoning Tasks. arXiv:2606.01080, 2026.
+[8] Y. Guo, J. Gong, W. Wang, H. Cai, Y. Cheung, W. Su. PEAM: Parametric Embodied Agent Memory
+    through Contrastive Internalization of Experience in Minecraft. arXiv:2605.27762, 2026.
 [9] A. Behrouz, P. Zhong, V. Mirrokni. Titans: Learning to Memorize at Test Time.
     arXiv:2501.00663, 2024.
-[10] Sentinel. arXiv:2505.23277.
+[10] Y. Zhang, H. Li, Y. Huang, N. Cheng, Y. Guo, Y. Zhu et al. Sentinel: Decoding Context
+     Utilization via Attention Probing for Efficient LLM Context Compression.
+     arXiv:2505.23277, 2025.
 [11] W. Wu, Y. Wang, G. Xiao, H. Peng, Y. Fu. Retrieval Head Mechanistically Explains
      Long-Context Factuality. arXiv:2404.15574, 2024.
-[12] Compaction-Aware Abstention. arXiv:2608.29934.
+[12] M. Khodabandehlou, B. Krishnamachari. Compression-Aware Abstention: Teaching LLMs to
+     Refuse When KV-Compression Masks Remove Answer Evidence. arXiv:2608.29934, 2026.
 [13] Y. Xu, H. Sang, Z. Zhou, R. He, Z. Wang, A. Geramifard. TIP: Token Importance in
      On-Policy Distillation. arXiv:2604.14084, 2026.
 [14] Z. Lin et al. Rho-1: Not All Tokens Are What You Need. arXiv:2404.07965, 2024.

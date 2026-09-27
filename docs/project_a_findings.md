@@ -193,7 +193,7 @@ them separately rather than as one mechanism.
 
 ## The same mask works for abstention
 
-Compaction-Aware Abstention (arXiv:2608.29934) trains a LoRA on compressor survival masks so a
+Compression-Aware Abstention (arXiv:2608.29934) trains a LoRA on compressor survival masks so a
 7B model *refuses* when the evidence was evicted, reporting a 97% cut in hallucination. It
 explicitly does not try to recover the evicted content. That is the same free label this
 project feeds to consolidation, pointed the other way, so both directions can be run on one
