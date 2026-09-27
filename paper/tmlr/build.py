@@ -14,6 +14,9 @@ KEYS = {1: "dennis2026beyond", 2: "wang2026scol", 3: "colaco2026keep", 4: "li202
 TEXTUAL = ("following", "Following", "of", "in", "accuracy")
 
 PREAMBLE = r"""\documentclass[10pt]{article}
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\pdfsuppressptexinfo=-1
 \usepackage{tmlr}
 \input{math_commands.tex}
 \usepackage{hyperref}

@@ -14,8 +14,8 @@ this. The first is that signals the model is asked to state are much weaker than
 measured from it. Asked to list the spans worth keeping, the 0.5B and 1.5B models return the
 prefix `0, 1, 2, ...` on every event, and asked which of eight regions holds an answer, the
 1.5B model does no better than always naming the same region. Measured from the same models,
-the signals work: the keep decision read off the logits gives a 2.56x salience lift, and
-scoring each region by the log-odds of a relevance question reaches a hit rate of 0.33 to
+the signals work: the keep decision read off the logits clears its control on HotpotQA at
+both sizes (+3.75σ and +4.77σ over chance), and scoring each region by the log-odds of a relevance question reaches a hit rate of 0.33 to
 0.42 against a chance rate of 0.125. This logit read beats the stated choice at all three
 scales (by 0.19 at 7B, t(2)=24) and beats late-layer attention probing at 0.5B and 7B. The
 second finding is that a strong signal can still be a poor training target. Consolidating on
@@ -61,8 +61,9 @@ whether a signal that does exist is worth training on. This decides whether it h
 We present the work as a measurement study. The methods are hypotheses, and two of the
 three consolidation hypotheses turned out to be false. Our contributions are:
 
-1. Evidence from three separate mechanisms that, at 0.5B to 7B, signals a model is asked to
-   state are weak or absent while the same model's measured signals are strong (§4).
+1. Evidence from two mechanisms that, at 0.5B to 7B, signals a model is asked to state are
+   weak or absent while the same model's measured signals are strong (§4), with a third
+   signal, the context gap, that is measured by construction (§5.2).
 2. Evidence that two free signals which clear matched controls still do not beat uniform
    coverage as training targets, for two different reasons (§5).
 3. A logit-read substitute for declarative attention at scales where declaring does not
@@ -144,26 +145,43 @@ mode the model writes out the indices of the spans to keep. In **read** mode we 
 each span in turn and score `log p(Yes) − log p(No)` from the logits, keeping the top `ρ·n`.
 Spans are shuffled before they are shown, so position cannot pass for salience.
 
-| Elicitation | Backbone | Lift | Verdict |
-|---|---|---|---|
-| generated index list | Qwen2.5-0.5B / 1.5B | 0.53x | below positional control |
-| logit read | SmolLM2-360M | 2.17x | clears |
-| logit read | Qwen2.5-0.5B | 0.42x | fails |
-| logit read | Qwen2.5-1.5B | 2.56x | clears |
-
 When asked to list spans, both Qwen models answered with the prefix `0, 1, 2, ...` on 100%
 of events, whatever the content. Because the spans were shuffled, this is exactly random
-selection. Read from the logits, the 1.5B model's decision carries a strong signal. On the
-corrected synthetic benchmark used in §5.1 (48 trajectories, 97 compaction events, 6,244
-spans) it keeps fact spans at a rate of 0.663 and filler at 0.236. That is a 2.81x lift,
-+15.85σ over chance and +8.40σ over the positional control, with no fallbacks and no empty
-keeps. The signal is uneven across fact types, though. `db_engine`, `owner` and
+selection. The logit read gives a real signal, but how strong depends on the data:
+
+| Backbone | Data | Fact keep | Lift | Pos. control | vs chance | Verdict |
+|---|---|---|---|---|---|---|
+| Qwen2.5-1.5B | HotpotQA | 0.337 | 1.34x | 0.45x | +3.75σ | clears |
+| Qwen2.5-0.5B | HotpotQA | 0.360 | 1.44x | 0.45x | +4.77σ | clears |
+| Qwen2.5-1.5B | synthetic, marked | 0.646 | 2.72x | 1.66x | +15.17σ | clears |
+| Qwen2.5-0.5B | synthetic, marked | 0.097 | 0.37x | 1.66x | −6.18σ | below chance |
+| Qwen2.5-1.5B | synthetic, unmarked | 0.344 | 1.37x | 1.71x | +3.47σ | below control |
+
+*Table 1: salience of the logit-read keep decision, each row at least 288 fact spans.*
+
+HotpotQA is the representative case. There is no marker phrase or shared vocabulary to
+exploit, and both models keep fact spans well above chance. We quote the margin over chance
+there, because the positional control falls below chance on that benchmark (the compactor
+prepends carried-over filler to each span list), which would make the margin over control
+look better than it is. The synthetic benchmark plants each fact with a marker phrase, and
+the 1.5B model's very large lift there comes largely from detecting that marker: with the
+marker removed, it still beats chance but loses to the positional control. The 0.5B model is
+the best compactor on HotpotQA and the worst on marked synthetic data, so no ordering of
+models holds across datasets.
+
+The consolidation experiments in §5.1 use the marked synthetic benchmark, where the corrected
+run (48 trajectories, 97 compaction events, 6,244 spans) keeps fact spans at 0.663 and filler
+at 0.236: a 2.81x lift, +15.85σ over chance and +8.40σ over the positional control, with no
+fallbacks and no empty keeps. This makes it a deliberately favourable case for the gate: if
+consolidating on the compactor's decisions helps anywhere, it should help where those
+decisions separate facts from filler this cleanly. The signal is uneven across fact types,
+though. `db_engine`, `owner` and
 `version_pin` are kept in 100% of events, `config_flag` in 3.4% and `auth_header` never.
 This unevenness turns out to matter in §5.1.
 
-Measuring the signal is not always enough. The 0.5B model's logit read fails (0.42x) on the
-same data and code where SmolLM2-360M clears (2.17x), so whether a model carries a usable
-signal depends on the model's behaviour and has to be checked; size alone does not predict it.
+Measuring the signal is therefore necessary but not sufficient: the same logit read that
+works for the 0.5B model on HotpotQA falls below chance on marked synthetic data, so whether a
+model carries a usable signal has to be checked for each model and dataset.
 
 ### 4.2 The attention declaration
 
@@ -185,7 +203,11 @@ the gold distribution of each seed so that every model sees the same layouts.
   **attention_late** adds up only the second half of the layers. This is one forward pass
   over roughly the same number of tokens as `read`.
 
-Table 1 gives the results and Figure 1 plots them.
+Table 2 gives the results and Figure 1 plots them. Two caveats apply to reading across
+scales. The seeds resample layouts over one fixed set of 384 probes, so the paired tests
+speak to variation over layouts rather than over probes. And the 7B model is quantised to 4
+bits while the others run in fp16, so a change between 1.5B and 7B mixes scale with
+quantisation.
 
 | model | elicitation | hit | σ over constant | content dependence | slot stable | unparsed |
 |---|---|---|---|---|---|---|
@@ -202,7 +224,7 @@ Table 1 gives the results and Figure 1 plots them.
 | 7B | attention_late | 0.359 ± 0.017 | 8.6 | 0.223 ± 0.019 | 0.242 | 0.000 |
 | 7B | **read** | **0.418 ± 0.011** | **10.7** | **0.285 ± 0.004** | 0.135 | 0.000 |
 
-*Table 1: routing on 384 HotpotQA probes, mean ± sd over three seeds. Chance is 0.125 and the
+*Table 2: routing on 384 HotpotQA probes, mean ± sd over three seeds. Chance is 0.125 and the
 best-constant control 0.148.*
 
 ![Routing accuracy by scale. Left: hit rate, with chance dotted. Right: content dependence,
@@ -266,7 +288,9 @@ over 48 trajectories per corpus. A probe counts as correct if the normalised gol
 an alias, appears in the model's output. It counts as *evicted* if the answer no longer
 appears in the compacted context; these are the only probes on which consolidation can make
 a difference. Every question names a project unique to its trajectory, for reasons explained
-in §6.
+in §6. As in [1], the agent consolidates its own history: sleep phases train on the
+evaluation trajectories' compaction events, and validation uses held-out training
+trajectories.
 
 **Arms.** Besides our compaction-supervised adapter, we run (a) uniform replay, with the same
 sleep phases and budget but spans sampled uniformly from kept and dropped alike; (b)
@@ -283,7 +307,7 @@ context as a ceiling.
 | **(a) uniform replay** | 0.465 | **0.123** |
 | (d) full context | 0.712 | — |
 
-*Table 2: consolidation on the first synthetic corpus.*
+*Table 3: consolidation on the first synthetic corpus.*
 
 On the first corpus, uniform replay recovers 14 of the 114 evicted facts (+4.0σ over zero)
 and compaction-gated consolidation recovers none. We then generated four more corpora from
@@ -298,13 +322,21 @@ scratch with different seeds.
 | 4 | 112 | 0.000 | 0.036 | **0.107** |
 | mean | | 0.000 | 0.017 | **0.076** |
 
-*Table 3: fraction of evicted facts recovered on five independently generated corpora.*
+*Table 4: fraction of evicted facts recovered on five independently generated corpora.*
 
 ![Left: evicted facts recovered by compaction-gated and uniform consolidation on each of five
 corpora; grey lines join the same corpus and black bars are means. Two corpora have
 compaction at exactly zero, so their points overlap. Right: held-out pass rate for KL-gated,
 random-subset and uniform distillation over five seeds, with floor weight
 0.1.](figures/fig_training.pdf){width=100%}
+
+**Is this a fair comparison?** Uniform replay trains on dropped spans as well as kept ones,
+so it can see the text of facts that are later evicted, while the gated arm cannot. That
+asymmetry is the hypothesis under test, not a flaw in the design. Compaction is cascading: a
+fact kept at one compaction can be dropped at a later one, and the gate was meant to
+consolidate such facts while they were still kept. The gated arm does recover some evicted
+facts on three of the five corpora, so this route exists. The question is whether spending a
+fixed training budget on the compactor's selection beats spending it on no selection at all.
 
 **Uniform replay beats the compaction gate on all five corpora** (Figure 2, left), with a
 paired t(4) of 3.10 against a critical value of 2.78. The first corpus happened to be the
@@ -382,12 +414,12 @@ identifier get no gradient at all. A floor weight of 0.1 fixes this.
 | 4 | 0.656 | 0.729 | 0.677 |
 | mean | 0.765 | 0.744 | 0.708 |
 
-*Table 4: held-out pass rate with floor weight 0.1.*
+*Table 5: held-out pass rate with floor weight 0.1.*
 
 Since `kl_top` and `random` use exactly the same masking, the difference between them
 measures the ranking alone. It is +0.021 with t(4) = 0.74, and its sign changes from seed to
 seed (Figure 2, right), so the KL ranking adds nothing over a random choice. Both masked arms
-do beat full-weight `uniform` (`random` by 0.035, t(4) = 3.90; `kl_top` by 0.056,
+do beat full-weight `uniform` (`random` by 0.036, t(4) = 3.90; `kl_top` by 0.056,
 t(4) = 2.33, which is not significant). This is a separate effect of masked versus
 full-weight training, and it does not appear to come from poor tuning of `uniform`: its pass
 rate falls steadily from 300 to 1,200 steps (0.708 to 0.656), and the best of five learning
@@ -422,7 +454,7 @@ this project, controls repeatedly caught errors we had not noticed.
 | Falling CE on gold answers read as knowledge transfer | 6.29 → 2.24 | distractor ranking (at chance) |
 | Eval questions that did not identify which item was meant | 50% ceiling | duplicate-answer audit |
 
-*Table 5: artifacts caught by controls.*
+*Table 6: artifacts caught by controls.*
 
 Six of the eight made a result look better than it was, and two hid a result that might have
 been positive. None of them was a modelling mistake. All were in how the experiments were
@@ -493,7 +525,18 @@ and above, where declaration works.
   scale.
 - **Routing accuracy.** The best router is about three times chance. §4.2 compares ways of
   eliciting a routing decision; it does not produce a usable router.
-- **One model family.** Apart from SmolLM2-360M in §4.1, every result is on Qwen2.5.
+- **One model family.** Every result is on Qwen2.5.
+- **Multiple comparisons.** We report about twenty paired tests without correcting for
+  multiplicity. Under a Bonferroni correction (critical t(2) ≈ 20, t(4) ≈ 6.8) only the
+  largest margins survive: `read` over `generate` in hit rate at 1.5B and 7B, and `read` over
+  `attention_late` in hit rate at 0.5B. The 7B lead of `read` over `attention_late` and the
+  consolidation margin (t(4) = 3.10) would not. We treat those as the pre-specified main
+  comparisons of each experiment, but a reader who wants family-wise control should read
+  them as suggestive.
+- **Marked synthetic data.** The consolidation benchmark marks facts with a phrase the 1.5B
+  compactor detects, which inflates its salience lift (§4.1). This makes the gate's loss to
+  uniform replay more striking rather than less, but it means the +15.85σ figure should not
+  be read as the compactor's salience on natural text.
 
 ## 9. Conclusion
 
@@ -559,7 +602,7 @@ should extend to the decision of what to train on.
 The code, configuration files and Kaggle notebooks are in the supplementary repository. Each
 result maps to one configuration and one notebook. `docs/project_a_findings.md`,
 `docs/project_b_findings.md` and `docs/declarative.md` contain the per-run tables,
-`eval/declare_report.py` regenerates Table 1 and its paired tests from the run directories,
+`eval/declare_report.py` regenerates Table 2 and its paired tests from the run directories,
 and `paper/figures/make_figures.py` regenerates both figures from `paper/figures/data.json`.
 The 7B routing runs use `configs/kaggle_declare_7b.yaml` with a repeat-KV SDPA attention
 (`declare/elicit.py`). It gives the same outputs as stock SDPA but avoids building a 5 GB
