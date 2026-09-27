@@ -1,0 +1,608 @@
+\documentclass[10pt]{article}
+\usepackage{tmlr}
+\input{math_commands.tex}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{calc}
+\usepackage{newunicodechar}
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\newunicodechar{σ}{\ensuremath{\sigma}}
+\newunicodechar{±}{\ensuremath{\pm}}
+\newunicodechar{→}{\ensuremath{\rightarrow}}
+\newunicodechar{−}{\ensuremath{-}}
+\newunicodechar{×}{\ensuremath{\times}}
+\newunicodechar{·}{\ensuremath{\cdot}}
+\newunicodechar{α}{\ensuremath{\alpha}}
+\newunicodechar{ρ}{\ensuremath{\rho}}
+\newunicodechar{Σ}{\ensuremath{\Sigma}}
+\newunicodechar{≥}{\ensuremath{\geq}}
+\newunicodechar{≈}{\ensuremath{\approx}}
+
+\title{Measured, Not Asked: Free Salience Signals for Consolidation and Routing at Small Scale}
+\author{Anonymous authors}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+An agent that moves knowledge from its context into its weights, or decides which part of a
+long context to read, needs a salience signal. Three such signals come free, with no reward
+model or judge: the keep/drop decision a context compactor already makes, the divergence
+between a model's predictions with and without a document in context, and the region a model
+declares it needs to attend to. We test all three on Qwen2.5 models from 0.5B to 7B with a
+matched control beside every signal-strength figure, and report two findings. \textbf{First,
+measured beats asked.} Signals the model is asked to state fail or are weak: asked to list
+spans worth keeping, 0.5B and 1.5B models return the prefix \texttt{0,\ 1,\ 2,\ ...} on every event;
+asked to declare which of eight regions holds an answer, the 1.5B model does no better than
+naming a fixed region. The same models' measured signals work: reading the keep decision off
+the logits gives a 2.56x salience lift, and scoring each region by the log-odds of a
+relevance question routes at 0.33--0.42 hit rate against 0.125 chance, beating the stated
+declaration at 0.5B, 1.5B and 7B (by 0.19 at 7B, t(2)=24) and late-layer attention probing
+at 0.5B and 7B. \textbf{Second, a salient signal is not necessarily a good training target.}
+Consolidating on the compactor's keep decision, a +15.85σ salience signal, recovers fewer
+evicted facts than consolidating on uniformly sampled spans on all five synthetic corpora
+(1.7\% vs 7.6\%, paired t(4)=3.10), because the compactor has systematic blind spots; and
+gating distillation on the context gap performs no better than random token selection under
+identical masking (5 seeds, t(4)=0.74). Neither free signal beats uncurated coverage as a
+training target. Matched controls caught eight artifacts in our own pipeline, six of which
+had inflated a result in our favour.
+\end{abstract}
+
+\section{Introduction}
+
+Context is expensive and transient; weights are cheap to read and permanent. A long-running
+agent therefore wants to move what matters from one to the other, and to read only the part
+of its context a question needs. In both cases the training or routing step is routine --- a
+LoRA pass, a sparse KV read --- and the hard part is deciding \emph{what} matters.
+
+Prior work pays for that decision. Nightly consolidation \citep{dennis2026beyond} writes reflections with a second
+generation pass; SCoL \citep{wang2026scol} learns where to write with meta-RL; CompactionRL \citep{li2026compactionrl} trains the
+compactor with RL. We ask what is already free, and find three candidates:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{The compaction decision.} Every time an agent compacts its context, it decides which
+  spans survive verbatim. That is a salience label, emitted at no extra cost.
+\item
+  \textbf{The context gap.} Run a frozen model on the same continuation with and without a skill
+  document in context. The per-token KL divergence between the two is the document's causal
+  contribution, from two forward passes.
+\item
+  \textbf{The attention declaration.} Declarative Attention \citep{ho2026attention} has a model state which region of
+  its context it needs, and skips the rest of the KV-cache read. The declaration is also a
+  salience label.
+\end{itemize}
+
+We test each as a training or routing signal on models a single GPU can run, 0.5B to 7B. The
+results sort along two axes. The first is how the signal is elicited: \emph{measured} from the
+model's logits or activations, or \emph{asked} of it as generated text. This decides whether a
+signal exists at small scale. The second is whether a signal that exists is the right thing
+to train on. This decides whether it helps.
+
+\textbf{Contributions.} This is a measurement paper: the methods are hypotheses under test, and
+two of the three consolidation hypotheses come back negative.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{Measured beats asked} (§4). On three independent mechanisms, a signal the model is
+  asked to state fails or is weak, while the same model's measured signal works. A generated
+  span list is exactly random; the same keep decision read off the logits gives a 2.56x lift.
+  A generated attention declaration is at a fixed-slot control at 1.5B and carries under half
+  the content signal of a logit read at 0.5B and 7B.
+\item
+  \textbf{Salient is not trainable} (§5). Two free signals that clear matched controls do not
+  beat uniform coverage as training targets. Compaction-gated consolidation is significantly
+  worse than uniform replay across five corpora; context-gap gating is indistinguishable from
+  random token selection. They fail for different reasons --- coverage and neutrality.
+\item
+  \textbf{A logit-read substitute for declarative attention below the scale where declaring
+  works} (§4.2): a cheap relevance query that routes at about 3x chance at every scale
+  tested, with a content-shuffle control that separates content-driven from position-driven
+  routing.
+\item
+  \textbf{A matched control beside every signal-strength figure} (§6), which caught eight
+  artifacts in our own pipeline.
+\end{enumerate}
+
+\section{Related work}
+
+\textbf{Consolidation from context.} Beyond Inference-Only Deployment \citep{dennis2026beyond} shows that periodic LoRA
+consolidation beats cascading compaction, and establishes median rather than mean per-token
+cross-entropy as the metric that tracks judged accuracy (r = +0.99 against −0.51). Its
+targets are reflected facts written by a second generation pass; we consolidate on the
+compactor's raw decision instead, which removes that pass and reflection quality as a
+confound. Their recipe is our baseline. SCoL \citep{wang2026scol} learns \emph{where} to write consolidated
+knowledge --- the complementary axis to our \emph{what}. What to Keep, What to Forget \citep{colaco2026keep} frames
+compaction as rate-distortion and stops at the compactor; we consume its decisions as
+training signal. CompactionRL \citep{li2026compactionrl} trains the compactor with RL; we hold it frozen and train
+the backbone, and the two compose. Compression-Aware Abstention \citep{khodabandehlou2026abstention} trains a model on
+KV-compression masks to refuse when compression removed the answer evidence; we reproduce its direction at
+0.5B (§5.1).
+
+\textbf{Importance-gated distillation and token selection.} Skill-to-LoRA \citep{zhang2026skill} distils each skill
+into its own adapter by uniform self-distillation, and is our baseline in §5.2. ThinkSwitch
+\citep{saini2026thinkswitch} distils context into LoRA adapters with weight interpolation, also ungated. PEAM \citep{guo2026peam}
+internalises an embodied agent's episodic experience into its parameters by contrasting
+trajectories --- the nearest neighbour to our gate, on different objects with a different
+signal. Titans \citep{behrouz2024titans} uses the gradient of an
+associative-memory loss as surprise at test time; our context gap is a surprise signal in the
+same spirit, computed as a divergence between two forward passes and applied offline. Rho-1\citep{lin2024rho} and TIP \citep{xu2026tip} report the opposite of our §5.2 result in their settings: selective loss on
+scored tokens helps pretraining \citep{lin2024rho}, and training on under 10\% of tokens, chosen by
+teacher--student divergence and entropy, nearly matches full-token on-policy distillation
+\citep{xu2026tip}. Our design isolates the ranking from the masking with a random-subset control at
+identical masking. In our setting the subsetting carries the benefit and the ranking adds
+nothing; whether that decomposition holds in theirs is open.
+
+\textbf{Attention routing.} Declarative Attention \citep{ho2026attention} has a 27--31B model declare \texttt{\textless{}global\textgreater{}},
+\texttt{\textless{}focus\textgreater{}} or \texttt{\textless{}local\textgreater{}} in its chain of thought and skips most of the KV-cache read
+accordingly: 52.0\% and 31.1\% fewer attended tokens at −1.27 and −2.75 points of accuracy,
+zero-shot, with accuracy losses that ``shrink with model scale''. We test the declaration from
+below, at the scales a single GPU runs. Sentinel \citep{zhang2025sentinel} and the retrieval-head line \citep{wu2024retrieval} route
+by probing attention instead of asking; we run that route on the same models, layouts and
+probes as the other two.
+
+\section{Setup and measurement protocol}
+
+\textbf{Models and compute.} Qwen2.5-Instruct \citep{qwen2024qwen25} at 0.5B, 1.5B and 7B; LoRA \citep{hu2021lora} rank 16,
+α = 32, on all attention and MLP projections. 0.5B and 1.5B run in fp16; 7B runs in nf4 4-bit
+quantisation to fit a single 16 GB T4, which is all the compute used.
+
+\textbf{Salience lift.} For a signal that marks spans, lift is the keep rate of fact spans over
+the keep rate of filler spans. Every lift is reported against a \textbf{positional control} ---
+what keeping the first N spans scores on the same data --- and with its σ over chance and over
+that control.
+
+\textbf{Statistics.} Single-run comparisons use a binomial σ. Multi-seed comparisons use a paired
+t across seeds against the two-sided 5\% critical value for k−1 degrees of freedom (4.30 at
+three seeds, 2.78 at five). We call a margin significant only if it clears that value; a
+difference that does not is reported as a tie, not a trend.
+
+\textbf{Content shuffle} (§4.2). For routing signals, a raw hit rate cannot distinguish tracking
+content from favouring a position. We permute which content sits in which region and
+re-elicit. \texttt{content\_dependence} is the shuffled hit rate above chance; \texttt{slot\_stable\_rate} is
+how often the choice stays put when the content moves (near 1/K is content-driven, near 1
+position-driven). A best-constant control --- always naming the most common gold region ---
+exposes a model that names one region regardless.
+
+\section{Finding 1: measured beats asked}
+
+\subsection{The compaction decision}
+
+The compactor segments the evictable prefix of a trajectory into sentence spans and keeps
+\texttt{ceil(ρ·n)} of them, ρ = 0.25. We elicit the keep decision two ways: \textbf{generate}, where the
+model lists span indices to keep; and \textbf{read}, where the model is asked of each span whether
+to keep it and we score \texttt{log\ p(Yes)\ −\ log\ p(No)} off the logits, keeping the top \texttt{ρ·n}. Spans
+are shuffled before presentation so position cannot masquerade as salience.
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule\noalign{}
+Elicitation & Backbone & Lift & Verdict \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+generated index list & Qwen2.5-0.5B / 1.5B & 0.53x & below positional control \\
+logit read & SmolLM2-360M & 2.17x & clears \\
+logit read & Qwen2.5-0.5B & 0.42x & fails \\
+logit read & Qwen2.5-1.5B & 2.56x & clears \\
+\end{longtable}
+
+Asked to list spans, both Qwen models return the contiguous prefix \texttt{0,\ 1,\ 2,\ ...} on 100\% of
+events regardless of content --- under shuffling, exactly random selection. Read off the
+logits, the 1.5B model's decision is a strong signal. On the corrected synthetic benchmark
+used for §5.1 (48 trajectories, 97 compaction events, 6,244 spans), it keeps fact spans at
+0.663 and filler at 0.236: a 2.81x lift, \textbf{+15.85σ over chance and +8.40σ over the positional
+control}, with zero fallbacks or empty keeps. Per fact type it is uneven: \texttt{db\_engine},
+\texttt{owner} and \texttt{version\_pin} are kept on 100\% of events, \texttt{config\_flag} on 3.4\% and
+\texttt{auth\_header} on 0\%. §5.1 shows why that matters.
+
+Measuring is necessary but not sufficient for a signal to exist: the 0.5B logit read fails
+(0.42x) where SmolLM2-360M clears (2.17x) on identical data and code. Whether a model carries
+a usable signal is a property of its behaviour on the probe, not of its size.
+
+\subsection{The attention declaration}
+
+\textbf{Task.} A HotpotQA trajectory with its supporting paragraphs scattered across the context
+is split into K = 8 labelled regions, and the model gets a question whose answer lies in
+exactly one. Rendered contexts reach 8,966 tokens, inside every model's 32,768-token window.
+384 probes; the gold region is permuted per probe; three seeds reseed the layouts and the
+shuffle over a fixed probe set, and the gold distribution for each seed is pinned so every
+scale sees identical layouts.
+
+\textbf{Elicitations.}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{generate} --- the model replies \texttt{FOCUS:\ \textless{}k\textgreater{}}, parsed like a tool call, as in \citet{ho2026attention}.
+\item
+  \textbf{read} --- for each region we ask whether it contains the answer and score
+  \texttt{log\ p(Yes)\ −\ log\ p(No)}; the argmax is the choice. K batched region prompts.
+\item
+  \textbf{attention} --- no elicitation: we run the model on the full context and question and take
+  the attention mass the final query position places on each region, summed over layers.
+  \textbf{attention\_late} restricts the sum to the second half of the layers. One forward pass
+  over roughly the same tokens as \texttt{read}.
+\end{itemize}
+
+\textbf{Results} (mean ± sd over three seeds; chance 0.125, best-constant control 0.148):
+
+\begin{longtable}[]{@{}lllllll@{}}
+\toprule\noalign{}
+model & elicitation & hit & σ over constant & content dependence & slot stable & unparsed \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+0.5B & generate & 0.193 ± 0.012 & 2.2 & 0.085 ± 0.021 & 0.281 & 0.019 \\
+0.5B & attention & 0.151 ± 0.003 & 0.2 & 0.014 ± 0.012 & 0.882 & 0.000 \\
+0.5B & attention\_late & 0.234 ± 0.011 & 4.0 & 0.113 ± 0.029 & 0.356 & 0.000 \\
+0.5B & \textbf{read} & \textbf{0.332 ± 0.004} & \textbf{7.7} & \textbf{0.203 ± 0.003} & 0.136 & 0.000 \\
+1.5B & generate & 0.150 ± 0.008 & 0.1 & 0.030 ± 0.023 & 0.413 & 0.170 \\
+1.5B & attention & 0.286 ± 0.023 & 6.0 & 0.163 ± 0.010 & 0.447 & 0.000 \\
+1.5B & attention\_late & 0.374 ± 0.017 & 9.2 & 0.258 ± 0.028 & 0.200 & 0.000 \\
+1.5B & \textbf{read} & \textbf{0.378 ± 0.005} & \textbf{9.3} & \textbf{0.241 ± 0.005} & 0.136 & 0.000 \\
+7B & generate & 0.230 ± 0.010 & 3.8 & 0.116 ± 0.020 & 0.260 & 0.000 \\
+7B & attention & 0.229 ± 0.009 & 3.8 & 0.085 ± 0.018 & 0.595 & 0.000 \\
+7B & attention\_late & 0.359 ± 0.017 & 8.6 & 0.223 ± 0.019 & 0.242 & 0.000 \\
+7B & \textbf{read} & \textbf{0.418 ± 0.011} & \textbf{10.7} & \textbf{0.285 ± 0.004} & 0.135 & 0.000 \\
+\end{longtable}
+
+\textbf{The stated declaration never approaches a measured one.} At 0.5B its raw hit rate clears
+the constant control (+2.2σ), but the shuffle shows most of that is position: content
+dependence 0.085, under half of \texttt{read}'s. At 1.5B it is indistinguishable from naming one
+fixed region (+0.1σ), refuses the \texttt{FOCUS:} format on 17\% of probes, and its slot-stable rate
+rises to 0.41. At 7B the refusals disappear and it clears the constant control again (+3.8σ,
+between +3.7σ and +4.0σ on every seed), with content dependence 0.116 --- the 0.5B pattern
+rather than the 1.5B collapse. \texttt{read} still beats it by 0.188 in hit rate (t(2) = 24.0) and
+0.168 in content dependence (t(2) = 12.3). The decline from 0.5B to 1.5B does not continue;
+the gap to the measured routes does.
+
+\textbf{\texttt{read} wins at 0.5B and 7B and ties at 1.5B.} Against the best attention variant, \texttt{read}
+leads at 0.5B on hit rate (0.332 vs 0.234, t(2) = 24.9) and content dependence (0.203 vs
+0.113, t(2) = 4.91). At 1.5B the two tie: 0.378 vs 0.374 (t(2) = 0.30) and 0.241 vs 0.258
+(t(2) = −0.85). At 7B \texttt{read} leads again, 0.418 vs 0.359 (t(2) = 12.0) and 0.285 vs 0.223
+(t(2) = 4.69). \texttt{read} is the only signal whose content dependence rises at every scale
+(0.203, 0.241, 0.285); \texttt{attention\_late} rises to 1.5B and falls back at 7B (0.113, 0.258,
+0.223), so attention probing does not keep closing the gap. A single-seed run had shown
+attention nominally ahead at 1.5B; three seeds showed that was layout noise.
+
+\textbf{Layer choice decides whether probing works at all.} Summed over every layer, attention is
+useless at 0.5B: content dependence 0.014, the same slot on 88\% of probes. Restricted to the
+late half it clears its control at every scale. Early layers carry position and dominate the
+sum --- one Qwen2.5-1.5B layer-0 query·key product reaches 152,967 against a late-layer peak
+near 300. A probing baseline reported without this ablation would understate itself by more
+than an order of magnitude.
+
+\subsection{What the two mechanisms share}
+
+On both the compaction decision and the attention declaration, the model's measured judgment
+is better than its stated one --- the generated \texttt{FOCUS:} at 1.5B carries no content signal
+(0.030) while the same model's logit read carries 0.241 and its late-layer attention 0.258.
+The failure is not that small models lack the judgment; it is that they express it far less
+well as structured output on demand than their logits reveal it, and scale to 7B narrows that
+only partly. Measuring is also a design space rather than a single method: the self-query and
+attention probing swap between win and tie across scales, and attention works only from late
+layers. Of the routes we tested, the self-query is the safer default at every scale. The
+context gap (§5.2) is measured by construction and needs no elicitation at all.
+
+\section{Finding 2: salient is not trainable}
+
+\subsection{Consolidating on the compaction decision}
+
+\textbf{Method.} After every fourth compaction event, a sleep phase runs LoRA SFT on the spans the
+compactor kept, with a reservoir replay buffer across phases. The compactor is Qwen2.5-1.5B
+with the logit-read backend; the consolidated and evaluated backbone is Qwen2.5-0.5B.
+
+\textbf{Benchmark.} Synthetic agent trajectories of 120 turns, each carrying six planted facts
+(\texttt{auth\_header}, \texttt{db\_engine}, \ldots) in its first twelve turns and filler after, so compaction
+evicts some facts. Each fact gets one probe, 288 per corpus over 48 trajectories. A probe is
+correct if the normalised gold answer or an alias appears in the output, and \emph{evicted} if the
+answer is absent from the compacted context --- the only probes where consolidation can help.
+Every question names a project unique to its trajectory (§6 explains why this matters).
+
+\textbf{Arms.} (a) uniform replay: the same sleep phases and budget on uniformly sampled spans,
+kept and dropped alike; (b) reflection, following \citet{dennis2026beyond}; (c) cascading compaction with no
+weight update; (d) full context, the ceiling; and ours, compaction-supervised.
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+method (corpus 0, 114 evicted) & all-probe & evicted \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+no context (floor) & 0.000 & 0.000 \\
+(c) cascading, no adapter & 0.413 & 0.000 \\
+ours: compaction-supervised & 0.451 & \textbf{0.000} \\
+ours + mask head & 0.323 & 0.009 \\
+(b) reflection & 0.389 & 0.000 \\
+\textbf{(a) uniform replay} & 0.465 & \textbf{0.123} \\
+(d) full context & 0.712 & --- \\
+\end{longtable}
+
+Uniform replay recovers 14 of 114 evicted facts (+4.0σ over zero); compaction-gated
+consolidation recovers none. Across five independently generated corpora:
+
+\begin{longtable}[]{@{}lllll@{}}
+\toprule\noalign{}
+corpus & evicted & cascading & compaction & uniform \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+0 & 114 & 0.000 & 0.000 & \textbf{0.123} \\
+1 & 102 & 0.000 & 0.029 & \textbf{0.078} \\
+2 & 112 & 0.000 & 0.000 & \textbf{0.009} \\
+3 & 98 & 0.000 & 0.020 & \textbf{0.061} \\
+4 & 112 & 0.000 & 0.036 & \textbf{0.107} \\
+mean & & 0.000 & 0.017 & \textbf{0.076} \\
+\end{longtable}
+
+\textbf{Uniform beats the compaction gate on every corpus}, paired t(4) = 3.10 against a critical
+value of 2.78. Corpus 0 was the most favourable draw; at three corpora the margin was not yet
+significant (t(2) = 1.81). The gain is specific to evicted facts: all-probe accuracy is level
+(t(4) = −0.88).
+
+\textbf{Mechanism: coverage.} Both adapters fit their targets equally well (validation CE 0.0003
+for ours, 0.0005 for uniform); they differ in what they fit. The compactor never keeps
+\texttt{auth\_header} and almost never \texttt{config\_flag} (§4.1), so the gated adapter never sees them.
+Uniform sampling covers them. A strong salience signal with a blind spot passes the blind spot
+to the weights.
+
+\textbf{Remixing dropped spans does not fix it.} Replacing 25\% or 50\% of the gated budget with
+randomly drawn dropped spans, at a matched total budget, recovers 2 and 1 of 114. The dropped
+pool is dominated by filler (5,956 filler spans), so a random draw rarely lands on the
+excluded facts. Drawing round-robin across fact keys instead roughly doubles recovery at 25\%
+(4 of 114) and falls to zero at 50\% --- one run each, and far short of uniform's 14. Uniform's
+advantage comes from covering every span across 25 phases, not from any single proportional
+remix.
+
+\textbf{The same mask succeeds at the opposite task.} Following \citet{khodabandehlou2026abstention}, a LoRA trained on the same
+free label to \emph{refuse} when evidence was evicted abstains on 0.728 of evicted probes against
+0.000 for the base model (+17.5σ), cutting hallucination by 72.8\%, while refusing only 10.9\%
+of probes whose answer is still present and raising retained accuracy from 0.684 to 0.770.
+The compaction mask tells a model what was lost: enough to abstain, not enough to recover.
+
+\textbf{Natural prose.} On HotpotQA (one seed, 160 probes, 92 evicted) nothing separates:
+cascading with no adapter recovers 4 of 92, compaction 3, uniform 5 (+0.7σ uniform over
+compaction). Some answers survive in other paragraphs or in the model's prior, so the
+no-training floor is not zero. At this size the run neither replicates nor contradicts the
+synthetic result.
+
+\subsection{Gating distillation on the context gap}
+
+\textbf{Scoring.} For a skill document d, demonstration query q and response r, form
+\texttt{T\ =\ chat(system,\ d\ ++\ q)} and \texttt{S\ =\ chat(system,\ q)}, run the frozen backbone on \texttt{T\ ++\ r} and
+\texttt{S\ ++\ r}, and score each response token by
+
+\begin{verbatim}
+kl_i = KL( p(· | T, r_<i) || p(· | S, r_<i) )
+\end{verbatim}
+
+Tokens group into sentence and code-line spans via the tokenizer's offset mapping; a span
+scores the mean of its tokens.
+
+\textbf{Gating and loss.} The top 25\% of spans get weight 1 and the rest a floor weight. The
+teacher is the backbone with its adapter disabled and the document in context; the student
+is the adapter-enabled model without it; the loss is \texttt{Σ\ w\_i\ KL\_i\ /\ Σ\ w\_i}. One model in
+memory, one adapter per skill category.
+
+\textbf{Setup.} Eight invented tool-use APIs in three categories, each with a \texttt{SKILL.md}, nine
+demonstrations and twelve held-out tasks (96 in all); the APIs are fictional, so the base
+model cannot know them. Qwen2.5-1.5B-Instruct, 300 steps at learning rate 1e-4. A task passes
+when every required API string appears in the output. Arms: \texttt{uniform}, every token at full
+weight (S2L-style \citep{zhang2026skill}); \texttt{random}, a random 25\% of spans at full weight and the floor
+elsewhere; \texttt{kl\_top}, the KL-selected 25\% under the same floor.
+
+\textbf{The gate carries a signal.} Required-token coverage --- the share of each demonstration's
+required API identifiers inside the selection --- is \textbf{0.597 against 0.392} for a
+matched-budget random selection, \textbf{+6.77σ}; at token granularity, 0.363 vs 0.247, +4.29σ.
+
+\textbf{It does not help training.} At floor weight 0, \texttt{kl\_top} reaches 0.510 against \texttt{random}'s
+0.583 and \texttt{uniform}'s 0.708: the prefix that conditions each selected identifier receives no
+gradient. A floor of 0.1 repairs this:
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule\noalign{}
+seed & kl\_top & random & uniform \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+0 & 0.729 & 0.729 & 0.708 \\
+1 & 0.823 & 0.750 & 0.729 \\
+2 & 0.802 & 0.719 & 0.698 \\
+3 & 0.813 & 0.792 & 0.729 \\
+4 & 0.656 & 0.729 & 0.677 \\
+mean & 0.765 & 0.744 & 0.708 \\
+\end{longtable}
+
+\texttt{kl\_top} and \texttt{random} share identical masking, so their difference isolates the ranking:
+\textbf{+0.021, t(4) = 0.74}, with the sign flipping between seeds. The ranking adds nothing over
+random selection. Both masked arms beat full-weight \texttt{uniform} (\texttt{random} +0.035,
+t(4) = 3.90; \texttt{kl\_top} +0.056, t(4) = 2.33, not significant). That is a separate finding about
+masked versus full-weight training, and \texttt{uniform} is not simply mistuned: it gets
+monotonically worse from 300 to 1,200 steps (0.708 to 0.656), and the best of five learning
+rates from 5e-5 to 8e-4 reaches 0.750 (single seed each). At token granularity with floor 0.1,
+\texttt{kl\_top} and \texttt{random} are again level (0.771 vs 0.760). The distilled skill keeps partial
+function under a mismatched retrieved document (0.292 vs 0.000 for the prompted skill).
+
+\subsection{Two failures, two reasons}
+
+The compaction gate is \emph{harmful}: its selection systematically excludes whole fact types,
+and no remixing tested restores them. The context-gap gate is \emph{neutral}: its selection is
+informative about which tokens matter, but training on it is no better than training on a
+random subset of the same size. Both signals clear matched controls; neither beats uncurated
+coverage. A signal's strength says whether it carries information; it does not say whether
+that information is what the weights are missing. Before gating training on any free signal,
+compare it against uniform sampling at a matched budget --- the matched control of §6, one
+level up.
+
+\section{Matched controls, and what they caught}
+
+A raw signal-strength figure is close to meaningless without a control beside it. We report
+every one against a matched control because doing so repeatedly caught us:
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Artifact
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Apparent effect
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Caught by
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Silent fallback to a rule-based compactor & 3.99x lift & decision-provenance counter \\
+``Keep at most N'' answered \texttt{NONE} on every event & 100\% empty keeps & empty-keep rate \\
+Model answered with the first N spans & 1.68x lift & positional control \\
+\texttt{sorted(kept){[}:budget{]}} reimposed position after shuffling & 1.69x lift & kept-index distribution \\
+Supporting paragraphs stacked at the front of a benchmark & 1.76x lift & positional control (2.44x) \\
+Cached scores from an older tokenizer inverted the gate & −5.14σ & re-scoring in the current environment (+6.40σ) \\
+Falling CE on gold answers read as knowledge transfer & 6.29 → 2.24 & distractor ranking (at chance) \\
+Eval questions that did not identify which item was meant & 50\% ceiling & duplicate-answer audit \\
+\end{longtable}
+
+Six of the eight inflated a result in our favour; two hid a possible positive. None was a
+modelling error; all were construction, which we think is the norm.
+
+\textbf{The tokenizer row} moved the result against us, so disbelief did not catch it, and we
+misdiagnosed it once. Scored from a cached file produced under an older tokenizer, which
+split identifiers such as \texttt{vx\_stash} into five pieces, code spans averaged low and the gate
+scored 0.118 required-token coverage against a matched control's 0.307. We blamed
+mean-pooling. Re-scoring in the current environment, with no code change, gave 0.586 against
+0.392. Having seen the stale number, we also marked the downstream comparison confounded;
+re-running it reproduced the original result exactly. A retraction needs the same evidence
+as a claim, and a cached score file is valid only in the environment that produced it.
+
+\textbf{The last two rows compound.} Consolidation lowered per-token CE on evicted gold answers
+from 6.29 to 2.24, which we first read as knowledge that had entered the weights; ranking
+each gold answer against same-bank distractors put every arm at the 0.240 chance rate, which
+we then read as knowledge never acquired. Both were premature. 98.3\% of the benchmark's
+questions had more than one correct answer across trajectories --- ``Which header carries the
+auth token?'' was asked of 48 conversations with four different answers --- so a perfect
+memoriser could not exceed 50\%, and the distractors were other trajectories' correct answers.
+Scoping every question to its trajectory is what made §5.1 measurable. The audit --- count the
+distinct answers each question string receives --- costs minutes and should precede the
+experiment.
+
+\section{Discussion}
+
+The practical rule for free-supervision pipelines below frontier scale is to \textbf{derive the
+signal from what the model does, not from what it says it does}, and then to check the
+signal against uniform sampling before training on it. The context gap obeys the first half
+by construction; the compaction decision obeys it once read rather than generated;
+Declarative Attention as published does not, and §4.2 measures the cost at small scale. The
+second half is where both consolidation signals fail.
+
+The two halves interact. The measured compaction decision is strong precisely because it
+reflects what the compactor considers salient --- and that is also why it fails as a training
+target, since what a compactor keeps for immediate use need not be what the weights lack. A
+signal that is maximally informative about one decision can be systematically biased for
+another. This suggests the useful free signals for consolidation are ones whose errors are
+uncorrelated with coverage, or ones used, as in abstention, for the decision they were made
+for.
+
+For routing, the logit read is a cheap, training-free substitute for declaring at the scales
+where declaring is unreliable. It is not a deployable router on its own --- about 3x chance
+leaves most probes misrouted --- and it costs K region prompts rather than a single generated
+token. Whether it keeps its lead where declaration works, at 27B and above, is the natural
+next test.
+
+\section{Limitations}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Synthetic consolidation.} The significant consolidation result is on a controlled
+  synthetic benchmark. The HotpotQA run is one seed at 92 evicted probes with a non-zero
+  no-training floor and cannot resolve a gap of the synthetic size. The synthetic generator's
+  unmarked variant is a floor case: facts and filler share one template bank.
+\item
+  \textbf{Seeds.} The main comparisons have five seeds (§5.1 corpora, §5.2 gate) or three (§4.2);
+  the remix ablations, abstention, the step and learning-rate sweeps, and HotpotQA are single
+  runs.
+\item
+  \textbf{Scale.} Everything is at or below 7B, and 7B is 4-bit quantised. We cannot test the
+  27B+ regime of \citet{ho2026attention}, so our result bounds the generated declaration from below --- at a
+  fixed-slot control at 1.5B, under half the logit read's signal at 7B --- and does not
+  contradict the accuracy \citet{ho2026attention} reports at scale. The logit read is untested there.
+\item
+  \textbf{Routing accuracy.} The best router is about 3x chance; §4.2 compares elicitations, it
+  does not deliver a usable router.
+\item
+  \textbf{One model family.} Apart from SmolLM2-360M in §4.1, all results are on Qwen2.5.
+\end{itemize}
+
+\section{Conclusion}
+
+Free salience signals exist at small scale, but only when measured: asked to state what
+matters, 0.5B--7B models fail or carry a fraction of the signal their logits hold. And a
+measured signal that clears its control can still be the wrong thing to train on ---
+compaction-gated consolidation loses to uniform replay on every corpus, and context-gap
+gating adds nothing over random selection. Both lessons reduce to the same practice: put a
+matched control beside every number, including the number that says a signal should be
+trained on.
+
+\bibliography{main}
+\bibliographystyle{tmlr}
+
+\newpage
+\appendix
+
+\section{Hyperparameters}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2500}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2500}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2500}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2500}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+§5.1 consolidation
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+§5.2 distillation
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+§4.2 routing
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+backbone & Qwen2.5-0.5B (compactor 1.5B) & Qwen2.5-1.5B & Qwen2.5-0.5B / 1.5B / 7B \\
+LoRA & r 16, α 32, dropout 0.05, all projections & same & --- \\
+learning rate & 5e-5 & 1e-4 & --- \\
+steps & 80 per sleep phase & 300 & --- \\
+schedule & sleep every 4 compaction events, 25 phases & one adapter per category & --- \\
+replay & reservoir, capacity 80 & --- & --- \\
+selection & keep ρ = 0.25, sentence spans, 8 recent turns protected & top 25\% of spans, floor 0 or 0.1 & K = 8 regions \\
+data & 48 trajectories × 120 turns × 6 facts & 8 APIs, 9 demos, 12 tasks each & 96 HotpotQA trajectories × 4 probes \\
+seeds & 5 corpora & 5 & 3 layouts \\
+precision & fp16 & fp16 & fp16; 7B nf4 \\
+\end{longtable}
+
+\section{Reproducibility}
+
+All code, configs and Kaggle notebooks are in the supplementary repository. Each result
+above maps to one config and one notebook; \texttt{docs/project\_a\_findings.md},
+\texttt{docs/project\_b\_findings.md} and \texttt{docs/declarative.md} hold the per-run tables, and
+\texttt{eval/declare\_report.py} regenerates the §4.2 table and paired tests from the run
+directories. The 7B routing runs use \texttt{configs/kaggle\_declare\_7b.yaml} with a repeat-KV SDPA
+attention (\texttt{declare/elicit.py}) that matches stock SDPA exactly but avoids a 5 GB attention
+matrix on T4 hardware for 9k-token prompts.
+
+\end{document}
