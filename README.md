@@ -8,16 +8,20 @@ context?* — and testing whether each can drive consolidation into weights.
 | name | Compaction-Supervised Sleep Consolidation | [Context-Gap Distillation](docs/context_gap.md) | [Declarative Attention at small scale](docs/declarative.md) |
 | signal | the compactor's keep/drop decision | with-vs-without-context KL divergence | which region the model says it must read |
 | source | external, an agent already emits it | internal, two forward passes | external, the model states it |
-| paper | [draft_combined.md](paper/draft_combined.md) §3 | §4 | §5 |
+| paper | [draft_combined.md](paper/draft_combined.md) §5.1 | §5.2 | §4.2 |
 
 They share `common/`, `sleep/lm.py`, `sleep/trainer.py` and the config machinery.
 
-**The finding that ties them together** ([paper/draft_combined.md](paper/draft_combined.md)):
-signals the model is *asked to state* collapse at small scale — both Qwen sizes answer a
-span-selection request with `0, 1, 2, ...` regardless of content, and SmolLM2-360M answers a
-region-declaration request with `FOCUS: 0` every time. Signals *measured from behaviour*
-survive: the same decision read off the logits reaches 2.56x salience lift at 1.5B and 2.17x
-at 360M. Measure the model; do not ask it.
+**Two findings tie them together** ([paper/draft_combined.md](paper/draft_combined.md)):
+
+1. **Measured beats asked.** Signals the model is asked to state fail or are weak at
+   0.5B–7B: both Qwen sizes answer a span-selection request with `0, 1, 2, ...` regardless of
+   content, and a generated region declaration is at a fixed-slot control at 1.5B. The same
+   models' measured signals work: the keep decision read off the logits reaches 2.56x lift,
+   and a logit relevance read beats the stated declaration at 0.5B, 1.5B and 7B.
+2. **Salient is not trainable.** Compaction-gated consolidation loses to uniform replay on
+   all five corpora (t(4)=3.10), and context-gap gating is no better than random selection
+   (t(4)=0.74).
 
 ---
 
