@@ -122,7 +122,7 @@ kept divided by the rate at which filler spans are kept. We always report it nex
 positional control, the lift obtained by simply keeping the first N spans, together with its
 margin in σ over chance and over that control.
 
-**Statistics.** Single runs are compared with a binomial σ. Multi-seed comparisons use a
+**Statistics.** We compare single runs with a binomial σ and multi-seed runs with a
 paired t-test across seeds, judged against the two-sided 5% critical value for k−1 degrees
 of freedom: 4.30 for three seeds and 2.78 for five. We call a difference significant only if
 it clears that value, and otherwise report it as a tie.
@@ -143,7 +143,7 @@ The compactor splits the evictable prefix of a trajectory into sentence spans an
 `ceil(ρ·n)` of them, with ρ = 0.25. We obtain its keep decision in two ways. In **generate**
 mode the model writes out the indices of the spans to keep. In **read** mode we ask it about
 each span in turn and score `log p(Yes) − log p(No)` from the logits, keeping the top `ρ·n`.
-Spans are shuffled before they are shown, so position cannot pass for salience.
+We shuffle the spans before showing them, so position cannot pass for salience.
 
 When asked to list spans, both Qwen models answered with the prefix `0, 1, 2, ...` on 100%
 of events, whatever the content. Because the spans were shuffled, this is exactly random
@@ -188,7 +188,7 @@ model carries a usable signal has to be checked for each model and dataset.
 **Task.** We take HotpotQA trajectories, scatter their supporting paragraphs through the
 context, and split the context into K = 8 labelled regions. The model receives a question
 whose answer lies in exactly one region. Rendered contexts reach 8,966 tokens, well within
-the 32,768-token window of every model. There are 384 probes, and the gold region is permuted
+the 32,768-token window of every model. There are 384 probes, and we permute the gold region
 for each. Three seeds resample the layouts and the shuffle over a fixed probe set, and we pin
 the gold distribution of each seed so that every model sees the same layouts.
 
@@ -205,7 +205,7 @@ the gold distribution of each seed so that every model sees the same layouts.
 
 Table 2 gives the results and Figure 1 plots them. Two caveats apply to reading across
 scales. The seeds resample layouts over one fixed set of 384 probes, so the paired tests
-speak to variation over layouts rather than over probes. And the 7B model is quantised to 4
+speak to variation over layouts rather than over probes. And we quantise the 7B model to 4
 bits while the others run in fp16, so a change between 1.5B and 7B mixes scale with
 quantisation.
 
@@ -281,9 +281,9 @@ the spans the compactor kept, with a reservoir replay buffer carried across phas
 compactor is Qwen2.5-1.5B using the logit read; the model being consolidated and evaluated is
 Qwen2.5-0.5B.
 
-**Benchmark.** Each synthetic trajectory is an agent conversation of 120 turns. Six facts
-(`auth_header`, `db_engine`, and so on) are planted in the first twelve turns and the rest is
-filler, so compaction evicts some of them. Each fact has one probe, which gives 288 probes
+**Benchmark.** Each synthetic trajectory is an agent conversation of 120 turns. We plant six facts
+(`auth_header`, `db_engine`, and so on) in the first twelve turns and fill the rest with
+filler text, so compaction evicts some of them. Each fact has one probe, which gives 288 probes
 over 48 trajectories per corpus. A probe counts as correct if the normalised gold answer, or
 an alias, appears in the model's output. It counts as *evicted* if the answer no longer
 appears in the compacted context; these are the only probes on which consolidation can make
@@ -305,7 +305,7 @@ context as a ceiling.
 | ours + mask head | 0.323 | 0.009 |
 | (b) reflection | 0.389 | 0.000 |
 | **(a) uniform replay** | 0.465 | **0.123** |
-| (d) full context | 0.712 | — |
+| (d) full context | 0.712 | n/a |
 
 *Table 3: consolidation on the first synthetic corpus.*
 
@@ -380,13 +380,13 @@ nor contradict the synthetic result.
 kl_i = KL( p(· | T, r_<i) || p(· | S, r_<i) )
 ```
 
-Tokens are grouped into sentence and code-line spans using the tokenizer's offset mapping,
-and each span is scored by the mean over its tokens.
+We group tokens into sentence and code-line spans using the tokenizer's offset mapping,
+and score each span by the mean over its tokens.
 
-**Gating and loss.** The top 25% of spans get weight 1 and the rest get a floor weight. The
+**Gating and loss.** We give the top 25% of spans weight 1 and the rest a floor weight. The
 teacher is the backbone with the adapter switched off and the document in context; the
 student is the model with the adapter switched on and no document. The loss is
-`Σ w_i KL_i / Σ w_i`. Only one model is held in memory, with one adapter per skill category.
+`Σ w_i KL_i / Σ w_i`. We hold only one model in memory, with one adapter per skill category.
 
 **Setup.** We wrote eight fictional tool-use APIs in three categories, each with a
 `SKILL.md`, nine demonstrations and twelve held-out tasks, 96 tasks in all. Because the APIs
@@ -435,7 +435,7 @@ the remixing strategies we tried puts them back. The context-gap gate does neith
 good. It picks out informative tokens, but training on them works no better than training on
 a random subset of the same size. Both signals clear their matched controls, and neither
 beats uncurated coverage. A signal's strength tells us that it carries information. It does
-not tell us whether that information is what the weights are missing, which has to be tested
+not tell us whether that information is what the weights are missing, and we had to test that
 separately, by comparing the gated training against uniform sampling at the same budget.
 
 ## 6. Matched controls, and what they caught
@@ -518,10 +518,10 @@ and above, where declaration works.
 - **Seeds.** The main comparisons use five seeds (§5.1 corpora and the §5.2 gate) or three
   (§4.2). The remixing ablations, abstention, the step and learning-rate sweeps and HotpotQA
   are single runs.
-- **Scale.** Everything is at or below 7B, and the 7B model is quantised to 4 bits. We cannot
+- **Scale.** Everything is at or below 7B, and we had to quantise the 7B model to 4 bits. We cannot
   test the 27B+ regime studied in [5], so our results bound the generated declaration from
   below (at a fixed-slot control at 1.5B, under half the logit read's signal at 7B) and do
-  not contradict the accuracy reported there. The logit read has not been tested at that
+  not contradict the accuracy reported there. We have not tested the logit read at that
   scale.
 - **Routing accuracy.** The best router is about three times chance. §4.2 compares ways of
   eliciting a routing decision; it does not produce a usable router.
@@ -547,6 +547,19 @@ thing to train on: compaction-gated consolidation lost to uniform replay on ever
 context-gap gating did no better than random selection. In both cases the problem only
 became visible because a matched control sat next to the number, and we think that practice
 should extend to the decision of what to train on.
+
+## Broader impact statement
+
+This work studies how small language models can decide what to keep from their context,
+either by writing it into their weights or by choosing what to read. Consolidating an agent's
+history into its weights raises a privacy concern that retrieval does not: anything in the
+context, including personal or confidential information, can end up stored in the adapter
+and is harder to inspect or delete than a document in a store. Our experiments use synthetic
+conversations, invented APIs and public HotpotQA data, so no personal data was involved, but
+anyone deploying consolidation on real user histories should filter what reaches training.
+On the positive side, the abstention result in §5.1 suggests that the same free signal can
+make a model refuse rather than guess when its evidence has been evicted, which reduces
+hallucination. We do not see a direct route to misuse beyond that of the underlying models.
 
 ## References
 
@@ -587,11 +600,11 @@ should extend to the decision of what to train on.
 | | §5.1 consolidation | §5.2 distillation | §4.2 routing |
 |---|---|---|---|
 | backbone | Qwen2.5-0.5B (compactor 1.5B) | Qwen2.5-1.5B | Qwen2.5-0.5B / 1.5B / 7B |
-| LoRA | r 16, α 32, dropout 0.05, all projections | same | — |
-| learning rate | 5e-5 | 1e-4 | — |
-| steps | 80 per sleep phase | 300 | — |
-| schedule | sleep every 4 compaction events, 25 phases | one adapter per category | — |
-| replay | reservoir, capacity 80 | — | — |
+| LoRA | r 16, α 32, dropout 0.05, all projections | same | n/a |
+| learning rate | 5e-5 | 1e-4 | n/a |
+| steps | 80 per sleep phase | 300 | n/a |
+| schedule | sleep every 4 compaction events, 25 phases | one adapter per category | n/a |
+| replay | reservoir, capacity 80 | n/a | n/a |
 | selection | keep ρ = 0.25, sentence spans, 8 recent turns protected | top 25% of spans, floor 0 or 0.1 | K = 8 regions |
 | data | 48 trajectories × 120 turns × 6 facts | 8 APIs, 9 demos, 12 tasks each | 96 HotpotQA trajectories × 4 probes |
 | seeds | 5 corpora | 5 | 3 layouts |
@@ -607,3 +620,11 @@ and `paper/figures/make_figures.py` regenerates both figures from `paper/figures
 The 7B routing runs use `configs/kaggle_declare_7b.yaml` with a repeat-KV SDPA attention
 (`declare/elicit.py`). It gives the same outputs as stock SDPA but avoids building a 5 GB
 attention matrix for 9k-token prompts on a T4.
+
+**Compute.** Every experiment ran on a single NVIDIA T4 (16 GB) through Kaggle, one or two
+sessions at a time. The total is roughly 50 GPU-hours, of which about 20 went to the 7B
+routing runs and most of the rest to the consolidation corpora and the distillation seeds.
+
+**Assets and licences.** Qwen2.5-0.5B, 1.5B and 7B-Instruct are released under the Apache 2.0
+licence, and HotpotQA under CC BY-SA 4.0. The synthetic trajectories and the eight tool-use
+APIs were written for this work and are included in the supplementary repository.
