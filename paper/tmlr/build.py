@@ -89,6 +89,9 @@ def main():
     if "--no-pdf" not in sys.argv:
         subprocess.run(["latexmk", "-pdf", "-interaction=nonstopmode", "-quiet", "main.tex"],
                        cwd=HERE, check=True)
+        subprocess.run(["latexmk", "-c", "main.tex"], cwd=HERE, check=True, capture_output=True)
+        for ext in ("bbl", "out"):
+            (HERE / f"main.{ext}").unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
