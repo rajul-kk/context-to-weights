@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 HERE = Path(__file__).resolve().parent
 DATA = json.load(open(HERE / "data.json"))
+NO_DATE = {"CreationDate": None, "Creator": None, "Producer": None}
 
 plt.rcParams.update({
     "font.family": "serif",
@@ -52,7 +53,7 @@ def routing():
     axes[1].axhline(0, color="black", linestyle=":", linewidth=0.8)
     axes[1].legend(loc="upper left", fontsize=7, bbox_to_anchor=(1.0, 1.0))
     fig.tight_layout()
-    fig.savefig(HERE / "fig_routing.pdf", bbox_inches="tight")
+    fig.savefig(HERE / "fig_routing.pdf", bbox_inches="tight", metadata=NO_DATE)
 
 
 def slopes(ax, columns, labels, colors, ylabel):
@@ -67,18 +68,26 @@ def slopes(ax, columns, labels, colors, ylabel):
     ax.set_ylabel(ylabel)
 
 
+def rates(counts, totals):
+    totals = totals if isinstance(totals, list) else [totals] * len(counts)
+    return [c / n for c, n in zip(counts, totals)]
+
+
 def training():
     fig, axes = plt.subplots(1, 2, figsize=(6.5, 2.4), gridspec_kw={"width_ratios": [2, 3]})
     c = DATA["consolidation"]
-    slopes(axes[0], [c["compaction"], c["uniform"]], ["compaction-gated", "uniform"],
-           ["#7f8c8d", "#c0392b"], "evicted facts recovered")
+    slopes(axes[0], [rates(c["compaction_recovered"], c["n_evicted"]),
+                     rates(c["uniform_recovered"], c["n_evicted"])],
+           ["compaction-gated", "uniform"], ["#7f8c8d", "#c0392b"], "evicted facts recovered")
     axes[0].set_title("(a) consolidation, five corpora\npaired t(4) = 3.10", fontsize=8.5)
     d = DATA["distillation"]
-    slopes(axes[1], [d["kl_top"], d["random"], d["uniform"]], ["KL-gated", "random subset", "uniform"],
-           ["#2471a3", "#7f8c8d", "#c0392b"], "held-out task pass rate")
+    n = d["n_tasks"]
+    slopes(axes[1], [rates(d["kl_top"], n), rates(d["random"], n), rates(d["uniform"], n)],
+           ["KL-gated", "random subset", "uniform"], ["#2471a3", "#7f8c8d", "#c0392b"],
+           "held-out task pass rate")
     axes[1].set_title("(b) distillation, five seeds\nKL vs random: t(4) = 0.74", fontsize=8.5)
     fig.tight_layout()
-    fig.savefig(HERE / "fig_training.pdf", bbox_inches="tight")
+    fig.savefig(HERE / "fig_training.pdf", bbox_inches="tight", metadata=NO_DATE)
 
 
 if __name__ == "__main__":

@@ -419,7 +419,7 @@ identifier get no gradient at all. A floor weight of 0.1 fixes this.
 Since `kl_top` and `random` use exactly the same masking, the difference between them
 measures the ranking alone. It is +0.021 with t(4) = 0.74, and its sign changes from seed to
 seed (Figure 2, right), so the KL ranking adds nothing over a random choice. Both masked arms
-do beat full-weight `uniform` (`random` by 0.036, t(4) = 3.90; `kl_top` by 0.056,
+do beat full-weight `uniform` (`random` by 0.035, t(4) = 3.90; `kl_top` by 0.056,
 t(4) = 2.33, which is not significant). This is a separate effect of masked versus
 full-weight training, and it does not appear to come from poor tuning of `uniform`: its pass
 rate falls steadily from 300 to 1,200 steps (0.708 to 0.656), and the best of five learning
