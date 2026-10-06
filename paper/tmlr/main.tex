@@ -718,7 +718,8 @@ precision & fp16 & fp16 & fp16; 7B nf4 \\
 The code, configuration files and Kaggle notebooks are in the supplementary repository. Each
 result maps to one configuration and one notebook. \texttt{docs/project\_a\_findings.md},
 \texttt{docs/project\_b\_findings.md} and \texttt{docs/declarative.md} contain the per-run tables,
-\texttt{eval/declare\_report.py} regenerates Table 2 and its paired tests from the run directories,
+\texttt{eval/declare\_report.py} regenerates Table 2 and its paired tests from the per-run summaries in
+\texttt{results/declare/},
 and \texttt{paper/figures/make\_figures.py} regenerates both figures from \texttt{paper/figures/data.json}.
 The 7B routing runs use \texttt{configs/kaggle\_declare\_7b.yaml} with a repeat-KV SDPA attention
 (\texttt{declare/elicit.py}). It gives the same outputs as stock SDPA but avoids building a 5 GB

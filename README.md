@@ -101,6 +101,7 @@ scripts/    orchestrators, sweeps, Kaggle sync
 docs/       findings, protocol, benchmarks, Kaggle workflow
 tests/      CPU-only tests: statistics, gating, sleep examples, reports, repo conventions
 paper/      draft_combined.md (source), figures/ (data.json + make_figures.py), tmlr/ (build.py, main.pdf)
+results/    per-run summaries behind the routing table; python -m eval.declare_report --run-root results/declare
 ```
 
 ## Development

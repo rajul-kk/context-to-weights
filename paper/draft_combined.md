@@ -615,7 +615,8 @@ hallucination. We do not see a direct route to misuse beyond that of the underly
 The code, configuration files and Kaggle notebooks are in the supplementary repository. Each
 result maps to one configuration and one notebook. `docs/project_a_findings.md`,
 `docs/project_b_findings.md` and `docs/declarative.md` contain the per-run tables,
-`eval/declare_report.py` regenerates Table 2 and its paired tests from the run directories,
+`eval/declare_report.py` regenerates Table 2 and its paired tests from the per-run summaries in
+`results/declare/`,
 and `paper/figures/make_figures.py` regenerates both figures from `paper/figures/data.json`.
 The 7B routing runs use `configs/kaggle_declare_7b.yaml` with a repeat-KV SDPA attention
 (`declare/elicit.py`). It gives the same outputs as stock SDPA but avoids building a 5 GB

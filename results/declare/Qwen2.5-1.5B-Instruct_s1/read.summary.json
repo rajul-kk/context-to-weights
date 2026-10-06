@@ -1,0 +1,31 @@
+{
+  "label": "read",
+  "n": 384,
+  "n_regions": 8,
+  "hit_rate": 0.3828125,
+  "random_control": 0.125,
+  "best_constant_control": 0.15625,
+  "sigma_over_random": 10.393647086922952,
+  "sigma_over_constant": 9.133811076386836,
+  "verdict": "clears control",
+  "gold_distribution": {
+    "0": 47,
+    "1": 54,
+    "2": 60,
+    "3": 44,
+    "4": 48,
+    "5": 35,
+    "6": 43,
+    "7": 53
+  },
+  "unparsed_rate": 0.0,
+  "mean_attended_frac": 0.13704493040487578,
+  "shuffled_hit_rate": 0.3619791666666667,
+  "slot_stable_rate": 0.13802083333333334,
+  "content_dependence": 0.23697916666666669,
+  "modal_choice": 1,
+  "modal_share": 0.17708333333333334,
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "seed": 1,
+  "elicitor_unparsed": 0
+}
