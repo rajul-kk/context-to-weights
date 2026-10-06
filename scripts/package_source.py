@@ -1,5 +1,4 @@
 import argparse
-import shutil
 import sys
 import zipfile
 from pathlib import Path

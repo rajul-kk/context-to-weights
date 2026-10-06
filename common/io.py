@@ -1,9 +1,12 @@
 import json
 import os
 import random
+import re
 from pathlib import Path
 
 import yaml
+
+_SCIENTIFIC = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)[eE][+-]?\d+$")
 
 
 def set_seed(seed):
@@ -44,7 +47,10 @@ def parse_overrides(pairs):
         parts = key.split(".")
         for p in parts[:-1]:
             node = node.setdefault(p, {})
-        node[parts[-1]] = yaml.safe_load(raw)
+        value = yaml.safe_load(raw)
+        if isinstance(value, str) and _SCIENTIFIC.match(value):
+            value = float(value)
+        node[parts[-1]] = value
     return out
 
 

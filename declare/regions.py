@@ -1,5 +1,3 @@
-import random
-
 from compactor.segment import count_tokens
 
 

@@ -92,7 +92,8 @@ def from_compaction_stratified(event, rng, mix):
 
 def from_uniform(event, rng, n=None):
     spans = list(event.spans)
-    n = n or sum(1 for s in spans if s.kept)
+    if n is None:
+        n = sum(1 for s in spans if s.kept)
     picks = rng.sample(spans, k=min(n, len(spans)))
     return [
         SleepExample(

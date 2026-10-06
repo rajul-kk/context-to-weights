@@ -145,7 +145,7 @@ def main():
     report["control_margin_sigma"] = sigma
     report["chance_margin_sigma"] = chance
     report["verdict"] = verdict_for(min(sigma, chance), nan="unknown", tie="indistinguishable from control")
-    print(f"\npositional control (keep the first N spans):")
+    print("\npositional control (keep the first N spans):")
     print(f"  fact {pos['fact_keep_rate']:.3f}  filler {pos['filler_keep_rate']:.3f}  "
           f"lift {pos['salience_lift']:.2f}x")
     print(f"  margin over chance    {chance:+.2f} sigma")

@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common.io import ensure_dir
+from common.stats import critical, paired_t
 
 METRICS = ("hit_rate", "random_control", "best_constant_control", "sigma_over_random",
            "sigma_over_constant", "shuffled_hit_rate", "content_dependence",
@@ -81,25 +82,13 @@ def se(p, n):
     return (p * (1 - p) / n) ** 0.5 if n else float("nan")
 
 
-CRIT = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365,
-        8: 2.306, 9: 2.262, 10: 2.228}
-
-
-def critical(k):
-    if k <= 1:
-        return 2.0
-    return CRIT.get(k - 1, 2.0)
-
-
 def paired(read_g, att_g, key):
     by_seed = {s["seed"]: s for s in att_g["runs"]}
     diffs = [(s[key] - by_seed[s["seed"]][key]) for s in read_g["runs"]
              if s["seed"] in by_seed and key in s and key in by_seed[s["seed"]]]
     if len(diffs) > 1:
-        mean = sum(diffs) / len(diffs)
-        sd = statistics.stdev(diffs)
-        stat = mean / (sd / len(diffs) ** 0.5) if sd else float("nan")
-        return mean, stat, f"t({len(diffs) - 1})", len(diffs)
+        mean, stat, dof = paired_t(diffs, [0.0] * len(diffs))
+        return mean, stat, f"t({dof})", len(diffs)
     n = read_g.get("n", 0)
     d = read_g.get(key, 0.0) - att_g.get(key, 0.0)
     pooled = (se(read_g.get(key, 0.0), n) ** 2 + se(att_g.get(key, 0.0), n) ** 2) ** 0.5

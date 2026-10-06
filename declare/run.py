@@ -181,7 +181,7 @@ def main():
     out_dir = ensure_dir(args.out or Path(cfg["run_root"]) / "declare")
     layouts = make_layouts(items, rng, not args.no_shuffle_test,
                            balance=not args.no_balance)
-    gold_seen = Counter(l["gold"] for l in layouts)
+    gold_seen = Counter(lay["gold"] for lay in layouts)
     print(f"layouts fixed across modes, gold by region {dict(sorted(gold_seen.items()))}")
 
     if args.expect_gold:
@@ -210,8 +210,8 @@ def main():
             print(f"first run at this seed; wrote the gold distribution -> {ref}")
 
     window = model.config.max_position_embeddings
-    probe_len = max(len(tokenizer(render(l["regions"], tokenizer)[0],
-                                  add_special_tokens=False)["input_ids"]) for l in layouts)
+    probe_len = max(len(tokenizer(render(lay["regions"], tokenizer)[0],
+                                  add_special_tokens=False)["input_ids"]) for lay in layouts)
     print(f"longest rendered context {probe_len} tokens, model window {window}")
     if probe_len >= window:
         raise SystemExit(

@@ -54,7 +54,6 @@ def main():
         results.append(check("torchao", True, "absent, which is what peft wants"))
 
     try:
-        import peft
         import torch.nn as nn
         from peft import LoraConfig, get_peft_model
 

@@ -1,6 +1,5 @@
 import glob
 import json
-import sys
 
 
 def python_only(source):
