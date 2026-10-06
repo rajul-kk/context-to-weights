@@ -99,5 +99,18 @@ configs/    per-project and per-environment configs
 notebooks/  Kaggle notebooks: a0, a1 (A), b1 (B), c1, c2 (C)
 scripts/    orchestrators, sweeps, Kaggle sync
 docs/       findings, protocol, benchmarks, Kaggle workflow
-paper/      combined workshop draft
+tests/      CPU-only tests: statistics, gating, sleep examples, reports, repo conventions
+paper/      draft_combined.md (source), figures/ (data.json + make_figures.py), tmlr/ (build.py, main.pdf)
 ```
+
+## Development
+
+```bash
+pip install -r requirements-dev.txt
+ruff check .
+pytest
+```
+
+The tests need no GPU or torch and run in about 20 seconds. They also fail if a number in the
+paper stops matching `paper/figures/data.json`, if source files gain comments or docstrings,
+or if a Markdown link or config goes stale. Rebuild the paper with `python paper/tmlr/build.py`.
