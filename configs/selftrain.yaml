@@ -1,0 +1,12 @@
+_base_: base.yaml
+
+run_root: artifacts/selftrain
+
+model:
+  base: Qwen/Qwen2.5-0.5B-Instruct
+
+selftrain:
+  n_tasks: 400
+  temperature: 0.8
+  max_new_tokens: 192
+  batch_size: 16
