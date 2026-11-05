@@ -7,7 +7,7 @@ from helpers import ROOT
 
 from selftrain import gate_report
 from selftrain.signals import (auroc, ece, mean_logprob, parse_confidence, verdict,
-                               yes_probability)
+                               within_family_auroc, yes_probability)
 from selftrain.tasks import FAMILIES, Task, check, extract, make_tasks
 
 
@@ -35,8 +35,9 @@ def test_stored_answers_are_correct():
         if t.family == "mul":
             a, b = operands(t.question, " * ")
             assert int(t.answer) == a * b
-        if t.family == "reverse":
-            assert t.answer == t.question.split("'")[1][::-1]
+        if t.family == "even":
+            values = [int(v) for v in t.question.split(": ")[1].rstrip("?").split(", ")]
+            assert int(t.answer) == sum(v % 2 == 0 for v in values)
         if t.family == "count":
             target, letters = t.question.split("'")[1], t.question.split("'")[3]
             assert int(t.answer) == letters.count(target)
@@ -70,7 +71,7 @@ def test_checker_handles_thousands_separators_and_lists():
     assert check(Task("mul", "q", "1234"), "Answer: 1,234")
     assert check(Task("sort", "q", "3, 12, 40"), "Answer: [3, 12, 40]")
     assert not check(Task("sort", "q", "3, 12, 40"), "Answer: 12, 3, 40")
-    assert check(Task("reverse", "q", "cba"), "Answer: 'c b a'")
+    assert check(Task("even", "q", "3"), "Answer: three evens, 3")
 
 
 def test_extract_returns_none_without_a_marker():
@@ -123,13 +124,40 @@ def test_mean_logprob_and_yes_probability():
     assert yes_probability(0.0, 5.0) < 0.01
 
 
-def seeds(measured, stated):
-    return [{"pyes": m, "verbal": s} for m, s in zip(measured, stated)]
+def seeds(measured, asked):
+    return [{"logprob": m, "pyes": a, "verbal": 0.5} for m, a in zip(measured, asked)]
 
 
-def test_verdict_passes_when_measured_clearly_beats_stated():
+def test_within_family_auroc_ignores_family_identity():
+    scores = [0.9] * 15 + [0.1] * 15
+    labels = [1] * 10 + [0] * 5 + [1] * 5 + [0] * 10
+    families = ["easy"] * 15 + ["hard"] * 15
+    assert auroc(scores, labels) > 0.6
+    mean, per_family = within_family_auroc(scores, labels, families)
+    assert mean == 0.5 and per_family == {"easy": 0.5, "hard": 0.5}
+
+
+def test_within_family_auroc_drops_families_without_both_classes():
+    scores = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0, 0.5, 0.5]
+    labels = [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1]
+    families = ["a"] * 10 + ["b"] * 2
+    mean, per_family = within_family_auroc(scores, labels, families)
+    assert per_family == {"a": 1.0} and mean == 1.0
+
+
+def test_within_family_auroc_is_none_when_no_family_qualifies():
+    assert within_family_auroc([0.1, 0.2], [1, 0], ["a", "a"]) == (None, {})
+
+
+def test_verdict_passes_when_measured_clearly_beats_asked():
     v = verdict(seeds([0.72, 0.70, 0.74], [0.52, 0.55, 0.50]))
     assert v["passed"] and all(v["checks"].values())
+
+
+def test_verdict_compares_against_the_better_asked_signal():
+    rows = [{"logprob": 0.70, "pyes": 0.68, "verbal": 0.50} for _ in range(3)]
+    v = verdict(rows)
+    assert not v["passed"] and "gap_at_least_margin" in v["reason"]
 
 
 def test_verdict_fails_below_the_floor():
@@ -152,18 +180,21 @@ def test_verdict_needs_enough_seeds():
     assert not v["passed"] and "seeds" in v["reason"]
 
 
-def summary(model, seed, pyes, verbal):
+def summary(model, seed, logprob, asked):
     return {"model": model, "seed": seed, "n": 100, "pass_rate": 0.4,
             "pass_by_family": {"add": 0.9, "mul": 0.1},
-            "auroc": {"pyes": pyes, "logprob": 0.6, "verbal": verbal},
+            "auroc": {"logprob": logprob, "pyes": asked, "verbal": 0.5},
+            "auroc_by_family": {"logprob": {"add": logprob, "mul": logprob},
+                                "pyes": {"add": asked}, "verbal": {"add": 0.5}},
+            "auroc_pooled": {"logprob": 0.8, "pyes": 0.7, "verbal": 0.6},
             "ece": {"pyes": 0.1, "verbal": 0.3}, "unparsed_verbal_rate": 0.05}
 
 
 def write_runs(root, model, values):
-    for seed, (pyes, verbal) in enumerate(values):
+    for seed, (logprob, asked) in enumerate(values):
         folder = root / f"{model.split('/')[-1]}_s{seed}"
         folder.mkdir(parents=True)
-        (folder / "g1.summary.json").write_text(json.dumps(summary(model, seed, pyes, verbal)),
+        (folder / "g1.summary.json").write_text(json.dumps(summary(model, seed, logprob, asked)),
                                                 encoding="utf-8")
 
 
@@ -174,6 +205,18 @@ def test_report_groups_models_and_renders_a_verdict(tmp_path):
     assert verdicts["org/Small"]["passed"] and not verdicts["org/Large"]["passed"]
     assert "- Small: PASS" in text and "- Large: FAIL" in text
     assert "add 0.90, mul 0.10" in text
+    assert "add 0.72" in text
+
+
+def test_report_fails_a_model_whose_seeds_have_no_usable_family(tmp_path):
+    write_runs(tmp_path, "org/Tiny", [(0.7, 0.5), (0.7, 0.5), (0.7, 0.5)])
+    for path in tmp_path.glob("*/g1.summary.json"):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["auroc"]["logprob"] = None
+        path.write_text(json.dumps(data), encoding="utf-8")
+    text, verdicts = gate_report.render(gate_report.group(gate_report.load(tmp_path)))
+    assert not verdicts["org/Tiny"]["passed"] and "no family" in verdicts["org/Tiny"]["reason"]
+    assert "n/a" in text
 
 
 def test_report_cli_writes_the_markdown(tmp_path):

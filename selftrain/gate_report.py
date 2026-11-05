@@ -30,21 +30,26 @@ def short(model):
 
 def render(grouped):
     lines = ["# G1: is there a measurable correctness signal", "",
-             "| model | seeds | n | pass@1 | AUROC P(yes) | AUROC token logprob | AUROC verbal "
+             "AUROC is the mean over task families that have at least 5 correct and 5 incorrect "
+             "samples, so a signal that only identifies the family scores 0.5.", "",
+             "| model | seeds | n | pass@1 | token logprob | P(yes) | verbal | pooled logprob "
              "| ECE P(yes) | ECE verbal | unparsed verbal |",
-             "|---|---|---|---|---|---|---|---|---|---|"]
+             "|---|---|---|---|---|---|---|---|---|---|---|"]
     verdicts = {}
     for model, runs in grouped.items():
         a = [r["auroc"] for r in runs]
+        pooled = [r["auroc_pooled"]["logprob"] for r in runs]
         e = [r["ece"] for r in runs]
+        usable = all(x[k] is not None for x in a for k in ("pyes", "logprob", "verbal"))
         lines.append(
             f"| {short(model)} | {len(runs)} | {runs[0]['n']} "
             f"| {mean([r['pass_rate'] for r in runs]):.3f} "
-            f"| {mean([x['pyes'] for x in a]):.3f} | {mean([x['logprob'] for x in a]):.3f} "
-            f"| {mean([x['verbal'] for x in a]):.3f} | {mean([x['pyes'] for x in e]):.3f} "
+            f"| {cell(a, 'logprob')} | {cell(a, 'pyes')} | {cell(a, 'verbal')} "
+            f"| {mean(pooled):.3f} | {mean([x['pyes'] for x in e]):.3f} "
             f"| {mean([x['verbal'] for x in e]):.3f} "
             f"| {mean([r['unparsed_verbal_rate'] for r in runs]):.3f} |")
-        verdicts[model] = verdict(a)
+        verdicts[model] = verdict(a) if usable else {
+            "passed": False, "reason": "a seed has no family with 5 correct and 5 incorrect samples"}
     lines += ["", "## Verdict", ""]
     for model, v in verdicts.items():
         lines.append(f"- {short(model)}: {'PASS' if v['passed'] else 'FAIL'}, {v['reason']}")
@@ -53,7 +58,25 @@ def render(grouped):
         families = sorted(runs[0]["pass_by_family"])
         lines.append(f"- {short(model)}: " + ", ".join(
             f"{f} {mean([r['pass_by_family'][f] for r in runs]):.2f}" for f in families))
+    lines += ["", "## Token log-prob AUROC by family", ""]
+    for model, runs in grouped.items():
+        lines.append(f"- {short(model)}: " + family_cells(runs))
     return "\n".join(lines) + "\n", verdicts
+
+
+def family_cells(runs):
+    families = sorted({f for r in runs for f in r["auroc_by_family"]["logprob"]})
+    cells = []
+    for f in families:
+        values = [r["auroc_by_family"]["logprob"][f] for r in runs
+                  if f in r["auroc_by_family"]["logprob"]]
+        cells.append(f"{f} {mean(values):.2f}")
+    return ", ".join(cells)
+
+
+def cell(rows, key):
+    values = [x[key] for x in rows if x[key] is not None]
+    return f"{mean(values):.3f}" if values else "n/a"
 
 
 def main():

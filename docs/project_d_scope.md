@@ -67,7 +67,7 @@ Three stages, each cheap, each with a stop rule. Fail one and D does not proceed
 
 | Gate | Needs training | Measures | Pass | Cost |
 |---|---|---|---|---|
-| G1 | no | AUROC against the verifier of logit P(yes), token log-prob and verbalised confidence, on 400+ samples per task at 0.5B and 1.5B | measured beats stated by 0.05 AUROC with non-overlapping seed ranges, and measured AUROC above 0.6 | minutes on CPU at 0.5B |
+| G1 | no | within-family AUROC against the verifier (mean over families with 5+ correct and 5+ incorrect) of token log-prob, against the better of logit P(yes) and verbalised confidence, 400 samples per seed, 3 seeds, 0.5B and 1.5B | log-prob AUROC above 0.6, at least 0.05 above the better asked signal, seed ranges disjoint | minutes on a T4, hours on CPU |
 | G2 | one LoRA round | round-0 pass@1 sits in 20 to 60 percent, and one verifier-filtered round raises held-out pass@1 | gain above seed noise at t(2) 5% on 3 seeds | about an hour on a T4 |
 | G3 | one LoRA round per arm | conf-selected vs random-selected vs raw, size matched | any arm differs from random by more than the G2 gain's seed sd | about 3 hours on a T4 |
 
@@ -77,7 +77,15 @@ Reading the outcomes:
 - G3 ties everywhere: the Salient-not-trainable finding extends to a verified loop. That is a reportable negative result, and the 5-round grid is unnecessary.
 - G3 separates: build the full loop.
 
-G1 needs no GPU, so it runs first and decides whether G2 is worth a Kaggle slot.
+G1 needs no training, so it runs first and decides whether G2 is worth a Kaggle slot.
+
+## G1 pilot at 0.5B (CPU, n=150, 3 seeds)
+
+Pooled AUROC looked good (log-prob 0.79, P(yes) 0.74, verbal 0.67) but was inflated by family
+identity, since pass rate ranged from 0.83 (add) to 0.00 (reverse). Within family, P(yes) and
+verbal sat at chance (0.44 to 0.64 and 0.44 to 0.54) and only token log-prob carried signal
+(0.58 to 0.70). G1 was changed to score within family, which is stricter. Reverse and count were
+made easier and add harder before the next run.
 
 ## Milestones
 

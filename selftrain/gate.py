@@ -8,8 +8,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import torch
 
 from common.io import ensure_dir, load_config, parse_overrides, set_seed, write_json, write_jsonl
-from selftrain.signals import auroc, ece, mean_logprob, parse_confidence, yes_probability
-from selftrain.tasks import check, make_tasks
+from selftrain.signals import (auroc, ece, mean_logprob, parse_confidence, within_family_auroc,
+                               yes_probability)
+from selftrain.tasks import FAMILIES, check, make_tasks
 from sleep.lm import batch_generate, chat_text, load_backbone
 
 JUDGE = ("Question: {question}\n\nProposed solution:\n{solution}\n\n"
@@ -79,7 +80,7 @@ def verbal_scores(model, tokenizer, prompts, batch_size):
 def run_seed(model, tokenizer, cfg, seed, n):
     g = cfg["selftrain"]
     set_seed(seed)
-    tasks = make_tasks(n, seed)
+    tasks = make_tasks(n, seed, g.get("families") or FAMILIES)
     samples = sample(model, tokenizer, tasks, g["temperature"], g["max_new_tokens"], g["batch_size"])
     labels = [check(t, s["text"]) for t, s in zip(tasks, samples)]
     judge = [JUDGE.format(question=t.question, solution=s["text"]) for t, s in zip(tasks, samples)]
@@ -90,12 +91,16 @@ def run_seed(model, tokenizer, cfg, seed, n):
     by_family = defaultdict(list)
     for t, y in zip(tasks, labels):
         by_family[t.family].append(y)
+    families = [t.family for t in tasks]
+    scores = {"pyes": pyes, "logprob": logprob, "verbal": verbal}
+    within = {k: within_family_auroc(v, labels, families) for k, v in scores.items()}
     summary = {
         "model": cfg["model"]["base"], "seed": seed, "n": n,
         "pass_rate": sum(labels) / n,
         "pass_by_family": {f: sum(v) / len(v) for f, v in by_family.items()},
-        "auroc": {"pyes": auroc(pyes, labels), "logprob": auroc(logprob, labels),
-                  "verbal": auroc(verbal, labels)},
+        "auroc": {k: w[0] for k, w in within.items()},
+        "auroc_by_family": {k: w[1] for k, w in within.items()},
+        "auroc_pooled": {k: auroc(v, labels) for k, v in scores.items()},
         "ece": {"pyes": ece(pyes, labels), "verbal": ece(verbal, labels)},
         "unparsed_verbal_rate": unparsed,
     }

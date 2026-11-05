@@ -22,6 +22,20 @@ def auroc(scores, labels):
     return (rank_sum - positives * (positives + 1) / 2) / (positives * negatives)
 
 
+def within_family_auroc(scores, labels, families, min_class=5):
+    by_family = {}
+    for score, label, family in zip(scores, labels, families):
+        by_family.setdefault(family, []).append((score, label))
+    values = {}
+    for family, pairs in by_family.items():
+        positives = sum(1 for _, y in pairs if y)
+        if positives >= min_class and len(pairs) - positives >= min_class:
+            values[family] = auroc([s for s, _ in pairs], [y for _, y in pairs])
+    if not values:
+        return None, values
+    return sum(values.values()) / len(values), values
+
+
 def ece(confidences, labels, bins=10):
     total = len(confidences)
     if total == 0:
@@ -59,14 +73,14 @@ def parse_confidence(text):
 def verdict(per_seed, margin=0.05, floor=0.6, min_seeds=3):
     if len(per_seed) < min_seeds:
         return {"passed": False, "reason": f"needs {min_seeds} seeds, have {len(per_seed)}"}
-    measured = [s["pyes"] for s in per_seed]
-    stated = [s["verbal"] for s in per_seed]
+    measured = [s["logprob"] for s in per_seed]
+    asked = [max(s["pyes"], s["verbal"]) for s in per_seed]
     mean_measured = sum(measured) / len(measured)
-    gap = mean_measured - sum(stated) / len(stated)
+    gap = mean_measured - sum(asked) / len(asked)
     checks = {
         "measured_above_floor": mean_measured > floor,
         "gap_at_least_margin": gap >= margin,
-        "seed_ranges_disjoint": min(measured) > max(stated),
+        "seed_ranges_disjoint": min(measured) > max(asked),
     }
     failed = [name for name, ok in checks.items() if not ok]
     return {"passed": not failed, "mean_measured": mean_measured, "gap": gap, "checks": checks,

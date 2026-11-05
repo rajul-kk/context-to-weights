@@ -1,9 +1,8 @@
 import random
 import re
-import string
 from dataclasses import dataclass
 
-FAMILIES = ("add", "mul", "sort", "reverse", "count")
+FAMILIES = ("add", "mul", "sort", "even", "count")
 SUFFIX = "Think briefly, then finish with a final line of the form 'Answer: <answer>'."
 _ANSWER = re.compile(r"answer\s*[:=]\s*(.+)", re.IGNORECASE)
 _THOUSANDS = re.compile(r"(?<=\d),(?=\d{3})")
@@ -22,7 +21,7 @@ class Task:
 
 
 def _add(rng):
-    a, b = rng.randint(100, 999), rng.randint(100, 999)
+    a, b = rng.randint(100000, 999999), rng.randint(100000, 999999)
     return Task("add", f"What is {a} + {b}?", str(a + b))
 
 
@@ -38,19 +37,21 @@ def _sort(rng):
                 ", ".join(map(str, sorted(values))))
 
 
-def _reverse(rng):
-    word = "".join(rng.choice(string.ascii_lowercase) for _ in range(7))
-    return Task("reverse", f"Reverse the letters of the string '{word}'.", word[::-1])
+def _even(rng):
+    values = [rng.randint(1, 99) for _ in range(8)]
+    listed = ", ".join(map(str, values))
+    return Task("even", f"How many of these numbers are even: {listed}?",
+                str(sum(v % 2 == 0 for v in values)))
 
 
 def _count(rng):
-    letters = "".join(rng.choice("abcde") for _ in range(14))
-    target = rng.choice("abcde")
+    letters = "".join(rng.choice("abc") for _ in range(8))
+    target = rng.choice("abc")
     return Task("count", f"How many times does the letter '{target}' appear in '{letters}'?",
                 str(letters.count(target)))
 
 
-BUILDERS = {"add": _add, "mul": _mul, "sort": _sort, "reverse": _reverse, "count": _count}
+BUILDERS = {"add": _add, "mul": _mul, "sort": _sort, "even": _even, "count": _count}
 
 
 def make_tasks(n, seed, families=FAMILIES):
@@ -70,17 +71,11 @@ def _ints(value):
     return [int(m) for m in _INT.findall(_THOUSANDS.sub("", value))]
 
 
-def _letters(value):
-    return "".join(ch for ch in value.lower() if ch.isalpha())
-
-
 def check(task, text):
     given = extract(text)
     if given is None:
         return False
     if task.family == "sort":
         return _ints(given) == _ints(task.answer)
-    if task.family == "reverse":
-        return _letters(given) == task.answer
     parsed = _ints(given)
     return bool(parsed) and parsed[0] == int(task.answer)
