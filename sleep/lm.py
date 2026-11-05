@@ -5,10 +5,11 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import torch
 import transformers
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoModelForImageTextToText, AutoTokenizer
 
 transformers.logging.set_verbosity_error()
 
+LOADERS = {"causal": AutoModelForCausalLM, "image_text": AutoModelForImageTextToText}
 DTYPES = {"float16": torch.float16, "bfloat16": torch.bfloat16, "float32": torch.float32}
 
 
@@ -26,6 +27,8 @@ def load_backbone(cfg, device=None, attn_implementation=None):
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
+    tokenizer.chat_kwargs = dict(cfg["model"].get("chat_template_kwargs") or {})
+    loader = LOADERS[cfg["model"].get("loader", "causal")]
     kwargs = {"dtype": dtype}
     if attn_implementation:
         kwargs["attn_implementation"] = attn_implementation
@@ -41,8 +44,13 @@ def load_backbone(cfg, device=None, attn_implementation=None):
         else:
             raise SystemExit(f"unknown model.quantization {quant!r}, only 'nf4' is wired up")
         kwargs["device_map"] = {"": 0}
-    model = AutoModelForCausalLM.from_pretrained(name, **kwargs)
-    if not quant:
+    placement = cfg["model"].get("device_map")
+    if placement:
+        kwargs["device_map"] = placement
+        if cfg["model"].get("max_memory"):
+            kwargs["max_memory"] = {int(k): v for k, v in cfg["model"]["max_memory"].items()}
+    model = loader.from_pretrained(name, **kwargs)
+    if not quant and not placement:
         model.to(device)
     model.eval()
     return model, tokenizer
@@ -54,7 +62,8 @@ def chat_text(tokenizer, system, user):
         msgs.append({"role": "system", "content": system})
     msgs.append({"role": "user", "content": user})
     try:
-        return tokenizer.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
+        return tokenizer.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True,
+                                             **getattr(tokenizer, "chat_kwargs", {}))
     except Exception:
         prefix = f"{system}\n\n" if system else ""
         return f"{prefix}{user}\n\nAnswer:"
