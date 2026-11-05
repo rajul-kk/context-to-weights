@@ -1,0 +1,13 @@
+_base_: kaggle_declare.yaml
+
+model:
+  base: Qwen/Qwen3.8-27B
+  dtype: float16
+  quantization: nf4
+  loader: causal
+  device_map: auto
+  max_memory:
+    0: 13GiB
+    1: 13GiB
+  chat_template_kwargs:
+    enable_thinking: false

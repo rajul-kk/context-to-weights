@@ -1,0 +1,49 @@
+# Qwen3.8 27B plan
+
+## Why this model
+
+It tops the sub-40B open-weight band on Artificial Analysis and sits at the scale where the
+paper we position against reports that a stated region declaration works (27B and 31B). Our
+routing table stops at 7B. One more point on the same 384 probes shows whether `generate`
+closes the gap to `read` at 27B or not.
+
+## What the model card changes
+
+| Fact | Consequence |
+|---|---|
+| 64 layers: 48 Gated DeltaNet, 16 full attention (24 query heads, 4 KV heads, head dim 256) | the attention-probing modes assume attention in every layer and are not run |
+| thinking is on by default | `enable_thinking: false` through `model.chat_template_kwargs`, or the next token after the prompt starts a `<think>` block and the Yes/No read sits on the wrong position |
+| vision-language checkpoint | `model.loader` chooses causal or image-text, picked by the preflight from the config class |
+| about 14 to 16 GB at nf4 | does not fit one T4, so `model.device_map: auto` with a per-GPU `max_memory` over two T4s |
+| bf16 weights, T4 has no bf16 | fp16 compute, with a finite-logits check since fp16 can overflow on some models |
+| 262k native context | the 7k-token `generate` prompt fits |
+
+## Runs
+
+- Modes: `read` and `generate`, 384 probes, seeds 0 to 2, layouts pinned to
+  `results/declare/gold/gold384_s<seed>.json`.
+- Notebook: `notebooks/c3_qwen38_27b.ipynb`, config `configs/kaggle_declare_27b.yaml`.
+- Stages: preflight, a timing run that stops if the projection exceeds `MAX_HOURS`, the grid,
+  then a report merged with the committed 0.5B, 1.5B and 7B summaries.
+
+## Outcomes
+
+| Result | Reading |
+|---|---|
+| `read` still wins significantly | measured beats asked holds through 27B, which conflicts with the positioning paper and needs a careful explanation |
+| `generate` ties or wins | stated routing emerges between 7B and 27B, which refines "measured, not asked" into a scale statement |
+| `read` collapses | check the thinking and fp16 guards before believing it |
+
+## Unknowns
+
+- Nothing about loading, kernels or speed has been tested. The DeltaNet layers need either
+  flash-linear-attention or a slow torch fallback, and a T4 may not run the fast kernels.
+- The wall-clock budget is unmeasured. The timing stage exists to measure it before the grid.
+- `check_probe_parity` reads the config attention implementation from the top-level config,
+  which may differ for a nested vision-language config. A failure there shows up in the
+  preflight, not later.
+- The hybrid cache means KV quantization applies to only 16 of 64 layers. The KV gate
+  (`kvquant_gate.md`) is not planned at this scale until the routing run says whether the model
+  is worth more compute.
+- A G1-style confidence test at 27B would likely saturate on the current task families and
+  needs harder tasks first.
