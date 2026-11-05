@@ -95,6 +95,7 @@ kl_gate/    B: dual-forward-pass scoring and gate inspection
 distill/    B: gate policies and weighted KL training
 declare/    C: regions, elicitation modes, runner
 eval/       retention, abstention, skill eval, reports and figures
+packages/   myrios-eval: shared metrics and result schema, also used by skill-library (docs/shared_eval_harness.md)
 configs/    per-project and per-environment configs
 notebooks/  Kaggle notebooks: a0, a1 (A), b1 (B), c1, c2 (C)
 scripts/    orchestrators, sweeps, Kaggle sync

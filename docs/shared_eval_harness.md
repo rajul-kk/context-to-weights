@@ -69,11 +69,11 @@ pip install "myrios-eval @ git+file:///D:/Work/Myrios@<commit>#subdirectory=pack
 
 | module | contents |
 |---|---|
-| `metrics` | `success_rate`, `mean_prompt_tokens`, `token_saving`, `final_per_seed`, `final_global_last_night`, `earliest_k`, `backward_transfer`, `forgetting` |
-| `stats` | `mean_sd`, `paired_t`, `critical`, `verdict_for`, `binomial_se`, `holm`, `bootstrap_ci`, `paired_bootstrap_ci`, `aggregate_seeds` |
-| `cost` | `lora_params`, `inference_flops`, `lora_train_flops`, `full_train_flops` |
+| `metrics` | `success_rate`, `mean_prompt_tokens`, `token_saving`, `final_per_seed`, `final_global_last_night`, `earliest_k`, `history_from_snapshots`, `backward_transfer`, `forgetting` |
+| `stats` | `mean_sd`, `paired_t`, `critical`, `verdict_for`, `binomial_se`, `holm`, `bootstrap_ci`, `paired_bootstrap_ci`, `aggregate_seeds`, `compare_arms` |
+| `cost` | `lora_params`, `qwen_attention_shapes`, `inference_flops`, `lora_train_flops`, `full_train_flops`, `FLOPS_METHOD` |
 | `schema` | `SCHEMA_VERSION`, `make_result`, `make_arm`, `validate`, `write_result`, `read_result` |
-| `adapters` | `from_myrios_skill_summary`, `from_skill_library_results` (read dicts, import nothing from either repo) |
+| `adapters` | `myrios_skill_metrics`, `from_myrios_skill_summary`, `skill_library_per_seed`, `skill_library_legacy_finals`, `from_skill_library_results` (read dicts, import nothing from either repo) |
 
 Myrios's existing modules are **not** changed to import the package. The package sits next to
 them, and golden tests pin each shared function to the existing Myrios function and to saved
@@ -118,6 +118,7 @@ non-empty input only.
 |---|---|
 | `success_rate` | mean of per-item outcomes (bool or float in [0,1]). For skill-library, an item is one skill and its outcome is the mean over eval repeats, as now. |
 | `prompt_tokens` | mean tokens of the model input per generation call. The result file must say how it was counted: `token_counter` (`hf:<tokenizer id>` or `heuristic:chars/4`) and `prompt_tokens_scope` (`chat_template` or `raw_prompt`; plus `per_call` or `per_task_attempt`). Myrios is `chat_template`/`per_call`; skill-library today is `raw_prompt`/`per_task_attempt`. Numbers with different scopes must not be compared. |
+| `run_prompt_tokens` | skill-library only: mean prompt tokens per episode over the whole learning run, per seed. This is the README's token column (856 / 417 / 320), which is not the eval-time `prompt_tokens` at the final snapshot. Both are kept and named differently. |
 | `token_saving` | `1 - tokens(arm) / tokens(in-context arm)`, as `eval/skill_report.py:196`. |
 | final score per seed | `final_per_seed`: for each seed, the value at that seed's own last snapshot; then aggregate across seeds. |
 | `earliest_k` | mean success over the k skills learned earliest (sort by skills learned since, descending, then tier), k=3, as `skill-library/analysis/metrics.py:45-48`. |
@@ -127,7 +128,7 @@ non-empty input only.
 | `inference_flops` | `2 * N * tokens` (forward pass, N = model parameters), the usual dense-transformer estimate; the attention term quadratic in length is ignored and the file says so via `flops_method`. |
 | `lora_train_flops` | `4 * N * tokens + 6 * N_lora * tokens`: forward (2N) and the activation-gradient half of the backward pass (2N) through the frozen base, plus full training cost on adapter weights. `full_train_flops` = `6 * N * tokens`. |
 | seed aggregate | `aggregate_seeds(values)`: `mean`, `sd` (sample, n-1; 0.0 for one seed, as Myrios), `n`, and a percentile bootstrap 95% CI over seeds (10,000 resamples, fixed RNG seed 0, `random.Random`). |
-| arm comparison | `paired_t` over seeds (identical to `common/stats.py`), with `critical(n)` and `verdict`; plus `paired_bootstrap_ci` on the per-seed differences. Paired t stays the headline because the Myrios paper reports it; the bootstrap CI is added because the sweep has 20 seeds, where it is informative. |
+| arm comparison | `compare_arms`: `paired_t` over the seeds both arms share (identical to `common/stats.py`), with `critical(n)` and a verdict (`a ahead`, `b ahead`, `indistinguishable`, `identical` when every per-seed value is equal, `undetermined` otherwise when t is undefined); plus `paired_bootstrap_ci` on the per-seed differences. Paired t stays the headline because the Myrios paper reports it; the bootstrap CI is added because the sweep has 20 seeds, where it is informative. |
 | several comparisons | `holm`, identical to `eval/significance.py:69-78`. |
 
 ## 5. Result schema (version 1.0)
@@ -193,7 +194,8 @@ Located in `tests/test_shared_eval_golden.py`. They read only saved numbers:
    `artifacts/runs_skill/report` CPU run: per-record `passed`, `in_group`, `prompt_tokens`, plus
    the saved summaries): shared `success_rate` and `mean_prompt_tokens` reproduce every saved
    `pass_rate`, `pass_rate_in_group`, `pass_rate_out_group` and `mean_prompt_tokens`, and equal
-   `eval.skill_eval.summarize`. When the local artifacts exist the test also checks the fixture
+   `eval.skill_eval.summarize` when it can be imported (it pulls in torch, which the suite
+   otherwise does not need). When the local artifacts exist the test also checks the fixture
    against them.
 4. `skill-library/results/cpu/results.json` (read-only, skipped when absent; path from
    `SKILL_LIBRARY_ROOT`, default `../skill-library`): the adapter with
@@ -260,6 +262,24 @@ No change to skill-library is made here. Suggested steps, smallest first:
 - **Myrios is actively developed.** The package touches no existing module; the only shared
   file edited is `pyproject.toml` (pytest path, ruff), so merge conflicts are unlikely.
 
-## 10. Citing "salient is not trainable" in skill-library
+## 10. First conversion of skill-library's saved results
+
+Running `from_skill_library_results` on `skill-library/results/cpu/results.json` (read-only,
+output kept outside both repos) gives, per-seed rule, mean and 95% bootstrap CI over 20 seeds:
+
+| arm | success | backward transfer | forgetting |
+|---|---|---|---|
+| in_context | 0.853 | +0.100 | -0.017 |
+| seq_no_replay | 0.107 [0.074, 0.154] | -0.378 | 0.412 |
+| isolated | 0.740 [0.733, 0.753] | -0.071 | 0.250 |
+| single_shot | 0.707 | -0.043 | 0.257 |
+| ours | 0.740 [0.733, 0.753] | -0.071 | 0.250 |
+
+`ours` and `isolated` are equal on every seed in the CPU pipeline, so their comparison is
+`identical`, and `in_context` and `single_shot` have zero spread across seeds. Both are
+properties of the simulated interference backend, worth stating in the sweep write-up: on CPU,
+seed variance comes only from the recall sampler.
+
+## 11. Citing "salient is not trainable" in skill-library
 
 See [shared_eval_citation_note.md](shared_eval_citation_note.md).
