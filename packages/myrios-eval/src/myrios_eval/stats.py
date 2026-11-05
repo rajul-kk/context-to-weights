@@ -125,7 +125,7 @@ def compare_arms(a_by_seed, b_by_seed, n_resamples=N_RESAMPLES, level=CI_LEVEL,
     diff, t, dof = paired_t(a, b)
     crit = critical(len(seeds))
     if t != t:
-        verdict = "undetermined"
+        verdict = "identical" if all(x == y for x, y in zip(a, b)) else "undetermined"
     elif abs(t) < crit:
         verdict = "indistinguishable"
     else:
