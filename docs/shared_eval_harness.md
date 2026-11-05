@@ -57,6 +57,27 @@ call; nothing here changes them.
 - On CPU the token column is a chars/4 estimate. The sweep's matched-token comparison needs a
   real tokenizer count, recorded with which tokenizer produced it.
 
+### 1.3 skill-library's new `skillmetrics` package (appeared during this work)
+
+While this branch was being written, the agent working in skill-library committed `f9c102d`
+"feat(skillmetrics): add token and FLOP accounting, bootstrap and crossover metrics"
+(`skill-library/skillmetrics/`). It overlaps this harness on bootstrap CIs, LoRA parameter counts
+and LoRA training FLOPs, and goes further on FLOPs (prefill and decode with the attention term,
+per-model shapes), crossover and floor checks. `tests/test_shared_eval_skillmetrics.py` loads it
+read-only (by file path, without putting skill-library on `sys.path`) and shows:
+
+- `bootstrap_ci` gives the same interval as `skillmetrics.mean_ci` (same RNG draw order,
+  same linear-interpolated percentile), to 1e-12;
+- `lora_params` equals `ModelShape.lora_params` for every shape in `skillmetrics.SHAPES`;
+- `lora_train_flops` equals `skillmetrics.flops.lora_train_flops` once its attention term is
+  removed (same 4N + 6N_lora convention, N counting the LM head).
+
+So the two do not disagree on anything they share. Recommended split: skill-library keeps
+`skillmetrics` for FLOP detail and crossover analysis, and writes its sweep results in the
+`myrios_eval` result schema with `flops_method` naming the skillmetrics model. The coarse
+`myrios_eval.cost` estimates exist for Myrios, which has no FLOP accounting. The cross-check
+test keeps the shared parts aligned whenever both repos are checked out side by side.
+
 ## 2. Architecture
 
 A pure-stdlib Python package `myrios_eval` living inside Myrios at
@@ -127,7 +148,7 @@ non-empty input only.
 | `stored_params` | adapter parameters that must be kept to serve every skill: for one shared adapter, its size; for isolated adapters, the sum. `lora_params(shapes, rank)` = sum of `rank * (d_in + d_out)` over adapted matrices. |
 | `inference_flops` | `2 * N * tokens` (forward pass, N = model parameters), the usual dense-transformer estimate; the attention term quadratic in length is ignored and the file says so via `flops_method`. |
 | `lora_train_flops` | `4 * N * tokens + 6 * N_lora * tokens`: forward (2N) and the activation-gradient half of the backward pass (2N) through the frozen base, plus full training cost on adapter weights. `full_train_flops` = `6 * N * tokens`. |
-| seed aggregate | `aggregate_seeds(values)`: `mean`, `sd` (sample, n-1; 0.0 for one seed, as Myrios), `n`, and a percentile bootstrap 95% CI over seeds (10,000 resamples, fixed RNG seed 0, `random.Random`). |
+| seed aggregate | `aggregate_seeds(values)`: `mean`, `sd` (sample, n-1; 0.0 for one seed, as Myrios), `n`, and a percentile bootstrap 95% CI over seeds (10,000 resamples by default, fixed RNG seed 0, `random.Random`; the count is written into the `ci` string). Pure-Python bootstrap is slow, so tests that check only mean and sd pass `n_resamples=200`. |
 | arm comparison | `compare_arms`: `paired_t` over the seeds both arms share (identical to `common/stats.py`), with `critical(n)` and a verdict (`a ahead`, `b ahead`, `indistinguishable`, `identical` when every per-seed value is equal, `undetermined` otherwise when t is undefined); plus `paired_bootstrap_ci` on the per-seed differences. Paired t stays the headline because the Myrios paper reports it; the bootstrap CI is added because the sweep has 20 seeds, where it is informative. |
 | several comparisons | `holm`, identical to `eval/significance.py:69-78`. |
 
@@ -202,7 +223,9 @@ Located in `tests/test_shared_eval_golden.py`. They read only saved numbers:
    `final_global_last_night` reproduces `final_success_rate`, `final_earliest_3`,
    `final_stored_params` and mean tokens for all five methods, and `final_per_seed` reproduces the
    mean of `per_seed_final`.
-5. Unit tests for the new metrics (`backward_transfer`, `forgetting`, bootstrap, FLOPs, LoRA
+5. `tests/test_shared_eval_skillmetrics.py`: agreement with skill-library's `skillmetrics`
+   where they overlap (section 1.3), skipped when skill-library is absent.
+6. Unit tests for the new metrics (`backward_transfer`, `forgetting`, bootstrap, FLOPs, LoRA
    parameter counts, schema validation) in `tests/test_shared_eval.py`.
 
 Anything that could not be proven equal was not refactored; per section 3.2 nothing was.
