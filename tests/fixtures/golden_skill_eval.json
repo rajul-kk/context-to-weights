@@ -1,0 +1,1289 @@
+{
+ "source": "artifacts/runs_skill/report (local CPU run of the skill pipeline)",
+ "arms": {
+  "no-skill": {
+   "summary": {
+    "n": 16,
+    "pass_rate": 0.0,
+    "pass_rate_in_group": 0.0,
+    "pass_rate_out_group": NaN,
+    "n_out_group": 0,
+    "mean_prompt_tokens": 61.9375
+   },
+   "records": [
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 65
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 62
+    }
+   ]
+  },
+  "ours-mismatched": {
+   "summary": {
+    "n": 48,
+    "pass_rate": 0.0,
+    "pass_rate_in_group": 0.0,
+    "pass_rate_out_group": 0.0,
+    "n_out_group": 32,
+    "mean_prompt_tokens": 233.5625
+   },
+   "records": [
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 220
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 219
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 239
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 240
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 247
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 249
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 224
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 226
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 245
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 245
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 216
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 219
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 230
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 233
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 242
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 243
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 220
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 219
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 239
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 240
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 247
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 249
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 224
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 226
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 245
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 245
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 216
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 219
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 230
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 233
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 242
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 243
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 220
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 219
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 239
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 240
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 247
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 249
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 224
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 226
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 245
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 245
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 216
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 219
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 230
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 233
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 242
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 243
+    }
+   ]
+  },
+  "ours": {
+   "summary": {
+    "n": 48,
+    "pass_rate": 0.0,
+    "pass_rate_in_group": 0.0,
+    "pass_rate_out_group": 0.0,
+    "n_out_group": 32,
+    "mean_prompt_tokens": 61.9375
+   },
+   "records": [
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 65
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 65
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 65
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 62
+    }
+   ]
+  },
+  "prompt-full": {
+   "summary": {
+    "n": 16,
+    "pass_rate": 0.1875,
+    "pass_rate_in_group": 0.1875,
+    "pass_rate_out_group": NaN,
+    "n_out_group": 0,
+    "mean_prompt_tokens": 233.5625
+   },
+   "records": [
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 245
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 244
+    },
+    {
+     "passed": true,
+     "in_group": true,
+     "prompt_tokens": 216
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 217
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 240
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 242
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 247
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 249
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 223
+    },
+    {
+     "passed": true,
+     "in_group": true,
+     "prompt_tokens": 223
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 247
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 250
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 215
+    },
+    {
+     "passed": true,
+     "in_group": true,
+     "prompt_tokens": 218
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 230
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 231
+    }
+   ]
+  },
+  "prompt-mismatched": {
+   "summary": {
+    "n": 16,
+    "pass_rate": 0.0,
+    "pass_rate_in_group": 0.0,
+    "pass_rate_out_group": NaN,
+    "n_out_group": 0,
+    "mean_prompt_tokens": 233.5625
+   },
+   "records": [
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 220
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 219
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 239
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 240
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 247
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 249
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 224
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 226
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 245
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 245
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 216
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 219
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 230
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 233
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 242
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 243
+    }
+   ]
+  },
+  "random-control": {
+   "summary": {
+    "n": 48,
+    "pass_rate": 0.0,
+    "pass_rate_in_group": 0.0,
+    "pass_rate_out_group": 0.0,
+    "n_out_group": 32,
+    "mean_prompt_tokens": 61.9375
+   },
+   "records": [
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 65
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 65
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 65
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 62
+    }
+   ]
+  },
+  "s2l-uniform": {
+   "summary": {
+    "n": 48,
+    "pass_rate": 0.0,
+    "pass_rate_in_group": 0.0,
+    "pass_rate_out_group": 0.0,
+    "n_out_group": 32,
+    "mean_prompt_tokens": 61.9375
+   },
+   "records": [
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 65
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 65
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 63
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 60
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 62
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 65
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": true,
+     "prompt_tokens": 64
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 61
+    },
+    {
+     "passed": false,
+     "in_group": false,
+     "prompt_tokens": 62
+    }
+   ]
+  }
+ }
+}
