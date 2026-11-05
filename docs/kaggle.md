@@ -46,6 +46,7 @@ version is too old. Preflight reports it either way.
 | `notebooks/b1_skills.ipynb` | KL gate, distillation, report | ~3 h (sweep is a second session) |
 | `notebooks/c1_declare.ipynb` | Declaration reliability vs scale, generate vs read | 20 min quick / ~2 h full |
 | `notebooks/c2_attention.ipynb` | Attention-probing arm alone, seeded (`SEEDS`), one seed per session | ~65 min per seed |
+| `notebooks/e1_kvquant.ipynb` | KV quantization gate, `read` at 8 to 2 bits, two schemes, one seed per session | unmeasured, see [kvquant_gate.md](kvquant_gate.md) |
 
 `a1_main.ipynb` has a `DATASET` switch in its first cell: `synthetic` (what every corrected
 result was measured on) or `hotpotqa` (natural prose, no marker, positional control at

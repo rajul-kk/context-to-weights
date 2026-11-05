@@ -135,6 +135,12 @@ def main():
     ap.add_argument("--gold-ref", default=None,
                     help="path holding the gold distribution for this seed; written on the "
                          "first run and checked against on every later one")
+    ap.add_argument("--kv-bits", type=int, default=0,
+                    help="fake-quantize keys and values to this many bits inside attention; "
+                         "0 leaves the cache at full precision")
+    ap.add_argument("--kv-scheme", default="token", choices=["token", "channel_keys"],
+                    help="token quantizes keys and values per token; channel_keys quantizes keys "
+                         "per channel over groups of 32 tokens and keeps values per token")
     ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
 
@@ -152,6 +158,12 @@ def main():
         impl = register_probe()
         print(f"attention probing on: loaded with the {impl} attention implementation, "
               "which keeps SDPA for the forward pass and captures only the final query row")
+    elif args.kv_bits:
+        from declare.elicit import register_quant
+
+        impl = register_quant(args.kv_bits, scheme=args.kv_scheme)
+        print(f"keys and values fake-quantized to {args.kv_bits} bits, scheme {args.kv_scheme}, "
+              "groups of 32")
     else:
         from declare.elicit import register_repeat
 
@@ -228,6 +240,8 @@ def main():
         s = summarize(records, mode, n_regions)
         s["model"] = cfg["model"]["base"]
         s["seed"] = cfg["seed"]
+        s["kv_bits"] = args.kv_bits
+        s["kv_scheme"] = args.kv_scheme if args.kv_bits else "none"
         s["elicitor_unparsed"] = elicitor.unparsed
         summaries.append(s)
         write_jsonl(out_dir / f"{mode}.records.jsonl", records)

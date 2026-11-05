@@ -1,0 +1,3 @@
+_base_: kaggle_declare.yaml
+
+run_root: /kaggle/working/artifacts/runs_kvquant

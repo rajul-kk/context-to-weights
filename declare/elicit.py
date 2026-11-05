@@ -156,6 +156,66 @@ def repeat_attention(module, query, key, value, attention_mask=None, scaling=Non
     return _sdpa(query, key, value, attention_mask)[0], None
 
 
+KV_QUANT = {"bits": 0, "group": 32, "scheme": "token"}
+SCHEMES = ("token", "channel_keys")
+
+
+def _round_to_grid(grouped, bits, valid=None):
+    if valid is None:
+        low, high = grouped.amin(dim=-1, keepdim=True), grouped.amax(dim=-1, keepdim=True)
+    else:
+        low = grouped.masked_fill(~valid, float("inf")).amin(dim=-1, keepdim=True)
+        high = grouped.masked_fill(~valid, float("-inf")).amax(dim=-1, keepdim=True)
+        low = torch.where(torch.isfinite(low), low, torch.zeros_like(low))
+        high = torch.where(torch.isfinite(high), high, torch.zeros_like(high))
+    levels = 2 ** bits - 1
+    scale = (high - low).clamp_min(1e-8) / levels
+    return ((grouped - low) / scale).round().clamp(0, levels) * scale + low
+
+
+def quantize_per_token(states, bits, group):
+    b, h, n, d = states.shape
+    grouped = states.float().reshape(b, h, n, d // group, group)
+    return _round_to_grid(grouped, bits).reshape(b, h, n, d).to(states.dtype)
+
+
+def quantize_per_channel(states, bits, group, key_valid=None):
+    b, h, n, d = states.shape
+    full = (n // group) * group
+    if full == 0:
+        return states
+    body = states[:, :, :full].float().reshape(b, h, full // group, group, d).transpose(-1, -2)
+    valid = None
+    if key_valid is not None:
+        valid = key_valid[:, None, :full].reshape(b, 1, full // group, 1, group).expand_as(body)
+    body = _round_to_grid(body, bits, valid).transpose(-1, -2).reshape(b, h, full, d)
+    return torch.cat([body.to(states.dtype), states[:, :, full:]], dim=2)
+
+
+def key_validity(attention_mask, n):
+    if attention_mask is None:
+        return None
+    last = attention_mask[:, 0, -1, :n]
+    return last if last.dtype == torch.bool else last > -1e4
+
+
+def fake_quantize(states, bits, group, per_channel=False, key_valid=None):
+    if bits <= 0:
+        return states
+    if per_channel:
+        return quantize_per_channel(states, bits, group, key_valid)
+    return quantize_per_token(states, bits, group)
+
+
+def quant_attention(module, query, key, value, attention_mask=None, scaling=None,
+                    dropout=0.0, **kwargs):
+    bits, group, scheme = KV_QUANT["bits"], KV_QUANT["group"], KV_QUANT["scheme"]
+    valid = key_validity(attention_mask, key.shape[-2])
+    key = fake_quantize(key, bits, group, scheme == "channel_keys", valid)
+    value = fake_quantize(value, bits, group)
+    return _sdpa(query, key, value, attention_mask)[0], None
+
+
 def probe_attention(module, query, key, value, attention_mask=None, scaling=None,
                     dropout=0.0, **kwargs):
     if scaling is None:
@@ -190,6 +250,20 @@ def register_repeat():
     type(ALL_ATTENTION_FUNCTIONS).register("myrios_repeat", repeat_attention)
     AttentionMaskInterface.register("myrios_repeat", sdpa_mask)
     return "myrios_repeat"
+
+
+def register_quant(bits, group=32, scheme="token"):
+    if scheme not in SCHEMES:
+        raise ValueError(f"unknown kv scheme {scheme!r}, expected one of {SCHEMES}")
+    from transformers.masking_utils import AttentionMaskInterface, sdpa_mask
+    from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
+
+    KV_QUANT["bits"] = bits
+    KV_QUANT["group"] = group
+    KV_QUANT["scheme"] = scheme
+    type(ALL_ATTENTION_FUNCTIONS).register("myrios_quant", quant_attention)
+    AttentionMaskInterface.register("myrios_quant", sdpa_mask)
+    return "myrios_quant"
 
 
 def check_probe_parity(model, tokenizer, tol=0.1):
