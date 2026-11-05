@@ -1,6 +1,6 @@
 # Where to cite "salient is not trainable" in skill-library's paper
 
-For the owner of `D:\Work\skill-library` (`paper/paper.md` at commit `906d77a`). Nothing in that
+For the owner of `D:\Work\skill-library` (`skill-library/paper/paper.md` at commit `906d77a`). Nothing in that
 repo was edited.
 
 ## What the Myrios result says
