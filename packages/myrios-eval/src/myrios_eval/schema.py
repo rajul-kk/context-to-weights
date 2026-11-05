@@ -3,7 +3,7 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 
-from myrios_eval.stats import aggregate_seeds
+from myrios_eval.stats import N_RESAMPLES, aggregate_seeds
 
 SCHEMA = "myrios_eval.result"
 SCHEMA_VERSION = "1.0"
@@ -12,11 +12,13 @@ REQUIRED = ("schema", "schema_version", "harness_version", "experiment", "repo",
             "created", "arms")
 
 
-def make_arm(arm, per_seed, label=None, conditions=None, aggregate=None):
+def make_arm(arm, per_seed, label=None, conditions=None, aggregate=None,
+             n_resamples=N_RESAMPLES):
     per_seed = sorted(per_seed, key=lambda r: r["seed"])
     if aggregate is None:
         names = sorted({k for r in per_seed for k in r["metrics"]})
-        aggregate = {k: aggregate_seeds([r["metrics"].get(k) for r in per_seed]) for k in names}
+        aggregate = {k: aggregate_seeds([r["metrics"].get(k) for r in per_seed], n_resamples)
+                     for k in names}
     return {"arm": arm, "label": label or arm, "conditions": dict(conditions or {}),
             "per_seed": per_seed, "aggregate": aggregate}
 

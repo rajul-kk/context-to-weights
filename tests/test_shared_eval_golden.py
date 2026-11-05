@@ -1,3 +1,4 @@
+import ast
 import json
 import math
 import os
@@ -103,7 +104,8 @@ def test_aggregate_seeds_matches_declare_report_groups_exactly():
         for key in declare_report.METRICS:
             if key not in g:
                 continue
-            agg = shared_stats.aggregate_seeds([s[key] for s in g["runs"] if key in s])
+            agg = shared_stats.aggregate_seeds([s[key] for s in g["runs"] if key in s],
+                                              n_resamples=200)
             assert agg["mean"] == g[key]
             assert agg["sd"] == g[key + "_sd"]
             assert agg["n"] == g["k"]
@@ -122,12 +124,16 @@ def test_holm_and_binomial_se_match_the_old_functions():
         assert shared_stats.binomial_se(acc, n) == _se(acc, n)
 
 
-def old_skill_summary(records, label):
-    try:
-        from eval import skill_eval
-    except ImportError:
-        return None
-    return skill_eval.summarize(records, label)
+def old_skill_summarize():
+    source = (ROOT / "eval" / "skill_eval.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "summarize")
+    namespace = {}
+    exec(compile(ast.Module(body=[node], type_ignores=[]), "eval/skill_eval.py", "exec"), namespace)
+    return namespace["summarize"]
+
+
+OLD_SUMMARIZE = old_skill_summarize()
 
 
 @pytest.mark.parametrize("label", sorted(FIXTURE["arms"]))
@@ -136,15 +142,14 @@ def test_shared_skill_metrics_reproduce_saved_summaries(label):
     records = arm["records"]
     saved = arm["summary"]
     new = myrios_skill_metrics(records)
-    old = old_skill_summary(records, label)
+    old = OLD_SUMMARIZE(records, label)
     assert len(records) == saved["n"]
     for new_key, old_key in (("success_rate", "pass_rate"),
                              ("success_rate_in_group", "pass_rate_in_group"),
                              ("success_rate_out_group", "pass_rate_out_group"),
                              ("prompt_tokens", "mean_prompt_tokens")):
         assert same(new[new_key], saved[old_key])
-        if old is not None:
-            assert same(new[new_key], old[old_key])
+        assert same(new[new_key], old[old_key])
     assert mean_prompt_tokens(r["prompt_tokens"] for r in records) == saved["mean_prompt_tokens"]
 
 
@@ -192,7 +197,7 @@ def test_skill_library_payload_converts_to_a_valid_result(skill_library_results,
     from myrios_eval.schema import read_result, write_result
     doc = from_skill_library_results(skill_library_results, "skill-library/cpu_main", "906d77a",
                                      conditions={"library_size": 15},
-                                     created="2026-11-05T00:00:00+00:00")
+                                     created="2026-11-05T00:00:00+00:00", n_resamples=200)
     path = write_result(tmp_path / "r.json", doc)
     back = read_result(path)
     arms = {a["arm"]: a for a in back["arms"]}

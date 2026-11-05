@@ -2,7 +2,7 @@ from myrios_eval.metrics import (backward_transfer, earliest_k, final_global_las
                                  final_per_seed, forgetting, history_from_snapshots,
                                  mean_prompt_tokens, success_rate)
 from myrios_eval.schema import make_arm, make_result
-from myrios_eval.stats import compare_arms
+from myrios_eval.stats import N_RESAMPLES, compare_arms
 
 
 def myrios_skill_metrics(records):
@@ -107,14 +107,15 @@ def from_skill_library_results(payload, experiment, commit, conditions=None, mod
                                prompt_tokens_scope="raw_prompt/per_task_attempt",
                                compare=(("ours", "isolated"), ("ours", "in_context"),
                                         ("ours", "seq_no_replay")),
-                               created=None):
+                               created=None, n_resamples=N_RESAMPLES):
     arms = []
     per_seed_by_arm = {}
     legacy = {}
     for key, method in payload["methods"].items():
         rows = skill_library_per_seed(method)
         per_seed_by_arm[key] = {r["seed"]: r["metrics"] for r in rows}
-        arms.append(make_arm(key, rows, label=method.get("label"), conditions=conditions))
+        arms.append(make_arm(key, rows, label=method.get("label"), conditions=conditions,
+                             n_resamples=n_resamples))
         legacy[key] = skill_library_legacy_finals(method)
     comparisons = []
     for a, b in compare:
@@ -122,7 +123,8 @@ def from_skill_library_results(payload, experiment, commit, conditions=None, mod
             continue
         for metric in ("success_rate", "earliest_3"):
             row = compare_arms({s: m[metric] for s, m in per_seed_by_arm[a].items()},
-                               {s: m[metric] for s, m in per_seed_by_arm[b].items()})
+                               {s: m[metric] for s, m in per_seed_by_arm[b].items()},
+                               n_resamples)
             row.update({"a": a, "b": b, "metric": metric, "conditions": dict(conditions or {})})
             comparisons.append(row)
     return make_result(experiment, "skill-library", commit, arms, comparisons=comparisons,
