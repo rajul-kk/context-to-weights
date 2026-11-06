@@ -22,6 +22,14 @@ closes the gap to `read` at 27B or not.
 
 - Modes: `read` and `generate`, 384 probes, seeds 0 to 2, layouts pinned to
   `results/declare/gold/gold384_s<seed>.json`.
+- Layouts: regions are built with the model's own tokenizer, so under the Qwen3.8 tokenizer
+  a probe or two lands in a different region than under Qwen2.5 (one in 384 at seed 0, with
+  region 2 at 37 against 38). The 27B therefore keeps its own gold reference
+  `gold384_qwen38_s<seed>.json`, written on the first run. `read` and `generate` share layouts
+  within the run; the match to the other scales is exact except for those probes.
+- Size: the first session measured 125 s per probe for both modes, 13.4 hours for 384. Each
+  session runs the first 96 layouts (`--take 96`, about 3.5 hours), so a seed is a prefix and
+  the test is directional rather than the 384-probe power of the other scales.
 - Notebook: `notebooks/c3_qwen38_27b.ipynb`, config `configs/kaggle_declare_27b.yaml`.
 - Stages: preflight, a timing run that stops if the projection exceeds `MAX_HOURS`, the grid,
   then a report merged with the committed 0.5B, 1.5B and 7B summaries.
