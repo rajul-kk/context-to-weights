@@ -126,6 +126,9 @@ def main():
     ap.add_argument("--split", default="eval")
     ap.add_argument("--modes", nargs="*", default=["generate", "read"])
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--take", type=int, default=0,
+                    help="keep only the first N finished layouts, an exact prefix of the full "
+                         "run, applied after the gold-distribution checks")
     ap.add_argument("--no-shuffle-test", action="store_true")
     ap.add_argument("--no-balance", action="store_true")
     ap.add_argument("--out", default=None)
@@ -220,6 +223,10 @@ def main():
         else:
             write_json(ref, got)
             print(f"first run at this seed; wrote the gold distribution -> {ref}")
+
+    if args.take:
+        layouts = layouts[: args.take]
+        print(f"taking the first {len(layouts)} layouts")
 
     window = model.config.max_position_embeddings
     probe_len = max(len(tokenizer(render(lay["regions"], tokenizer)[0],
