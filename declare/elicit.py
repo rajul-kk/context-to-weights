@@ -112,7 +112,7 @@ class ReadElicitor:
             chunk = prompts[i: i + self.batch_size]
             enc = self.tokenizer(chunk, return_tensors="pt", padding=True, truncation=True,
                                  max_length=self.max_length).to(device)
-            logits = self.model(**enc).logits[:, -1].float()
+            logits = self.model(**enc, logits_to_keep=1).logits[:, -1].float()
             lp = torch.log_softmax(logits, dim=-1)
             yes = torch.logsumexp(lp[:, self.yes_ids], dim=-1)
             no = torch.logsumexp(lp[:, self.no_ids], dim=-1)
