@@ -34,22 +34,27 @@ closes the gap to `read` at 27B or not.
 - Stages: preflight, a timing run that stops if the projection exceeds `MAX_HOURS`, the grid,
   then a report merged with the committed 0.5B, 1.5B and 7B summaries.
 
-## Results (seeds 0 and 1, first 96 layouts)
+## Results (seeds 0 to 2, first 96 layouts)
 
 Summaries and gold references are in `results/declare_27b/`.
 
-| | seed 0 | seed 1 | mean |
-|---|---|---|---|
-| `read` hit rate | 0.365 | 0.365 | 0.365 |
-| `generate` hit rate | 0.396 | 0.354 | 0.375 |
-| `read` content dependence | 0.229 | 0.250 | 0.240 |
-| `generate` content dependence | 0.250 | 0.219 | 0.235 |
+| | seed 0 | seed 1 | seed 2 | mean |
+|---|---|---|---|---|
+| `read` hit rate | 0.365 | 0.365 | 0.365 | 0.365 |
+| `generate` hit rate | 0.396 | 0.354 | 0.396 | 0.382 |
+| `read` content dependence | 0.229 | 0.250 | 0.240 | 0.240 |
+| `generate` content dependence | 0.250 | 0.219 | 0.208 | 0.226 |
 
-Chance is 0.125 and the best constant control 0.156 to 0.198. On the probes where exactly one
-mode was right, `read` won 23 and `generate` won 25 (11 and 14 at seed 0, 12 and 11 at seed 1).
-The modes are tied at 27B, against a `read` lead of 0.19 at 7B. Two seeds on the same 96 probes
-cannot support the paired test used at the other scales, so this is a directional result. The
-run was 4-bit with thinking disabled and took 3.2 hours per seed.
+Chance is 0.125 and the best constant control 0.156 to 0.198. The paired difference in hit rate
+(`read` minus `generate`) is -0.017 with a standard deviation of 0.024 across seeds (t(2) =
+-1.25), and the content dependence difference is +0.014 (t(2) = 0.80). On the probes where
+exactly one mode was right, `read` won 33 and `generate` won 38 over the three seeds. The modes
+are tied at 27B, against a `read` lead of 0.19 at 7B.
+
+The seeds reshuffle only the layout of the same 96 probes, so they are not independent probe
+samples, and `read` scores each region on its own, which is why its hit rate is identical across
+seeds. The t(2) values understate the uncertainty from probe sampling, and the result is
+directional. The run was 4-bit with thinking disabled and took 3.2 hours per seed.
 
 ## Outcomes
 
