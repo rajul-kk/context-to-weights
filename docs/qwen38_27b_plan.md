@@ -34,6 +34,23 @@ closes the gap to `read` at 27B or not.
 - Stages: preflight, a timing run that stops if the projection exceeds `MAX_HOURS`, the grid,
   then a report merged with the committed 0.5B, 1.5B and 7B summaries.
 
+## Results (seeds 0 and 1, first 96 layouts)
+
+Summaries and gold references are in `results/declare_27b/`.
+
+| | seed 0 | seed 1 | mean |
+|---|---|---|---|
+| `read` hit rate | 0.365 | 0.365 | 0.365 |
+| `generate` hit rate | 0.396 | 0.354 | 0.375 |
+| `read` content dependence | 0.229 | 0.250 | 0.240 |
+| `generate` content dependence | 0.250 | 0.219 | 0.235 |
+
+Chance is 0.125 and the best constant control 0.156 to 0.198. On the probes where exactly one
+mode was right, `read` won 23 and `generate` won 25 (11 and 14 at seed 0, 12 and 11 at seed 1).
+The modes are tied at 27B, against a `read` lead of 0.19 at 7B. Two seeds on the same 96 probes
+cannot support the paired test used at the other scales, so this is a directional result. The
+run was 4-bit with thinking disabled and took 3.2 hours per seed.
+
 ## Outcomes
 
 | Result | Reading |
