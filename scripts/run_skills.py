@@ -6,7 +6,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from common.io import load_config
+from common.io import choice_list, load_config
+
+STAGES = ("skills", "score", "distill", "eval", "report")
+POLICIES = ("kl_top", "uniform", "random")
 
 
 def sh(cmd, dry):
@@ -39,8 +42,8 @@ def main():
 
     cfg = load_config(ROOT / args.config)
     root = Path(cfg["run_root"])
-    stages = set(args.stages.split(","))
-    policies = [p for p in args.policies.split(",") if p]
+    stages = set(choice_list(args.stages, STAGES, "stage"))
+    policies = choice_list(args.policies, POLICIES, "policy")
     dry = args.dry_run
     scores = root / f"scores_{args.granularity}.jsonl"
     report_dir = root / ("report" if args.granularity == "span" else f"report_{args.granularity}")

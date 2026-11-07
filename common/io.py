@@ -94,8 +94,19 @@ def read_jsonl(path):
 
 def write_json(path, obj):
     ensure_dir(Path(path).parent)
-    with open(path, "w", encoding="utf-8") as f:
+    tmp = Path(str(path) + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
+
+
+def choice_list(text, allowed, name):
+    items = [t for t in text.split(",") if t]
+    unknown = [t for t in items if t not in allowed]
+    if unknown:
+        raise SystemExit(f"unknown {name} {unknown}; expected a comma list drawn from "
+                         f"{', '.join(allowed)}")
+    return items
 
 
 def read_json(path):

@@ -1,3 +1,4 @@
+import contextlib
 import os
 
 os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
@@ -69,6 +70,16 @@ def chat_text(tokenizer, system, user):
         return f"{prefix}{user}\n\nAnswer:"
 
 
+@contextlib.contextmanager
+def left_truncation(tokenizer):
+    side = tokenizer.truncation_side
+    tokenizer.truncation_side = "left"
+    try:
+        yield tokenizer
+    finally:
+        tokenizer.truncation_side = side
+
+
 def make_generator(model, tokenizer):
     def generate(system, user, max_new_tokens=128):
         return batch_generate(model, tokenizer, [(system, user)], max_new_tokens)[0]
@@ -83,11 +94,9 @@ def batch_generate(model, tokenizer, pairs, max_new_tokens=64, batch_size=8):
     for i in range(0, len(pairs), batch_size):
         chunk = pairs[i: i + batch_size]
         texts = [chat_text(tokenizer, s, u) for s, u in chunk]
-        side = tokenizer.truncation_side
-        tokenizer.truncation_side = "left"
-        enc = tokenizer(texts, return_tensors="pt", padding=True, truncation=True,
-                        max_length=model.config.max_position_embeddings).to(device)
-        tokenizer.truncation_side = side
+        with left_truncation(tokenizer):
+            enc = tokenizer(texts, return_tensors="pt", padding=True, truncation=True,
+                            max_length=model.config.max_position_embeddings).to(device)
         gen = model.generate(
             **enc,
             max_new_tokens=max_new_tokens,

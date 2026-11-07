@@ -12,6 +12,7 @@ from common.io import (ensure_dir, load_config, parse_overrides, read_json, read
 from common.schema import Trajectory
 from common.stats import verdict_for
 from declare.elicit import build_elicitor
+from declare.plan import SCHEMES, plan_attention
 from declare.regions import build_regions, gold_region, permute, region_tokens, render
 from sleep.lm import load_backbone
 
@@ -141,7 +142,7 @@ def main():
     ap.add_argument("--kv-bits", type=int, default=0,
                     help="fake-quantize keys and values to this many bits inside attention; "
                          "0 leaves the cache at full precision")
-    ap.add_argument("--kv-scheme", default="token", choices=["token", "channel_keys"],
+    ap.add_argument("--kv-scheme", default="token", choices=list(SCHEMES),
                     help="token quantizes keys and values per token; channel_keys quantizes keys "
                          "per channel over groups of 32 tokens and keeps values per token")
     ap.add_argument("--set", nargs="*", default=None)
@@ -153,26 +154,25 @@ def main():
     n_regions = cfg["declare"]["n_regions"]
 
     rows = read_jsonl(Path(cfg["data"]["dir"]) / cfg["data"][args.split])
-    probing = any(m.startswith("attention") for m in args.modes)
-    impl = None
-    if probing:
+    plan = plan_attention(args.modes, args.kv_bits, args.kv_scheme)
+    if plan.kind == "probe":
         from declare.elicit import register_probe
 
         impl = register_probe()
         print(f"attention probing on: loaded with the {impl} attention implementation, "
               "which keeps SDPA for the forward pass and captures only the final query row")
-    elif args.kv_bits:
+    elif plan.kind == "quant":
         from declare.elicit import register_quant
 
-        impl = register_quant(args.kv_bits, scheme=args.kv_scheme)
-        print(f"keys and values fake-quantized to {args.kv_bits} bits, scheme {args.kv_scheme}, "
+        impl = register_quant(plan.kv_bits, scheme=plan.kv_scheme)
+        print(f"keys and values fake-quantized to {plan.kv_bits} bits, scheme {plan.kv_scheme}, "
               "groups of 32")
     else:
         from declare.elicit import register_repeat
 
         impl = register_repeat()
     model, tokenizer = load_backbone(cfg, attn_implementation=impl)
-    if probing:
+    if plan.kind == "probe":
         from declare.elicit import check_probe_parity
 
         diff, same_top, ok = check_probe_parity(model, tokenizer)
@@ -247,8 +247,8 @@ def main():
         s = summarize(records, mode, n_regions)
         s["model"] = cfg["model"]["base"]
         s["seed"] = cfg["seed"]
-        s["kv_bits"] = args.kv_bits
-        s["kv_scheme"] = args.kv_scheme if args.kv_bits else "none"
+        s["kv_bits"] = plan.kv_bits
+        s["kv_scheme"] = plan.recorded_scheme
         s["elicitor_unparsed"] = elicitor.unparsed
         summaries.append(s)
         write_jsonl(out_dir / f"{mode}.records.jsonl", records)
