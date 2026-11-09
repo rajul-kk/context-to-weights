@@ -56,6 +56,23 @@ samples, and `read` scores each region on its own, which is why its hit rate is 
 seeds. The t(2) values understate the uncertainty from probe sampling, and the result is
 directional. The run was 4-bit with thinking disabled and took 3.2 hours per seed.
 
+## Kernel speed check
+
+`notebooks/c3_fast_kernel_check.ipynb` loads the model once and times the same inputs with the
+torch gated delta rule and with the `flash-linear-attention` (fla 0.6.0, Triton 3.6.0) kernel
+swapped in for the module-level chunk rule in transformers 5.20.2. Both ran on 2 T4s.
+
+| Input | torch | fla | speedup | max log-prob diff | top-1 |
+|---|---|---|---|---|---|
+| 26 tokens | 0.37 s | 0.37 s | 1.0x | 0.0000 | same |
+| 7000 tokens | 39.1 s | 29.2 s | 1.3x | 0.0000 | same |
+
+The kernel runs on a T4 and was called by all 48 layers, but it removes only about a quarter of
+the forward time. The rest is not the DeltaNet rule. The zero log-prob difference is not
+explained: two different kernels in fp16 would normally differ in the last digits, so the
+parity result should be rechecked with raw logits before the kernel is used in a grid run. No
+probe run has used fla, so the committed 27B results are all from the torch fallback.
+
 ## Outcomes
 
 | Result | Reading |
@@ -66,8 +83,8 @@ directional. The run was 4-bit with thinking disabled and took 3.2 hours per see
 
 ## Unknowns
 
-- Nothing about loading, kernels or speed has been tested. The DeltaNet layers need either
-  flash-linear-attention or a slow torch fallback, and a T4 may not run the fast kernels.
+- Where the rest of the forward time goes is unprofiled: candidates are nf4 dequantization,
+  the 16 full-attention layers and the sequential split over two GPUs.
 - The wall-clock budget is unmeasured. The timing stage exists to measure it before the grid.
 - `check_probe_parity` reads the config attention implementation from the top-level config,
   which may differ for a nested vision-language config. A failure there shows up in the
