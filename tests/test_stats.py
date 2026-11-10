@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from common.stats import T_CRIT, critical, paired_t, verdict_for
+from common.stats import T_CRIT, critical, mcnemar_exact, paired_t, verdict_for
 
 
 def test_verdict_thresholds():
@@ -50,3 +50,19 @@ def test_paired_t_zero_variance_is_nan():
 def test_paired_t_needs_two_pairs():
     with pytest.raises(ValueError):
         paired_t([1], [0])
+
+
+def test_mcnemar_exact_known_values():
+    assert mcnemar_exact(0, 5) == pytest.approx(0.0625)
+    assert mcnemar_exact(1, 9) == pytest.approx(22 / 1024)
+    assert mcnemar_exact(9, 1) == mcnemar_exact(1, 9)
+
+
+def test_mcnemar_exact_balanced_and_empty_give_one():
+    assert mcnemar_exact(4, 4) == 1.0
+    assert mcnemar_exact(0, 0) == 1.0
+
+
+def test_mcnemar_exact_rejects_negative_counts():
+    with pytest.raises(ValueError):
+        mcnemar_exact(-1, 3)

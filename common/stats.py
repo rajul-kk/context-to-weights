@@ -1,3 +1,4 @@
+import math
 import statistics
 
 T_CRIT = {
@@ -32,3 +33,13 @@ def paired_t(a, b):
     sd = statistics.stdev(diffs)
     stat = mean / (sd / len(diffs) ** 0.5) if sd else float("nan")
     return mean, stat, len(diffs) - 1
+
+
+def mcnemar_exact(only_a, only_b):
+    if only_a < 0 or only_b < 0:
+        raise ValueError("discordant counts must be non-negative")
+    n = only_a + only_b
+    if n == 0:
+        return 1.0
+    tail = sum(math.comb(n, i) for i in range(min(only_a, only_b) + 1)) / 2 ** n
+    return min(1.0, 2 * tail)
