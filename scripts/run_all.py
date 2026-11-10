@@ -6,7 +6,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from common.io import load_config
+from common.io import choice_list, load_config
+
+STAGES = ("data", "compact", "reflect", "sleep", "eval", "report")
+METHODS = ("compaction", "uniform", "reflection")
 
 
 def sh(cmd, dry):
@@ -31,8 +34,8 @@ def main():
 
     cfg = load_config(ROOT / args.config)
     root = Path(cfg["run_root"])
-    stages = set(args.stages.split(","))
-    methods = [m for m in args.methods.split(",") if m]
+    stages = set(choice_list(args.stages, STAGES, "stage"))
+    methods = choice_list(args.methods, METHODS, "method")
     dry = args.dry_run
 
     casc = root / "cascading"

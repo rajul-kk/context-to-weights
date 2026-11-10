@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from common.io import (append_jsonl, ensure_dir, load_config, parse_overrides, read_jsonl,
                        set_seed, write_json)
 from common.schema import CompactionEvent
-from sleep.checkpoint import (load_state, mark_best, resume_adapter, resume_mask_head,
+from sleep.checkpoint import (ResumeError, load_mask_head, mark_best, resume_run,
                               save_phase)
 from sleep.examples import (ReplayBuffer, from_compaction, from_compaction_mix,
                             from_compaction_stratified, from_reflection, from_uniform)
@@ -16,6 +16,7 @@ from sleep.lm import load_backbone
 from sleep.trainer import MaskHead, load_or_attach, train_sleep_phase
 
 METHODS = ["compaction", "uniform", "reflection"]
+MIX_MODES = ("random", "stratified")
 
 
 def build_examples(method, events, rng, reflections, include_dropped, mix=0.0, mix_mode="random"):
@@ -67,6 +68,8 @@ def main():
     use_mask = cfg["sleep"]["mask_head"]["enabled"] or args.mask_head
     mix = cfg["sleep"].get("dropped_mix", 0.0) if args.method == "compaction" else 0.0
     mix_mode = cfg["sleep"].get("mix_mode", "random")
+    if mix_mode not in MIX_MODES:
+        raise SystemExit(f"unknown sleep.mix_mode {mix_mode!r}, expected one of {MIX_MODES}")
     mix_tag = f"-mix{round(mix * 100)}{'strat' if mix_mode == 'stratified' else ''}" if mix else ""
     tag = args.method + mix_tag + ("+mask" if use_mask else "") + ("" if use_replay else "-noreplay")
     run_dir = ensure_dir(args.run_dir or Path(cfg["run_root"]) / f"sleep_{tag}")
@@ -89,8 +92,12 @@ def main():
     replay = ReplayBuffer(capacity=cfg["sleep"]["replay"]["capacity"], seed=cfg["seed"])
     cursor = 0
     phase = 0
-    state = load_state(run_dir) if args.resume else None
-    adapter = resume_adapter(run_dir) if args.resume else None
+    try:
+        resume = resume_run(run_dir, use_mask) if args.resume else None
+    except ResumeError as err:
+        raise SystemExit(f"refusing to resume: {err}") from err
+    state = resume.state if resume else None
+    adapter = resume.adapter if resume else None
     if state:
         prior_sig = state.get("events_sig")
         if prior_sig and prior_sig != events_sig:
@@ -110,8 +117,8 @@ def main():
     mask_head = None
     if use_mask:
         mask_head = MaskHead(model.config.hidden_size).to(next(model.parameters()).device)
-        if args.resume:
-            mask_head = resume_mask_head(run_dir, mask_head)
+        if resume:
+            mask_head = load_mask_head(resume.mask_head, mask_head)
 
     k = cfg["sleep"]["every_k_events"]
     metrics_path = run_dir / "metrics.jsonl"

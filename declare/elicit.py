@@ -1,7 +1,9 @@
+import contextlib
 import re
 
 import torch
 
+from declare.plan import SCHEMES
 from declare.regions import render, render_spans
 from sleep.lm import batch_generate, chat_text
 
@@ -112,7 +114,7 @@ class ReadElicitor:
             chunk = prompts[i: i + self.batch_size]
             enc = self.tokenizer(chunk, return_tensors="pt", padding=True, truncation=True,
                                  max_length=self.max_length).to(device)
-            logits = self.model(**enc).logits[:, -1].float()
+            logits = self.model(**enc, logits_to_keep=1).logits[:, -1].float()
             lp = torch.log_softmax(logits, dim=-1)
             yes = torch.logsumexp(lp[:, self.yes_ids], dim=-1)
             no = torch.logsumexp(lp[:, self.no_ids], dim=-1)
@@ -126,7 +128,20 @@ class ReadElicitor:
         return best, ", ".join(f"{v:.2f}" for v in s)
 
 
-LAST_ROW = []
+_capture = None
+
+
+@contextlib.contextmanager
+def capturing():
+    global _capture
+    if _capture is not None:
+        raise RuntimeError("attention capture is already active; captures do not nest")
+    rows = []
+    _capture = rows
+    try:
+        yield rows
+    finally:
+        _capture = None
 
 
 def _repeat_kv(states, groups):
@@ -154,10 +169,6 @@ def _sdpa(query, key, value, attention_mask):
 def repeat_attention(module, query, key, value, attention_mask=None, scaling=None,
                      dropout=0.0, **kwargs):
     return _sdpa(query, key, value, attention_mask)[0], None
-
-
-KV_QUANT = {"bits": 0, "group": 32, "scheme": "token"}
-SCHEMES = ("token", "channel_keys")
 
 
 def _round_to_grid(grouped, bits, valid=None):
@@ -207,13 +218,15 @@ def fake_quantize(states, bits, group, per_channel=False, key_valid=None):
     return quantize_per_token(states, bits, group)
 
 
-def quant_attention(module, query, key, value, attention_mask=None, scaling=None,
-                    dropout=0.0, **kwargs):
-    bits, group, scheme = KV_QUANT["bits"], KV_QUANT["group"], KV_QUANT["scheme"]
-    valid = key_validity(attention_mask, key.shape[-2])
-    key = fake_quantize(key, bits, group, scheme == "channel_keys", valid)
-    value = fake_quantize(value, bits, group)
-    return _sdpa(query, key, value, attention_mask)[0], None
+def quant_attention_for(bits, group, scheme):
+    def quant_attention(module, query, key, value, attention_mask=None, scaling=None,
+                        dropout=0.0, **kwargs):
+        valid = key_validity(attention_mask, key.shape[-2])
+        k = fake_quantize(key, bits, group, scheme == "channel_keys", valid)
+        v = fake_quantize(value, bits, group)
+        return _sdpa(query, k, v, attention_mask)[0], None
+
+    return quant_attention
 
 
 def probe_attention(module, query, key, value, attention_mask=None, scaling=None,
@@ -222,7 +235,7 @@ def probe_attention(module, query, key, value, attention_mask=None, scaling=None
         scaling = query.shape[-1] ** -0.5
     out, k, mask = _sdpa(query, key, value, attention_mask)
 
-    if query.shape[-2] > 1:
+    if _capture is not None and query.shape[-2] > 1:
         logits = (query[:, :, -1:, :].float() @ k.float().transpose(-1, -2)) * scaling
         if mask is not None:
             last = mask[:, :, -1:, :]
@@ -230,7 +243,7 @@ def probe_attention(module, query, key, value, attention_mask=None, scaling=None
                 logits = logits.masked_fill(~last, float("-inf"))
             else:
                 logits = logits + last.float()
-        LAST_ROW.append(logits.softmax(dim=-1).detach()[:, :, 0, :].cpu())
+        _capture.append(logits.softmax(dim=-1).detach()[:, :, 0, :].cpu())
     return out, None
 
 
@@ -255,15 +268,15 @@ def register_repeat():
 def register_quant(bits, group=32, scheme="token"):
     if scheme not in SCHEMES:
         raise ValueError(f"unknown kv scheme {scheme!r}, expected one of {SCHEMES}")
+    if bits < 1:
+        raise ValueError(f"kv bits must be at least 1, got {bits}")
     from transformers.masking_utils import AttentionMaskInterface, sdpa_mask
     from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
 
-    KV_QUANT["bits"] = bits
-    KV_QUANT["group"] = group
-    KV_QUANT["scheme"] = scheme
-    type(ALL_ATTENTION_FUNCTIONS).register("myrios_quant", quant_attention)
-    AttentionMaskInterface.register("myrios_quant", sdpa_mask)
-    return "myrios_quant"
+    name = f"myrios_quant_{scheme}_{bits}b_g{group}"
+    type(ALL_ATTENTION_FUNCTIONS).register(name, quant_attention_for(bits, group, scheme))
+    AttentionMaskInterface.register(name, sdpa_mask)
+    return name
 
 
 def check_probe_parity(model, tokenizer, tol=0.1):
@@ -273,9 +286,7 @@ def check_probe_parity(model, tokenizer, tol=0.1):
     cfg = model.config
     probe = cfg._attn_implementation
     with torch.no_grad():
-        LAST_ROW.clear()
         got = model(**enc, use_cache=False).logits[:, -1].float().log_softmax(-1)
-        LAST_ROW.clear()
         cfg._attn_implementation = "sdpa"
         try:
             ref = model(**enc, use_cache=False).logits[:, -1].float().log_softmax(-1)
@@ -345,10 +356,9 @@ class AttentionElicitor:
         enc = {k: v.to(device) for k, v in enc.items()}
         spans = self._token_spans(offsets, char_spans, shift)
 
-        LAST_ROW.clear()
-        self.model(**enc, use_cache=False)
-        captured = list(LAST_ROW)
-        LAST_ROW.clear()
+        with capturing() as rows:
+            self.model(**enc, use_cache=False)
+        captured = list(rows)
         self._check(captured, enc["input_ids"].shape[-1])
 
         keep = int(len(captured) * self.layer_frac)

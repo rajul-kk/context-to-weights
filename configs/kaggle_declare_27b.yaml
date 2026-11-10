@@ -11,3 +11,6 @@ model:
     1: 13GiB
   chat_template_kwargs:
     enable_thinking: false
+
+declare:
+  probe_batch_size: 2
