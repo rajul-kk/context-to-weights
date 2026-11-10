@@ -6,9 +6,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages" / "myrios-eval" / "src"))
+
+from myrios_eval.stats import bootstrap_ci, ci_description
 
 from common.io import ensure_dir
-from common.stats import critical, paired_t
+from common.stats import critical, mcnemar_exact, paired_t
 
 METRICS = ("hit_rate", "random_control", "best_constant_control", "sigma_over_random",
            "sigma_over_constant", "shuffled_hit_rate", "content_dependence",
@@ -23,6 +26,73 @@ def load(run_root):
             s.setdefault("seed", 0)
             rows.append(s)
     return rows
+
+
+def load_records(run_root):
+    out = {}
+    for p in sorted(glob.glob(str(Path(run_root) / "*" / "*.records.jsonl"))):
+        summary = Path(p).with_name(Path(p).name.replace(".records.jsonl", ".summary.json"))
+        if not summary.exists():
+            continue
+        s = json.load(open(summary))
+        with open(p, encoding="utf-8") as fh:
+            recs = [json.loads(line) for line in fh if line.strip()]
+        out[(s["model"], s["label"], s.get("seed", 0))] = recs
+    return out
+
+
+def probe_keys(records):
+    keys = [r.get("question") for r in records]
+    if None in keys or len(set(keys)) != len(keys):
+        return list(range(len(records)))
+    return keys
+
+
+def probe_level(records, model, a="read", b="generate"):
+    seeds = sorted(s for (m, lbl, s) in records if m == model and lbl == a and (m, b, s) in records)
+    per_seed = []
+    by_probe = {}
+    for seed in seeds:
+        ra, rb = records[(model, a, seed)], records[(model, b, seed)]
+        ka, kb = probe_keys(ra), probe_keys(rb)
+        if ka != kb:
+            raise ValueError(f"{model} seed {seed}: {a} and {b} records cover different probes")
+        only_a = sum(1 for x, y in zip(ra, rb) if x["hit"] and not y["hit"])
+        only_b = sum(1 for x, y in zip(ra, rb) if y["hit"] and not x["hit"])
+        per_seed.append({"seed": seed, "n": len(ra), f"only_{a}": only_a, f"only_{b}": only_b,
+                         "p": mcnemar_exact(only_a, only_b)})
+        for key, x, y in zip(ka, ra, rb):
+            by_probe.setdefault(key, []).append(int(bool(x["hit"])) - int(bool(y["hit"])))
+    diffs = [sum(v) / len(v) for v in by_probe.values()]
+    mean = sum(diffs) / len(diffs) if diffs else float("nan")
+    return {"model": model, "a": a, "b": b, "seeds": seeds, "per_seed": per_seed,
+            "n_probes": len(diffs), "mean_diff": mean, "ci": bootstrap_ci(diffs)}
+
+
+def probe_section(records):
+    models = sorted({m for (m, lbl, _) in records if lbl == "read"
+                     and any((m, "generate", s) in records for (_, _, s) in records)}, key=short)
+    if not models:
+        return []
+    body = ["## Probe level: read against generate", "",
+            "Computed from the per-probe records. Each seed gets an exact McNemar test on the "
+            "probes where exactly one mode was right. The interval is a paired bootstrap over "
+            "probes of the hit difference (read minus generate), averaged over seeds per probe "
+            f"first, since the seeds reshuffle the layout of the same probes ({ci_description()}).",
+            ""]
+    for model in models:
+        got = probe_level(records, model)
+        if not got["seeds"]:
+            continue
+        lo, hi = got["ci"]
+        for row in got["per_seed"]:
+            body.append(f"- **{short(model)}** seed {row['seed']}: read only {row['only_read']}, "
+                        f"generate only {row['only_generate']} of {row['n']} probes, "
+                        f"exact McNemar p = {row['p']:.3f}")
+        body.append(f"- **{short(model)}**, over {got['n_probes']} probes and "
+                    f"{len(got['seeds'])} seed{'s' if len(got['seeds']) > 1 else ''}: hit "
+                    f"difference {got['mean_diff']:+.3f}, 95% CI [{lo:+.3f}, {hi:+.3f}]")
+    return body + [""]
 
 
 def short(name):
@@ -231,6 +301,8 @@ def main():
         delta = f" ({pts[-1][1] - pts[0][1]:+.3f})" if len(pts) > 1 else ""
         body.append(f"- `{label}`: {arrow}{delta}")
     body += [""]
+
+    body += probe_section(load_records(args.run_root))
 
     body += ["![declare](figures/declare.png)", "",
              "*Left: hit rate by model and elicitation, dashed line at chance. Right: content "

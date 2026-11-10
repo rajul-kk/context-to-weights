@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from common.stats import paired_t
+from common.stats import mcnemar_exact, paired_t
 from eval import declare_report
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -129,3 +129,62 @@ def test_an_empty_run_root_fails_cleanly(tmp_path):
                           cwd=ROOT, capture_output=True, text=True)
     assert done.returncode == 1
     assert "no summaries" in done.stdout
+
+
+def write_records(root, model, seed, mode, hits, questions=None):
+    folder = root / f"{model.split('/')[-1]}_s{seed}"
+    folder.mkdir(parents=True, exist_ok=True)
+    questions = questions or [f"q{i}" for i in range(len(hits))]
+    summary = {"label": mode, "model": model, "seed": seed, "hit_rate": sum(hits) / len(hits),
+               "content_dependence": 0.1, "sigma_over_constant": 5.0, **CHANCE, "n": len(hits)}
+    (folder / f"{mode}.summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    lines = [json.dumps({"question": q, "hit": bool(h)}) for q, h in zip(questions, hits)]
+    (folder / f"{mode}.records.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def test_probe_level_counts_discordant_pairs_per_seed(tmp_path):
+    model = "org/Qwen3.8-27B"
+    write_records(tmp_path, model, 0, "read", [1, 1, 1, 0, 0, 1])
+    write_records(tmp_path, model, 0, "generate", [0, 0, 1, 1, 0, 1])
+    got = declare_report.probe_level(declare_report.load_records(tmp_path), model)
+    seed0 = got["per_seed"][0]
+    assert (seed0["seed"], seed0["only_read"], seed0["only_generate"]) == (0, 2, 1)
+    assert seed0["p"] == pytest.approx(mcnemar_exact(2, 1))
+    assert got["n_probes"] == 6
+
+
+def test_probe_level_pairs_seeds_by_question_and_bootstraps_over_probes(tmp_path):
+    model = "org/Qwen3.8-27B"
+    qs = ["a", "b", "c", "d"]
+    write_records(tmp_path, model, 0, "read", [1, 1, 0, 0], qs)
+    write_records(tmp_path, model, 0, "generate", [1, 0, 0, 0], qs)
+    write_records(tmp_path, model, 1, "read", [0, 1, 1, 0], ["d", "a", "b", "c"])
+    write_records(tmp_path, model, 1, "generate", [0, 1, 0, 0], ["d", "a", "b", "c"])
+    got = declare_report.probe_level(declare_report.load_records(tmp_path), model)
+    assert got["n_probes"] == 4
+    assert got["seeds"] == [0, 1]
+    assert got["mean_diff"] == pytest.approx((0 + 1 + 0 + 0) / 4)
+    lo, hi = got["ci"]
+    assert lo <= got["mean_diff"] <= hi
+
+
+def test_probe_level_refuses_mismatched_probe_sets(tmp_path):
+    model = "org/Qwen3.8-27B"
+    write_records(tmp_path, model, 0, "read", [1, 0], ["a", "b"])
+    write_records(tmp_path, model, 0, "generate", [1, 0], ["a", "c"])
+    with pytest.raises(ValueError):
+        declare_report.probe_level(declare_report.load_records(tmp_path), model)
+
+
+def test_report_includes_probe_level_section_when_records_exist(tmp_path):
+    model = "org/Qwen3.8-27B"
+    write_records(tmp_path, model, 0, "read", [1, 1, 1, 0, 0, 1])
+    write_records(tmp_path, model, 0, "generate", [0, 0, 1, 1, 0, 1])
+    text = report(tmp_path, tmp_path)
+    assert "## Probe level: read against generate" in text
+    assert "exact McNemar" in text
+
+
+def test_report_omits_probe_level_section_without_records(tmp_path):
+    populate(tmp_path, "org/Qwen2.5-0.5B-Instruct", *WIN)
+    assert "Probe level" not in report(tmp_path, tmp_path)

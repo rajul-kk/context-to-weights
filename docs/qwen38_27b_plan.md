@@ -56,6 +56,14 @@ samples, and `read` scores each region on its own, which is why its hit rate is 
 seeds. The t(2) values understate the uncertainty from probe sampling, and the result is
 directional. The run was 4-bit with thinking disabled and took 3.2 hours per seed.
 
+Probe-level test (2026-11-10). An exact McNemar test on the pooled discordant counts (33 against
+38) gives p = 0.635. Pooling counts each probe up to three times, so this p is only indicative.
+`eval/declare_report.py` now reports an exact McNemar test per seed and a paired bootstrap
+interval over probes (hit difference averaged over seeds per probe first) whenever the
+`read.records.jsonl` and `generate.records.jsonl` files sit beside the summaries. Those per-probe
+files were written on Kaggle but not committed, so the per-seed tests and the interval are
+pending until they are downloaded into `results/declare_27b/`.
+
 ## Kernel speed check
 
 `notebooks/c3_fast_kernel_check.ipynb` loads the model once and times the same inputs with the
