@@ -25,7 +25,9 @@ closes the gap to `read` at 27B or not.
 - Layouts: regions are built with the model's own tokenizer, so under the Qwen3.8 tokenizer
   a probe or two lands in a different region than under Qwen2.5 (one in 384 at seed 0, with
   region 2 at 37 against 38). The 27B therefore keeps its own gold reference
-  `gold384_qwen38_s<seed>.json`, written on the first run. `read` and `generate` share layouts
+  `results/declare_27b/gold/gold384_qwen38_s<seed>.json`, written on the first run. The notebook
+  refuses a window with a nonzero offset when that file is missing, since `--gold-ref` would
+  otherwise write a fresh reference instead of checking against it. `read` and `generate` share layouts
   within the run; the match to the other scales is exact except for those probes.
 - Size: the first session measured 125 s per probe for both modes, 13.4 hours for 384. Each
   session runs the first 96 layouts (`--take 96`, about 3.5 hours), so a seed is a prefix and
@@ -77,7 +79,7 @@ sessions of 96 layouts each, at about 3.5 hours apiece, cover layouts 96 to 383.
 
 ```
 python declare/run.py --config configs/kaggle_declare_27b.yaml --modes read generate \
-  --out $RUNS/Qwen3.8-27B_o96_96_s2 --gold-ref results/declare/gold/gold384_qwen38_s2.json \
+  --out $RUNS/Qwen3.8-27B_o96_96_s2 --gold-ref results/declare_27b/gold/gold384_qwen38_s2.json \
   --take 96 --offset 96 --set model.loader=$LOADER seed=2
 # the same with --offset 192 --out $RUNS/Qwen3.8-27B_o192_96_s2
 # and with      --offset 288 --out $RUNS/Qwen3.8-27B_o288_96_s2
