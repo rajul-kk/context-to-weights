@@ -1,0 +1,17 @@
+{
+  "n": 288,
+  "retention_accuracy": 0.4375,
+  "mean_prompt_tokens": 1017.6736111111111,
+  "token_ce_median": 0.03460397385060787,
+  "token_ce_mean": 3.833919592298645,
+  "probe_ce_median": 0.09506507415790111,
+  "probe_ce_mean": 2.758849540019199,
+  "n_evicted": 112,
+  "evicted_accuracy": 0.044642857142857144,
+  "evicted_ce_median": 5.018536567687988,
+  "evicted_ce_mean": 6.962408984613365,
+  "label": "ours",
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "contexts": "/kaggle/working/artifacts/runs_synth_s8/cascading/eval_contexts.jsonl",
+  "adapter": "/kaggle/working/artifacts/runs_synth_s8/sleep_compaction/best/adapter"
+}
