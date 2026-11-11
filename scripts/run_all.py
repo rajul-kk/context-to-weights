@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT))
 from common.io import choice_list, load_config
 
 STAGES = ("data", "compact", "reflect", "sleep", "eval", "report")
-METHODS = ("compaction", "uniform", "reflection")
+METHODS = ("compaction", "uniform", "coverage", "reflection")
 
 
 def sh(cmd, dry):
@@ -105,7 +105,7 @@ def main():
             ("full", root / "full_context" / "eval_contexts.jsonl", None),
         ]
         name_map = {"compaction": "ours", "compaction+mask": "ours+mask",
-                    "uniform": "uniform", "reflection": "reflection"}
+                    "uniform": "uniform", "coverage": "coverage", "reflection": "reflection"}
         for tag, run_dir in sleep_runs.items():
             arms.append((name_map.get(tag, tag), casc / "eval_contexts.jsonl",
                          run_dir / "latest" / "adapter"))

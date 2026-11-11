@@ -20,7 +20,7 @@ They share `common/`, `sleep/lm.py`, `sleep/trainer.py` and the config machinery
    models' measured signals work: the keep decision read off the logits reaches 2.56x lift,
    and a logit relevance read beats the stated declaration at 0.5B, 1.5B and 7B.
 2. **Salient is not trainable.** Compaction-gated consolidation loses to uniform replay on
-   all five corpora (t(4)=3.10), and context-gap gating is no better than random selection
+   all ten corpora (t(9)=3.91), and context-gap gating is no better than random selection
    (t(4)=0.74).
 
 ---
@@ -42,8 +42,8 @@ replay buffer, and the adapter carries across phases. Pure SFT: no RL, no reward
 | floor | No context | `baselines/full_context.py --mode none` |
 
 **Result.** The keep decision is a strong salience signal (+15.85σ), yet uniform replay
-recovers more evicted facts than compaction-supervised consolidation on all five synthetic
-corpora (0.076 vs 0.017 mean; paired t(4)=3.10). On HotpotQA the arms do not separate. The same mask
+recovers more evicted facts than compaction-supervised consolidation on all ten synthetic
+corpora (0.065 vs 0.022 mean; paired t(9)=3.91). On HotpotQA the arms do not separate. The same mask
 trained for abstention cuts hallucination on evicted facts by 72.8%.
 
 ```bash

@@ -10,16 +10,18 @@ from common.io import (append_jsonl, ensure_dir, load_config, parse_overrides, r
 from common.schema import CompactionEvent
 from sleep.checkpoint import (ResumeError, load_mask_head, mark_best, resume_run,
                               save_phase)
-from sleep.examples import (ReplayBuffer, from_compaction, from_compaction_mix,
-                            from_compaction_stratified, from_reflection, from_uniform)
+from sleep.examples import (COVERAGE_KEYS, ReplayBuffer, from_compaction, from_compaction_mix,
+                            from_compaction_stratified, from_coverage, from_reflection,
+                            from_uniform)
 from sleep.lm import load_backbone
 from sleep.trainer import MaskHead, load_or_attach, train_sleep_phase
 
-METHODS = ["compaction", "uniform", "reflection"]
+METHODS = ["compaction", "uniform", "coverage", "reflection"]
 MIX_MODES = ("random", "stratified")
 
 
-def build_examples(method, events, rng, reflections, include_dropped, mix=0.0, mix_mode="random"):
+def build_examples(method, events, rng, reflections, include_dropped, mix=0.0, mix_mode="random",
+                   coverage_by="fact"):
     out = []
     for ev in events:
         if method == "compaction" and mix > 0 and mix_mode == "stratified":
@@ -30,6 +32,8 @@ def build_examples(method, events, rng, reflections, include_dropped, mix=0.0, m
             out.extend(from_compaction(ev, include_dropped=include_dropped))
         elif method == "uniform":
             out.extend(from_uniform(ev, rng))
+        elif method == "coverage":
+            out.extend(from_coverage(ev, rng, by=coverage_by))
         elif method == "reflection":
             text = reflections.get((ev.traj_id, ev.event_id))
             if text:
@@ -70,11 +74,17 @@ def main():
     mix_mode = cfg["sleep"].get("mix_mode", "random")
     if mix_mode not in MIX_MODES:
         raise SystemExit(f"unknown sleep.mix_mode {mix_mode!r}, expected one of {MIX_MODES}")
+    coverage_by = cfg["sleep"].get("coverage_by", "fact")
+    if coverage_by not in COVERAGE_KEYS:
+        raise SystemExit(f"unknown sleep.coverage_by {coverage_by!r}, expected one of {COVERAGE_KEYS}")
     mix_tag = f"-mix{round(mix * 100)}{'strat' if mix_mode == 'stratified' else ''}" if mix else ""
+    if args.method == "coverage":
+        mix_tag = f"-{coverage_by}"
     tag = args.method + mix_tag + ("+mask" if use_mask else "") + ("" if use_replay else "-noreplay")
     run_dir = ensure_dir(args.run_dir or Path(cfg["run_root"]) / f"sleep_{tag}")
     write_json(run_dir / "config.json", {"cfg": cfg, "method": args.method, "dropped_mix": mix,
                                          "mix_mode": mix_mode,
+                                         "coverage_by": coverage_by if args.method == "coverage" else None,
                                          "replay": use_replay, "mask_head": use_mask})
 
     events = [CompactionEvent.from_dict(d) for d in read_jsonl(args.events)]
@@ -130,7 +140,8 @@ def main():
         window = events[cursor: cursor + k]
         cursor += len(window)
         train_examples = build_examples(args.method, window, rng, reflections,
-                                        include_dropped=use_mask, mix=mix, mix_mode=mix_mode)
+                                        include_dropped=use_mask, mix=mix, mix_mode=mix_mode,
+                                        coverage_by=coverage_by)
         if use_replay:
             train_examples = train_examples + replay.sample(cfg["sleep"]["replay"]["capacity"] // 2)
         if not train_examples:

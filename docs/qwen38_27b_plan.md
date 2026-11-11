@@ -25,7 +25,9 @@ closes the gap to `read` at 27B or not.
 - Layouts: regions are built with the model's own tokenizer, so under the Qwen3.8 tokenizer
   a probe or two lands in a different region than under Qwen2.5 (one in 384 at seed 0, with
   region 2 at 37 against 38). The 27B therefore keeps its own gold reference
-  `gold384_qwen38_s<seed>.json`, written on the first run. `read` and `generate` share layouts
+  `results/declare_27b/gold/gold384_qwen38_s<seed>.json`, written on the first run. The notebook
+  refuses a window with a nonzero offset when that file is missing, since `--gold-ref` would
+  otherwise write a fresh reference instead of checking against it. `read` and `generate` share layouts
   within the run; the match to the other scales is exact except for those probes.
 - Size: the first session measured 125 s per probe for both modes, 13.4 hours for 384. Each
   session runs the first 96 layouts (`--take 96`, about 3.5 hours), so a seed is a prefix and
@@ -61,8 +63,41 @@ Probe-level test (2026-11-10). An exact McNemar test on the pooled discordant co
 `eval/declare_report.py` now reports an exact McNemar test per seed and a paired bootstrap
 interval over probes (hit difference averaged over seeds per probe first) whenever the
 `read.records.jsonl` and `generate.records.jsonl` files sit beside the summaries. Those per-probe
-files were written on Kaggle but not committed, so the per-seed tests and the interval are
-pending until they are downloaded into `results/declare_27b/`.
+files were written on Kaggle but not committed. Seed 2 (2026-11-11, from the latest version of
+the `myrios-c3-qwen38-27b` kernel, summaries byte-identical to the committed ones) is now in
+`results/declare_27b/Qwen3.8-27B_96_s2/`: `read` alone right on 10 probes, `generate` alone on 13,
+exact McNemar p = 0.678; hit difference -0.031, 95% bootstrap CI [-0.135, +0.062]. Seeds 0 and 1
+are only in older kernel versions, which the Kaggle CLI cannot download, so the three-seed
+interval waits for a manual download from the kernel's version history.
+
+## Completing seed 2 (layouts 96 to 383)
+
+Seed 2 is the one whose per-probe records are committed, so it is the seed to complete. Three
+sessions of 96 layouts each, at about 3.5 hours apiece, cover layouts 96 to 383. In
+`notebooks/c3_qwen38_27b.ipynb`, set `SEEDS = [2]`, `TAKE = 96` and `OFFSET` to 96, 192 or 288
+(one per session). The grid cell then runs:
+
+```
+python declare/run.py --config configs/kaggle_declare_27b.yaml --modes read generate \
+  --out $RUNS/Qwen3.8-27B_o96_96_s2 --gold-ref results/declare_27b/gold/gold384_qwen38_s2.json \
+  --take 96 --offset 96 --set model.loader=$LOADER seed=2
+# the same with --offset 192 --out $RUNS/Qwen3.8-27B_o192_96_s2
+# and with      --offset 288 --out $RUNS/Qwen3.8-27B_o288_96_s2
+```
+
+`--offset` is applied after the gold check, like `--take`, so every session checks the full
+384-layout distribution against the same gold reference before cutting its window. After the
+three downloads, join them with the committed first window:
+
+```
+python declare/merge_windows.py --out results/declare_27b/Qwen3.8-27B_384_s2 \
+  results/declare_27b/Qwen3.8-27B_96_s2 Qwen3.8-27B_o96_96_s2 Qwen3.8-27B_o192_96_s2 Qwen3.8-27B_o288_96_s2
+```
+
+The merge refuses windows that leave a gap, overlap, or differ in model, seed or settings, and it
+recomputes the summary from the joined records. On the first window alone, it reproduces the
+committed summary to within float rounding. These runs use the owner's Kaggle GPU budget and
+have not been launched.
 
 ## Kernel speed check
 
@@ -75,11 +110,31 @@ swapped in for the module-level chunk rule in transformers 5.20.2. Both ran on 2
 | 26 tokens | 0.37 s | 0.37 s | 1.0x | 0.0000 | same |
 | 7000 tokens | 39.1 s | 29.2 s | 1.3x | 0.0000 | same |
 
-The kernel runs on a T4 and was called by all 48 layers, but it removes only about a quarter of
-the forward time. The rest is not the DeltaNet rule. The zero log-prob difference is not
-explained: two different kernels in fp16 would normally differ in the last digits, so the
-parity result should be rechecked with raw logits before the kernel is used in a grid run. No
-probe run has used fla, so the committed 27B results are all from the torch fallback.
+**This check compared fla with itself, and the 1.3x is not a speed-up.** (Recheck on
+2026-11-11, `notebooks/c3_fast_kernel_probe.ipynb`, same versions, 2 T4s.) In transformers
+5.20.2, `torch_chunk_gated_delta_rule` is decorated with
+`use_kernel_func_from_hub_with_fallback("chunk_gated_delta_rule", "fla")`, which binds the fla
+kernel at import time whenever fla is installed. The check installed fla first, so its "torch"
+pass also ran fla, hence the exact zero. The 1.3x came from timing the long input cold on the
+first pass: Triton compiles and autotunes for each new shape. The probe unwrapped the decorator
+to reach the real torch function, warmed up every input and took the faster of two forwards:
+
+| Input | pure torch | fla | fla speed | layer-0 DeltaNet max diff | max log-prob diff | top-1 |
+|---|---|---|---|---|---|---|
+| 26 tokens | 0.34 s | 0.40 s | 0.85x | 0.0156 | 0.122 | same |
+| 7000 tokens | 25.0 s | 31.7 s | 0.79x | 0.0078 | 0.067 | same |
+
+On a T4 the fla kernel is about 20% *slower* than the torch rule, and its output does reach the
+logits (the differences are ordinary fp16 kernel noise). On raw tensors (4096 tokens, 16 heads)
+torch takes 31 ms and fla 38 ms, with a max difference of 4.9e-4. Do not install fla for T4 runs.
+The committed 27B results never had fla installed, so they all used the torch rule.
+
+The profile of the 7000-token forward with the torch rule (`m8_profile_torch.txt` in the
+kernel output) answers where the time goes. The nf4 weight matmuls take 16.4 of 27.1 s of CUDA
+time (60%, almost all in the fp16 cuBLAS GEMM after bitsandbytes dequantizes). Elementwise
+multiplies and copies take 4.3 s and the 16 full-attention layers 1.6 s. The DeltaNet rule's own
+triangular solves and batched matmuls take about 2.6 s. A faster DeltaNet kernel cannot remove
+much more than a tenth of the forward.
 
 ## Outcomes
 
@@ -91,8 +146,8 @@ probe run has used fla, so the committed 27B results are all from the torch fall
 
 ## Unknowns
 
-- Where the rest of the forward time goes is unprofiled: candidates are nf4 dequantization,
-  the 16 full-attention layers and the sequential split over two GPUs.
+- Profiled 2026-11-11 (see Kernel speed check): the nf4 weight GEMMs take 60% of a 7000-token
+  forward. The sequential split over two GPUs was not measured separately.
 - The wall-clock budget is unmeasured. The timing stage exists to measure it before the grid.
 - `check_probe_parity` reads the config attention implementation from the top-level config,
   which may differ for a nested vision-language config. A failure there shows up in the

@@ -203,6 +203,67 @@ What the correction does change is the multiple-comparison picture: across four 
 result at p = 0.43 and another at p = 0.99 are plainly not signals, and Holm keeps the two
 real ones (p = 0.0002 and p = 0.0225) significant.
 
+## Primary comparisons and multiplicity
+
+Each experiment has one family of primary comparisons, named here before any further runs.
+Holm-Bonferroni is applied within each family at α = 0.05. All other paired tests in the
+paper, such as content dependence, all-probe accuracy and the arms against full-weight
+`uniform`, are secondary. They are reported with their seed count and without correction, and
+are not used to claim a result.
+
+| Experiment | Family (tests) | Primary comparison |
+|---|---|---|
+| §4.2 routing | 6 | hit rate of `read` against the better attention variant and against `generate`, at 0.5B, 1.5B and 7B, paired over layout seeds |
+| §5.1 consolidation | 1 | fraction of evicted facts recovered, uniform replay against the compaction gate, paired over corpora |
+| §5.2 distillation | 1 | held-out pass rate, `kl_top` against `random` at floor 0.1, paired over seeds |
+
+`python eval/multiplicity.py` recomputes every family from `paper/figures/data.json`. At the
+data of 2026-11-11:
+
+| Comparison | t (dof) | p | Holm p |
+|---|---|---|---|
+| 0.5B `read` vs `attention_late` | 24.88 (2) | 0.0016 | 0.0081 |
+| 0.5B `read` vs `generate` | 16.88 (2) | 0.0035 | 0.0105 |
+| 1.5B `read` vs `attention_late` | 0.30 (2) | 0.79 | 0.79 |
+| 1.5B `read` vs `generate` | 30.66 (2) | 0.0011 | 0.0064 |
+| 7B `read` vs `attention_late` | 12.03 (2) | 0.0068 | 0.0137 |
+| 7B `read` vs `generate` | 24.00 (2) | 0.0017 | 0.0081 |
+| uniform vs compaction | 3.91 (9) | 0.0036 | 0.0036 |
+| `kl_top` vs `random` | 0.74 (4) | 0.50 | 0.50 |
+
+Within its family, the 7B lead of `read` over `attention_late` survives Holm. The consolidation
+margin is a family of one, so it needs no correction. On the first five corpora it was the
+weakest primary result (t(4) = 3.10, p = 0.036), so five more were run on 2026-11-11 as a
+replication with the settings fixed in advance (data seeds 5 to 9, `notebooks/a1_seeds.ipynb`,
+summaries in `results/consolidation/`). Uniform won on all five again (t(4) = 2.90, p = 0.044
+on its own), giving t(9) = 3.91 over ten corpora. Bonferroni across all twenty tests in the paper is the stricter
+reading and is still stated in the limitations.
+
+## Registered before running: coverage-aware selection (U6)
+
+Registered 2026-11-11, before any run of the arm.
+
+- **Hypothesis.** The compaction gate loses to uniform replay (§5.1) because its keep decision
+  concentrates the span budget on a few facts. If that is the cause, spending the same budget
+  round-robin over fact keys, with the compactor's keep decision ranking spans inside each key,
+  recovers more evicted facts than uniform replay.
+- **Arms.** `coverage` (`sleep/loop.py --method coverage`, `sleep.coverage_by: fact`) against
+  `uniform`. Both draw as many spans per event as the compactor kept, with the §5.1 consolidation
+  settings unchanged. Recorded alongside but outside the test: `coverage` with
+  `sleep.coverage_by: turn` (contiguous turn buckets, no labels) and the compaction gate.
+- **Measure.** Fraction of evicted facts recovered (`evicted_accuracy`), as in §5.1.
+- **Design.** Five corpora (data seeds 0 to 4, the §5.1 settings), paired over corpora, two-sided
+  paired t at α = 0.05. A family of one, so no correction.
+- **Bar.** `coverage` above `uniform` at p < 0.05 supports the coverage diagnosis. No significant
+  difference means coverage alone does not explain the gap at this budget. `coverage` below
+  `uniform` at p < 0.05 means ranking by the compactor inside a key hurts.
+- **Caveat.** Fact keys are labels the compactor never sees, so a positive result is evidence for
+  the diagnosis, not a usable method. Only the turn-keyed arm could become one, and it is
+  secondary here.
+- **Smoke.** The arm and its tests are `sleep/examples.py:from_coverage` and
+  `tests/test_coverage_selection.py`. The CPU smoke is `scripts/run_all.py --methods
+  uniform,coverage --max-phases 1` on `configs/cpu_debug.yaml`.
+
 ## Seed stability
 
 Every number in the sweep is one draw of the data. `a0_precondition.ipynb` regenerates

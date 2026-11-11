@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from common.stats import T_CRIT, critical, mcnemar_exact, paired_t, verdict_for
+from common.stats import T_CRIT, critical, holm, mcnemar_exact, paired_t, t_two_sided_p, verdict_for
 
 
 def test_verdict_thresholds():
@@ -66,3 +66,25 @@ def test_mcnemar_exact_balanced_and_empty_give_one():
 def test_mcnemar_exact_rejects_negative_counts():
     with pytest.raises(ValueError):
         mcnemar_exact(-1, 3)
+
+
+@pytest.mark.parametrize("dof", sorted(T_CRIT))
+def test_t_two_sided_p_is_five_percent_at_the_critical_value(dof):
+    assert t_two_sided_p(T_CRIT[dof], dof) == pytest.approx(0.05, abs=2e-4)
+    assert t_two_sided_p(-T_CRIT[dof], dof) == pytest.approx(0.05, abs=2e-4)
+
+
+def test_t_two_sided_p_closed_forms():
+    assert t_two_sided_p(0.0, 3) == pytest.approx(1.0)
+    assert t_two_sided_p(1.0, 1) == pytest.approx(0.5)
+    assert t_two_sided_p(3.0, 2) == pytest.approx(1 - 3 / math.sqrt(11))
+    assert math.isnan(t_two_sided_p(float("nan"), 4))
+    with pytest.raises(ValueError):
+        t_two_sided_p(1.0, 0)
+
+
+def test_holm_steps_down_and_keeps_order():
+    assert holm([0.01, 0.04, 0.03]) == pytest.approx([0.03, 0.06, 0.06])
+    assert holm([0.5, 0.001]) == pytest.approx([0.5, 0.002])
+    assert holm([0.6, 0.7]) == pytest.approx([1.0, 1.0])
+    assert holm([]) == []

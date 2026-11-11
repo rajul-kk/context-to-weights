@@ -4,8 +4,8 @@ Two questions, answered separately.
 
 1. **Does the compactor's keep/drop decision carry a salience signal?** Yes, +15.85σ.
 2. **Does consolidating on that signal beat consolidating on random spans?** **No — it is
-   worse.** Across five synthetic corpora uniform replay recovers 7.6% of evicted facts and
-   compaction-supervised consolidation 1.7% (paired t(4)=3.10). HotpotQA does not separate.
+   worse.** Across ten synthetic corpora uniform replay recovers 6.5% of evicted facts and
+   compaction-supervised consolidation 2.2% (paired t(9)=3.91). HotpotQA does not separate.
 
 The second answer only became measurable after a benchmark defect was fixed. Earlier runs put
 every arm at 0.000 and were reported first as a definitive negative and then as unresolved;
@@ -109,12 +109,29 @@ scratch (`generate_synthetic --seed N`) and run through cascading, compaction an
 | 4 | 112 | 0.000 | 0.036 (4) | **0.107** (12) |
 | mean | | 0.000 | 0.017 | **0.076** |
 
+Five more corpora (data seeds 5 to 9, 2026-11-11) were run as a replication with the same
+settings, through `notebooks/a1_seeds.ipynb`. Summaries are in `results/consolidation/`:
+
+| data seed | n evicted | cascading | compaction | uniform |
+|---|---|---|---|---|
+| 5 | 103 | 0.000 | 0.049 (5) | **0.058** (6) |
+| 6 | 104 | 0.000 | 0.010 (1) | **0.019** (2) |
+| 7 | 109 | 0.000 | 0.009 (1) | **0.073** (8) |
+| 8 | 112 | 0.000 | 0.045 (5) | **0.080** (9) |
+| 9 | 111 | 0.000 | 0.018 (2) | **0.045** (5) |
+| mean | | 0.000 | 0.026 | **0.055** |
+
 **Uniform beats compaction on all five corpora, significantly.** The margins are 0.123, 0.049,
 0.009, 0.041 and 0.071: a paired t of **3.10 on 4 df**, above the 2.78 needed. Cascading
 recovers nothing on any corpus. Seed 0 was the most favourable draw and seed 2 the least; at
 three seeds the effect looked like it might be seed-0 noise (t(2)=1.81), and two more settled
 it. The gain is on evicted facts only: all-probe accuracy is level (uniform −0.021 on average,
 t(4)=−0.88), with uniform well below compaction on seed 4 (0.295 vs 0.378).
+
+**The replication agrees.** Uniform beats compaction on all five new corpora too, with a
+smaller margin (0.029 against 0.059 on the first five; t(4)=2.90, p=0.044). Over all ten
+corpora the paired t is **3.91 on 9 df** (p=0.004), against 2.26 needed. All-probe accuracy is
+again level (uniform −0.053, t(4)=−1.07). One corpus takes about 30 minutes on a T4.
 
 ## HotpotQA consolidation: no separation
 
@@ -282,8 +299,8 @@ pool.
 
 ## What survives for the writeup
 
-- **Project A's compaction gate loses to uniform**: uniform wins on all five synthetic
-  corpora (0.076 vs 0.017 mean evicted recovery, paired t(4)=3.10), and mixing dropped spans
+- **Project A's compaction gate loses to uniform**: uniform wins on all ten synthetic
+  corpora (0.065 vs 0.022 mean evicted recovery, paired t(9)=3.91), and mixing dropped spans
   back in does not close the gap. On HotpotQA (one seed, 92 evicted) nothing separates, from
   each other or from cascading. This is the headline for A.
 - **Project B's gate is neutral, not harmful, once its weighting defect is fixed**: the KL

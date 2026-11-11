@@ -43,3 +43,36 @@ def mcnemar_exact(only_a, only_b):
         return 1.0
     tail = sum(math.comb(n, i) for i in range(min(only_a, only_b) + 1)) / 2 ** n
     return min(1.0, 2 * tail)
+
+
+def t_two_sided_p(stat, dof):
+    if dof < 1 or int(dof) != dof:
+        raise ValueError("dof must be a positive integer")
+    if stat != stat:
+        return float("nan")
+    theta = math.atan(abs(stat) / math.sqrt(dof))
+    s, c2 = math.sin(theta), math.cos(theta) ** 2
+    if dof % 2:
+        term, total = 1.0, 1.0 if dof > 1 else 0.0
+        for k in range(3, dof - 1, 2):
+            term *= (k - 1) / k * c2
+            total += term
+        area = 2 / math.pi * (theta + s * math.cos(theta) * total)
+    else:
+        term, total = 1.0, 1.0
+        for k in range(2, dof - 1, 2):
+            term *= (k - 1) / k * c2
+            total += term
+        area = s * total
+    return min(1.0, max(0.0, 1.0 - area))
+
+
+def holm(pvalues):
+    order = sorted(range(len(pvalues)), key=lambda i: pvalues[i])
+    m = len(pvalues)
+    adjusted = [0.0] * m
+    running = 0.0
+    for rank, i in enumerate(order):
+        running = max(running, min(1.0, (m - rank) * pvalues[i]))
+        adjusted[i] = running
+    return adjusted

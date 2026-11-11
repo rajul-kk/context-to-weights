@@ -1,0 +1,17 @@
+{
+  "n": 288,
+  "retention_accuracy": 0.4479166666666667,
+  "mean_prompt_tokens": 1017.6736111111111,
+  "token_ce_median": 0.27629171311855316,
+  "token_ce_mean": 3.6347946267272335,
+  "probe_ce_median": 0.4306317213922739,
+  "probe_ce_mean": 2.7302820513540826,
+  "n_evicted": 112,
+  "evicted_accuracy": 0.0,
+  "evicted_ce_median": 6.351773977279663,
+  "evicted_ce_mean": 6.946724429989954,
+  "label": "cascading",
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "contexts": "/kaggle/working/artifacts/runs_synth_s8/cascading/eval_contexts.jsonl",
+  "adapter": null
+}
