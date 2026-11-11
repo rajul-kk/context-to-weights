@@ -228,13 +228,15 @@ data of 2026-11-11:
 | 1.5B `read` vs `generate` | 30.66 (2) | 0.0011 | 0.0064 |
 | 7B `read` vs `attention_late` | 12.03 (2) | 0.0068 | 0.0137 |
 | 7B `read` vs `generate` | 24.00 (2) | 0.0017 | 0.0081 |
-| uniform vs compaction | 3.10 (4) | 0.036 | 0.036 |
+| uniform vs compaction | 3.91 (9) | 0.0036 | 0.0036 |
 | `kl_top` vs `random` | 0.74 (4) | 0.50 | 0.50 |
 
 Within its family, the 7B lead of `read` over `attention_late` survives Holm. The consolidation
-margin is a family of one, so it is uncorrected at p = 0.036 on five corpora. It is the weakest
-primary result, which is why the corpora are being raised from five to ten (data seeds 5 to 9,
-`notebooks/a1_seeds.ipynb`). Bonferroni across all twenty tests in the paper is the stricter
+margin is a family of one, so it needs no correction. On the first five corpora it was the
+weakest primary result (t(4) = 3.10, p = 0.036), so five more were run on 2026-11-11 as a
+replication with the settings fixed in advance (data seeds 5 to 9, `notebooks/a1_seeds.ipynb`,
+summaries in `results/consolidation/`). Uniform won on all five again (t(4) = 2.90, p = 0.044
+on its own), giving t(9) = 3.91 over ten corpora. Bonferroni across all twenty tests in the paper is the stricter
 reading and is still stated in the limitations.
 
 ## Seed stability

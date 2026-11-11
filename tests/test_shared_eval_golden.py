@@ -75,9 +75,11 @@ def test_shared_paired_t_reproduces_the_paper_statistics():
     c = DATA["consolidation"]
     comp = rates(c["compaction_recovered"], c["n_evicted"])
     uni = rates(c["uniform_recovered"], c["n_evicted"])
-    assert f"t(4) = {shared_stats.paired_t(uni, comp)[1]:.2f}" in PAPER
+    assert f"t(9) of {shared_stats.paired_t(uni, comp)[1]:.2f}" in PAPER
+    assert f"t(4) = {shared_stats.paired_t(uni[:5], comp[:5])[1]:.2f}" in PAPER
+    assert f"t(4) = {shared_stats.paired_t(uni[5:], comp[5:])[1]:.2f}" in PAPER
     assert f"t(2) = {shared_stats.paired_t(uni[:3], comp[:3])[1]:.2f}" in PAPER
-    assert round(statistics.mean(uni), 3) == 0.076 and round(statistics.mean(comp), 3) == 0.017
+    assert round(statistics.mean(uni), 3) == 0.065 and round(statistics.mean(comp), 3) == 0.022
     d = DATA["distillation"]
     kl, rnd, un = (rates(d[k], d["n_tasks"]) for k in ("kl_top", "random", "uniform"))
     for a, b in ((kl, rnd), (rnd, un), (kl, un)):

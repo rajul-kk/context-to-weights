@@ -79,7 +79,11 @@ def training():
     slopes(axes[0], [rates(c["compaction_recovered"], c["n_evicted"]),
                      rates(c["uniform_recovered"], c["n_evicted"])],
            ["compaction-gated", "uniform"], ["#7f8c8d", "#c0392b"], "evicted facts recovered")
-    axes[0].set_title("(a) consolidation, five corpora\npaired t(4) = 3.10", fontsize=8.5)
+    diffs = [u - k for u, k in zip(rates(c["uniform_recovered"], c["n_evicted"]),
+                                   rates(c["compaction_recovered"], c["n_evicted"]))]
+    stat = statistics.mean(diffs) / (statistics.stdev(diffs) / len(diffs) ** 0.5)
+    axes[0].set_title(f"(a) consolidation, {len(diffs)} corpora\npaired t({len(diffs) - 1}) = {stat:.2f}",
+                      fontsize=8.5)
     d = DATA["distillation"]
     n = d["n_tasks"]
     slopes(axes[1], [rates(d["kl_top"], n), rates(d["random"], n), rates(d["uniform"], n)],

@@ -20,8 +20,8 @@ both sizes (+3.75σ and +4.77σ over chance), and scoring each region by the log
 scales (by 0.19 at 7B, t(2)=24) and beats late-layer attention probing at 0.5B and 7B. The
 second finding is that a strong signal can still be a poor training target. Consolidating on
 the compactor's keep decisions, which carry a +15.85σ salience signal, recovers fewer evicted
-facts than consolidating on uniformly sampled spans in all five synthetic corpora (1.7% vs
-7.6%, paired t(4)=3.10), because the compactor never keeps some fact types. Gating
+facts than consolidating on uniformly sampled spans in all ten synthetic corpora (2.2% vs
+6.5%, paired t(9)=3.91), because the compactor never keeps some fact types. Gating
 distillation on the context gap does no better than a random token subset of the same size
 (5 seeds, t(4)=0.74). Neither signal beats uncurated coverage. Along the way, matched
 controls exposed eight artifacts in our own pipeline, six of which had inflated a result in
@@ -124,7 +124,7 @@ margin in σ over chance and over that control.
 
 **Statistics.** We compare single runs with a binomial σ and multi-seed runs with a
 paired t-test across seeds, judged against the two-sided 5% critical value for k−1 degrees
-of freedom: 4.30 for three seeds and 2.78 for five. We call a difference significant only if
+of freedom: 4.30 for three seeds, 2.78 for five and 2.26 for ten. We call a difference significant only if
 it clears that value, and otherwise report it as a tie.
 
 **Content shuffle.** For routing, a hit rate alone cannot tell whether a model follows
@@ -311,7 +311,8 @@ context as a ceiling.
 
 On the first corpus, uniform replay recovers 14 of the 114 evicted facts (+4.0σ over zero)
 and compaction-gated consolidation recovers none. We then generated four more corpora from
-scratch with different seeds.
+scratch with different seeds. After the first five, we ran five more (data seeds 5 to 9) as a
+replication, with the settings and the primary comparison fixed in advance.
 
 | corpus | evicted | cascading | compaction | uniform |
 |---|---|---|---|---|
@@ -320,11 +321,17 @@ scratch with different seeds.
 | 2 | 112 | 0.000 | 0.000 | **0.009** |
 | 3 | 98 | 0.000 | 0.020 | **0.061** |
 | 4 | 112 | 0.000 | 0.036 | **0.107** |
-| mean | | 0.000 | 0.017 | **0.076** |
+| 5 | 103 | 0.000 | 0.049 | **0.058** |
+| 6 | 104 | 0.000 | 0.010 | **0.019** |
+| 7 | 109 | 0.000 | 0.009 | **0.073** |
+| 8 | 112 | 0.000 | 0.045 | **0.080** |
+| 9 | 111 | 0.000 | 0.018 | **0.045** |
+| mean | | 0.000 | 0.022 | **0.065** |
 
-*Table 4: fraction of evicted facts recovered on five independently generated corpora.*
+*Table 4: fraction of evicted facts recovered on ten independently generated corpora. Corpora
+5 to 9 are the replication.*
 
-![Left: evicted facts recovered by compaction-gated and uniform consolidation on each of five
+![Left: evicted facts recovered by compaction-gated and uniform consolidation on each of ten
 corpora; grey lines join the same corpus and black bars are means. Two corpora have
 compaction at exactly zero, so their points overlap. Right: held-out pass rate for KL-gated,
 random-subset and uniform distillation over five seeds, with floor weight
@@ -335,13 +342,16 @@ so it can see the text of facts that are later evicted, while the gated arm cann
 asymmetry is the hypothesis under test, not a flaw in the design. Compaction is cascading: a
 fact kept at one compaction can be dropped at a later one, and the gate was meant to
 consolidate such facts while they were still kept. The gated arm does recover some evicted
-facts on three of the five corpora, so this route exists. The question is whether spending a
+facts on eight of the ten corpora, so this route exists. The question is whether spending a
 fixed training budget on the compactor's selection beats spending it on no selection at all.
 
-**Uniform replay beats the compaction gate on all five corpora** (Figure 2, left), with a
-paired t(4) of 3.10 against a critical value of 2.78. The first corpus happened to be the
-most favourable; after three corpora the margin was not yet significant (t(2) = 1.81). The
-advantage is confined to evicted facts, and overall accuracy is level (t(4) = −0.88).
+**Uniform replay beats the compaction gate on all ten corpora** (Figure 2, left), with a
+paired t(9) of 3.91 (p = 0.004) against a critical value of 2.26. The first five corpora gave
+t(4) = 3.10, and the five replication corpora on their own give t(4) = 2.90 (p = 0.044), with
+a smaller mean margin (0.029 against 0.059). The first corpus happened to be the most
+favourable; after three corpora the margin was not yet significant (t(2) = 1.81). The
+advantage is confined to evicted facts. Overall accuracy is level on the first five corpora
+(t(4) = −0.88) and on the replication (uniform −0.053, t(4) = −1.07).
 
 **The cause is coverage.** Both adapters fit their training data almost perfectly, with
 validation cross-entropy of 0.0003 for ours and 0.0005 for uniform. What differs is the
@@ -515,7 +525,7 @@ and above, where declaration works.
   zero, and is too small to detect a gap of the size seen on synthetic data. The unmarked
   variant of the synthetic generator is a floor case, since facts and filler come from the
   same template bank.
-- **Seeds.** The main comparisons use five seeds (§5.1 corpora and the §5.2 gate) or three
+- **Seeds.** The main comparisons use ten corpora (§5.1), five seeds (the §5.2 gate) or three
   (§4.2). The remixing ablations, abstention, the step and learning-rate sweeps and HotpotQA
   are single runs.
 - **Scale.** Everything is at or below 7B, and we had to quantise the 7B model to 4 bits. We cannot
@@ -526,13 +536,18 @@ and above, where declaration works.
 - **Routing accuracy.** The best router is about three times chance. §4.2 compares ways of
   eliciting a routing decision; it does not produce a usable router.
 - **One model family.** Every result is on Qwen2.5.
-- **Multiple comparisons.** We report about twenty paired tests without correcting for
-  multiplicity. Under a Bonferroni correction (critical t(2) ≈ 20, t(4) ≈ 6.8) only the
-  largest margins survive: `read` over `generate` in hit rate at 1.5B and 7B, and `read` over
-  `attention_late` in hit rate at 0.5B. The 7B lead of `read` over `attention_late` and the
-  consolidation margin (t(4) = 3.10) would not. We treat those as the pre-specified main
-  comparisons of each experiment, but a reader who wants family-wise control should read
-  them as suggestive.
+- **Multiple comparisons.** Each experiment has one named family of primary comparisons,
+  corrected with Holm within the family (`docs/protocol.md`, `eval/multiplicity.py`). Routing
+  has six: `read` against the better attention variant and against `generate` in hit rate at
+  each scale. Consolidation and distillation each have one. Under Holm, every primary routing
+  comparison survives except the 1.5B tie with `attention_late`, including the 7B lead of
+  `read` over `attention_late` (Holm p = 0.014). The consolidation margin (p = 0.004) needs no
+  correction as a family of one. The other paired tests in the paper are secondary and
+  uncorrected. Under the stricter reading, a Bonferroni correction across all twenty or so
+  tests (critical t(2) ≈ 20, t(4) ≈ 6.8, t(9) ≈ 4.15), only the largest margins survive:
+  `read` over `generate` in hit rate at 1.5B and 7B, and `read` over `attention_late` in hit
+  rate at 0.5B. The 7B lead over `attention_late` would not, and the consolidation margin
+  (t(9) = 3.91) narrowly would not.
 - **Marked synthetic data.** The consolidation benchmark marks facts with a phrase the 1.5B
   compactor detects, which inflates its salience lift (§4.1). This makes the gate's loss to
   uniform replay more striking rather than less, but it means the +15.85σ figure should not
@@ -607,7 +622,7 @@ hallucination. We do not see a direct route to misuse beyond that of the underly
 | replay | reservoir, capacity 80 | n/a | n/a |
 | selection | keep ρ = 0.25, sentence spans, 8 recent turns protected | top 25% of spans, floor 0 or 0.1 | K = 8 regions |
 | data | 48 trajectories × 120 turns × 6 facts | 8 APIs, 9 demos, 12 tasks each | 96 HotpotQA trajectories × 4 probes |
-| seeds | 5 corpora | 5 | 3 layouts |
+| seeds | 10 corpora | 5 | 3 layouts |
 | precision | fp16 | fp16 | fp16; 7B nf4 |
 
 ## Appendix B. Reproducibility

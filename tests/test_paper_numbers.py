@@ -65,18 +65,26 @@ def test_consolidation_statistics():
     c = DATA["consolidation"]
     compaction = rates(c["compaction_recovered"], c["n_evicted"])
     uniform = rates(c["uniform_recovered"], c["n_evicted"])
-    assert statistics.mean(uniform) == pytest.approx(0.076, abs=0.0005)
-    assert statistics.mean(compaction) == pytest.approx(0.017, abs=0.0005)
-    assert paired_t(uniform, compaction)[1] == pytest.approx(3.10, abs=0.006)
+    assert statistics.mean(uniform) == pytest.approx(0.065, abs=0.0005)
+    assert statistics.mean(compaction) == pytest.approx(0.022, abs=0.0005)
+    assert paired_t(uniform, compaction)[1:] == (pytest.approx(3.91, abs=0.006), 9)
+    assert paired_t(uniform[:5], compaction[:5])[1] == pytest.approx(3.10, abs=0.006)
+    assert paired_t(uniform[5:], compaction[5:])[1] == pytest.approx(2.90, abs=0.006)
     assert paired_t(uniform[:3], compaction[:3])[1] == pytest.approx(1.81, abs=0.006)
-    assert "t(4) = 3.10" in PAPER and "t(2) = 1.81" in PAPER
+    for text in ("t(9) of 3.91", "t(9)=3.91", "t(4) = 3.10", "t(4) = 2.90", "t(2) = 1.81",
+                 "(2.2% vs", "6.5%, paired", "| mean | | 0.000 | 0.022 | **0.065** |"):
+        assert text in PAPER, text
+    rows = [f"| {k} | {n} | 0.000 | {c:.3f} | **{u:.3f}** |"
+            for k, n, c, u in zip(c["corpus"], c["n_evicted"], compaction, uniform)]
+    assert all(r in PAPER for r in rows)
 
 
 def test_consolidation_counts_are_consistent():
     c = DATA["consolidation"]
     for name in ("compaction_recovered", "uniform_recovered"):
         assert all(0 <= k <= n for k, n in zip(c[name], c["n_evicted"]))
-    assert c["n_evicted"] == [114, 102, 112, 98, 112]
+    assert c["n_evicted"] == [114, 102, 112, 98, 112, 103, 104, 109, 112, 111]
+    assert c["corpus"] == list(range(10))
 
 
 def test_distillation_statistics():

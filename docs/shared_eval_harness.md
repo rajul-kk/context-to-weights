@@ -204,8 +204,8 @@ files.
 
 Located in `tests/test_shared_eval_golden.py`. They read only saved numbers:
 
-1. `paper/figures/data.json` (committed): shared `paired_t` reproduces t(4) = 3.10 and
-   t(2) = 1.81 (consolidation), t(4) = 0.74, 3.90, 2.33 (distillation) and every routing t in the
+1. `paper/figures/data.json` (committed): shared `paired_t` reproduces t(9) = 3.91, t(4) = 3.10
+   (first five corpora), t(4) = 2.90 (replication) and t(2) = 1.81 (consolidation), t(4) = 0.74, 3.90, 2.33 (distillation) and every routing t in the
    paper, and returns exactly (`==`) what `common.stats.paired_t` returns on every pair. Shared
    `mean_sd` reproduces every "mean ± sd" routing cell.
 2. `results/declare/` (committed): shared `aggregate_seeds` gives exactly the `mean` and `_sd`
