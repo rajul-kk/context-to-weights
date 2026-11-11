@@ -6,12 +6,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common.io import ensure_dir, read_json, read_jsonl, write_json
 
-ORDER = ["floor", "cascading", "uniform", "reflection", "ours", "ours+mask",
+ORDER = ["floor", "cascading", "uniform", "coverage", "reflection", "ours", "ours+mask",
          "oracle-closedbook", "oracle", "full"]
 PRETTY = {
     "floor": "no context (floor)",
     "cascading": "(c) cascading, no update",
     "uniform": "(a) uniform replay",
+    "coverage": "coverage: salience within fact keys (U6)",
     "reflection": "(b) reflection",
     "ours": "ours: compaction-supervised",
     "ours+mask": "ours + mask head",
@@ -180,9 +181,10 @@ SLEEP_RUNS = {
     "ours": "sleep_compaction",
     "ours+mask": "sleep_compaction+mask",
     "uniform": "sleep_uniform",
+    "coverage": "sleep_coverage",
     "reflection": "sleep_reflection",
 }
-ADAPTERS = ("ours", "uniform", "reflection", "ours+mask")
+ADAPTERS = ("ours", "uniform", "coverage", "reflection", "ours+mask")
 DEGENERATE = ("The compactor evicted no probed fact, so `acc(evicted)` is undefined and "
               "this table cannot separate the methods. Lower `compaction.keep_frac` or "
               "lengthen trajectories and rerun.")

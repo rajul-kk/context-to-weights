@@ -239,6 +239,31 @@ summaries in `results/consolidation/`). Uniform won on all five again (t(4) = 2.
 on its own), giving t(9) = 3.91 over ten corpora. Bonferroni across all twenty tests in the paper is the stricter
 reading and is still stated in the limitations.
 
+## Registered before running: coverage-aware selection (U6)
+
+Registered 2026-11-11, before any run of the arm.
+
+- **Hypothesis.** The compaction gate loses to uniform replay (§5.1) because its keep decision
+  concentrates the span budget on a few facts. If that is the cause, spending the same budget
+  round-robin over fact keys, with the compactor's keep decision ranking spans inside each key,
+  recovers more evicted facts than uniform replay.
+- **Arms.** `coverage` (`sleep/loop.py --method coverage`, `sleep.coverage_by: fact`) against
+  `uniform`. Both draw as many spans per event as the compactor kept, with the §5.1 consolidation
+  settings unchanged. Recorded alongside but outside the test: `coverage` with
+  `sleep.coverage_by: turn` (contiguous turn buckets, no labels) and the compaction gate.
+- **Measure.** Fraction of evicted facts recovered (`evicted_accuracy`), as in §5.1.
+- **Design.** Five corpora (data seeds 0 to 4, the §5.1 settings), paired over corpora, two-sided
+  paired t at α = 0.05. A family of one, so no correction.
+- **Bar.** `coverage` above `uniform` at p < 0.05 supports the coverage diagnosis. No significant
+  difference means coverage alone does not explain the gap at this budget. `coverage` below
+  `uniform` at p < 0.05 means ranking by the compactor inside a key hurts.
+- **Caveat.** Fact keys are labels the compactor never sees, so a positive result is evidence for
+  the diagnosis, not a usable method. Only the turn-keyed arm could become one, and it is
+  secondary here.
+- **Smoke.** The arm and its tests are `sleep/examples.py:from_coverage` and
+  `tests/test_coverage_selection.py`. The CPU smoke is `scripts/run_all.py --methods
+  uniform,coverage --max-phases 1` on `configs/cpu_debug.yaml`.
+
 ## Seed stability
 
 Every number in the sweep is one draw of the data. `a0_precondition.ipynb` regenerates

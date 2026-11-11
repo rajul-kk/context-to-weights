@@ -108,6 +108,51 @@ def from_uniform(event, rng, n=None):
     ]
 
 
+COVERAGE_KEYS = ("fact", "turn")
+
+
+def _coverage_groups(spans, by, n):
+    if by == "fact":
+        groups = {}
+        for s in spans:
+            groups.setdefault(s.carries_fact, []).append(s)
+        return list(groups.values())
+    if by == "turn":
+        order = sorted(spans, key=lambda s: s.turn_idx)
+        n = max(1, min(n, len(order)))
+        return [order[len(order) * i // n: len(order) * (i + 1) // n] for i in range(n)]
+    raise ValueError(f"unknown coverage key {by!r}, expected one of {COVERAGE_KEYS}")
+
+
+def from_coverage(event, rng, by="fact", n=None):
+    spans = list(event.spans)
+    if n is None:
+        n = sum(1 for s in spans if s.kept)
+    n = min(n, len(spans))
+    groups = []
+    for g in _coverage_groups(spans, by, n):
+        jitter = {id(s): rng.random() for s in g}
+        groups.append(sorted(g, key=lambda s: (not s.kept, -(s.score or 0.0), jitter[id(s)])))
+    rng.shuffle(groups)
+    picks = []
+    while len(picks) < n:
+        for g in groups:
+            if g and len(picks) < n:
+                picks.append(g.pop(0))
+        groups = [g for g in groups if g]
+    return [
+        SleepExample(
+            prompt=CONSOLIDATION_CUE.format(traj_id=event.traj_id),
+            target=s.text,
+            kept=True,
+            source=f"coverage_{by}",
+            traj_id=event.traj_id,
+            fact_key=s.carries_fact,
+        )
+        for s in picks
+    ]
+
+
 def from_reflection(event, reflection_text):
     return [
         SleepExample(
