@@ -68,6 +68,35 @@ exact McNemar p = 0.678; hit difference -0.031, 95% bootstrap CI [-0.135, +0.062
 are only in older kernel versions, which the Kaggle CLI cannot download, so the three-seed
 interval waits for a manual download from the kernel's version history.
 
+## Completing seed 2 (layouts 96 to 383)
+
+Seed 2 is the one whose per-probe records are committed, so it is the seed to complete. Three
+sessions of 96 layouts each, at about 3.5 hours apiece, cover layouts 96 to 383. In
+`notebooks/c3_qwen38_27b.ipynb`, set `SEEDS = [2]`, `TAKE = 96` and `OFFSET` to 96, 192 or 288
+(one per session). The grid cell then runs:
+
+```
+python declare/run.py --config configs/kaggle_declare_27b.yaml --modes read generate \
+  --out $RUNS/Qwen3.8-27B_o96_96_s2 --gold-ref results/declare/gold/gold384_qwen38_s2.json \
+  --take 96 --offset 96 --set model.loader=$LOADER seed=2
+# the same with --offset 192 --out $RUNS/Qwen3.8-27B_o192_96_s2
+# and with      --offset 288 --out $RUNS/Qwen3.8-27B_o288_96_s2
+```
+
+`--offset` is applied after the gold check, like `--take`, so every session checks the full
+384-layout distribution against the same gold reference before cutting its window. After the
+three downloads, join them with the committed first window:
+
+```
+python declare/merge_windows.py --out results/declare_27b/Qwen3.8-27B_384_s2 \
+  results/declare_27b/Qwen3.8-27B_96_s2 Qwen3.8-27B_o96_96_s2 Qwen3.8-27B_o192_96_s2 Qwen3.8-27B_o288_96_s2
+```
+
+The merge refuses windows that leave a gap, overlap, or differ in model, seed or settings, and it
+recomputes the summary from the joined records. On the first window alone, it reproduces the
+committed summary to within float rounding. These runs use the owner's Kaggle GPU budget and
+have not been launched.
+
 ## Kernel speed check
 
 `notebooks/c3_fast_kernel_check.ipynb` loads the model once and times the same inputs with the

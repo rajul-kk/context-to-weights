@@ -128,8 +128,12 @@ def parse_args(argv=None):
     ap.add_argument("--modes", nargs="*", default=["generate", "read"])
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--take", type=int, default=0,
-                    help="keep only the first N finished layouts, an exact prefix of the full "
-                         "run, applied after the gold-distribution checks")
+                    help="keep only the first N finished layouts (after --offset), an exact slice "
+                         "of the full run, applied after the gold-distribution checks")
+    ap.add_argument("--offset", type=int, default=0,
+                    help="skip the first N finished layouts, applied with --take after the "
+                         "gold-distribution checks, so sessions can cover consecutive slices of "
+                         "one seed's layouts")
     ap.add_argument("--no-shuffle-test", action="store_true")
     ap.add_argument("--no-balance", action="store_true")
     ap.add_argument("--out", default=None)
@@ -226,12 +230,20 @@ def check_gold_ref(got, ref):
     print(f"gold distribution matches {ref}; layouts are comparable")
 
 
-def take_prefix(layouts, take):
-    if not take:
+def take_window(layouts, offset, take):
+    if offset < 0 or take < 0:
+        raise SystemExit(f"--offset ({offset}) and --take ({take}) must not be negative")
+    if offset >= len(layouts) and offset:
+        raise SystemExit(f"--offset {offset} leaves no layouts (there are {len(layouts)})")
+    if not offset and not take:
         return layouts
-    layouts = layouts[:take]
-    print(f"taking the first {len(layouts)} layouts")
-    return layouts
+    end = offset + take if take else len(layouts)
+    window = layouts[offset:end]
+    if offset:
+        print(f"taking layouts {offset} to {offset + len(window) - 1} ({len(window)} layouts)")
+    else:
+        print(f"taking the first {len(window)} layouts")
+    return window
 
 
 def require_window(model, tokenizer, layouts):
@@ -253,7 +265,7 @@ SUMMARY_KEYS = ("hit_rate", "random_control", "best_constant_control",
                 "modal_share", "unparsed_rate", "mean_attended_frac")
 
 
-def run_mode(mode, model, tokenizer, cfg, plan, layouts, n_regions, out_dir):
+def run_mode(mode, model, tokenizer, cfg, plan, layouts, n_regions, out_dir, offset=0):
     elicitor = build_elicitor(mode, model, tokenizer, cfg)
     records = evaluate(elicitor, layouts)
     s = summarize(records, mode, n_regions)
@@ -262,6 +274,7 @@ def run_mode(mode, model, tokenizer, cfg, plan, layouts, n_regions, out_dir):
     s["kv_bits"] = plan.kv_bits
     s["kv_scheme"] = plan.recorded_scheme
     s["elicitor_unparsed"] = elicitor.unparsed
+    s["layout_offset"] = offset
     write_jsonl(out_dir / f"{mode}.records.jsonl", records)
     write_json(out_dir / f"{mode}.summary.json", s)
     return s
@@ -318,11 +331,12 @@ def main(argv=None):
         check_expected_gold(got, args.expect_gold)
     if args.gold_ref:
         check_gold_ref(got, args.gold_ref)
-    layouts = take_prefix(layouts, args.take)
+    layouts = take_window(layouts, args.offset, args.take)
     require_window(model, tokenizer, layouts)
 
     for mode in args.modes:
-        s = run_mode(mode, model, tokenizer, cfg, plan, layouts, n_regions, out_dir)
+        s = run_mode(mode, model, tokenizer, cfg, plan, layouts, n_regions, out_dir,
+                     offset=args.offset)
         print_mode_summary(mode, s, len(layouts), n_regions)
     merge_summaries(out_dir)
 

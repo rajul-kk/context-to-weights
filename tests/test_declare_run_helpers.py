@@ -31,13 +31,29 @@ def test_gold_ref_is_written_once_then_checked(tmp_path):
         run.check_gold_ref({"0": 2, "3": 1}, ref)
 
 
-def test_take_prefix_keeps_an_exact_prefix():
+def test_take_window_keeps_an_exact_prefix():
     layouts = _layouts(range(5))
-    assert run.take_prefix(layouts, 0) is layouts
-    assert run.take_prefix(layouts, 3) == layouts[:3]
+    assert run.take_window(layouts, 0, 0) is layouts
+    assert run.take_window(layouts, 0, 3) == layouts[:3]
+
+
+def test_offset_and_take_tile_the_layouts():
+    layouts = _layouts(range(384))
+    windows = [run.take_window(layouts, off, 96) for off in (0, 96, 192, 288)]
+    assert [w[0]["gold"] for w in windows] == [0, 96, 192, 288]
+    assert sum(windows, []) == layouts
+    assert run.take_window(layouts, 300, 0) == layouts[300:]
+    assert run.take_window(layouts, 380, 96) == layouts[380:]
+
+
+def test_offset_past_the_end_or_negative_is_refused():
+    with pytest.raises(SystemExit, match="leaves no layouts"):
+        run.take_window(_layouts(range(5)), 5, 0)
+    with pytest.raises(SystemExit, match="must not be negative"):
+        run.take_window(_layouts(range(5)), -1, 2)
 
 
 def test_parse_args_defaults():
     args = run.parse_args([])
     assert args.modes == ["generate", "read"]
-    assert (args.limit, args.take, args.kv_bits, args.kv_scheme) == (0, 0, 0, "token")
+    assert (args.limit, args.take, args.offset, args.kv_bits, args.kv_scheme) == (0, 0, 0, 0, "token")
