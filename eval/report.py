@@ -184,7 +184,7 @@ SLEEP_RUNS = {
     "coverage": "sleep_coverage",
     "reflection": "sleep_reflection",
 }
-ADAPTERS = ("ours", "uniform", "coverage", "reflection", "ours+mask")
+ADAPTERS = tuple(SLEEP_RUNS)
 DEGENERATE = ("The compactor evicted no probed fact, so `acc(evicted)` is undefined and "
               "this table cannot separate the methods. Lower `compaction.keep_frac` or "
               "lengthen trajectories and rerun.")
@@ -250,8 +250,11 @@ def cost_section(costs):
 def _oracle_reading(orc, casc):
     oe = orc.get("evicted_accuracy", 0.0)
     ce = casc.get("evicted_accuracy", 0.0)
+    if _is_nan(oe) or _is_nan(ce):
+        return [f"**The oracle control cannot be read** ({oe:.3f} vs {ce:.3f} on evicted "
+                f"probes): one side scored no evicted probe.", ""]
     se = _se(oe, orc.get("n_evicted")) + _se(ce, casc.get("n_evicted"))
-    if _is_nan(oe) or oe - ce <= max(se, 0.02):
+    if oe - ce <= max(se, 0.02):
         return [f"**The oracle control does not clear the baseline** ({oe:.3f} vs {ce:.3f} "
                 f"on evicted probes). Perfect fact selection plus 20 augmented surface "
                 f"forms per fact still recovers nothing, so this configuration cannot "
@@ -264,12 +267,14 @@ def _oracle_reading(orc, casc):
 
 
 def _ours_vs_uniform(ours, uni):
-    d = ours.get("evicted_accuracy", 0.0) - uni.get("evicted_accuracy", 0.0)
-    se = (_se(ours.get("evicted_accuracy"), ours.get("n_evicted"))
-          + _se(uni.get("evicted_accuracy"), uni.get("n_evicted")))
+    oe, ue = ours.get("evicted_accuracy", 0.0), uni.get("evicted_accuracy", 0.0)
+    if _is_nan(oe) or _is_nan(ue):
+        return [f"ours vs uniform on evicted probes: {oe:.3f} vs {ue:.3f} - **not comparable**, "
+                f"one side scored no evicted probe.", ""]
+    d = oe - ue
+    se = _se(oe, ours.get("n_evicted")) + _se(ue, uni.get("n_evicted"))
     verdict = "within noise" if abs(d) < se else ("ours ahead" if d > 0 else "uniform ahead")
-    return [f"ours vs uniform on evicted probes: {ours.get('evicted_accuracy', 0.0):.3f} "
-            f"vs {uni.get('evicted_accuracy', 0.0):.3f}, difference {d:+.3f} "
+    return [f"ours vs uniform on evicted probes: {oe:.3f} vs {ue:.3f}, difference {d:+.3f} "
             f"(combined SE {se:.3f}) - **{verdict}**.", ""]
 
 
@@ -279,9 +284,10 @@ def reading_section(rows):
     if not (casc and adapters):
         return []
     base = casc.get("retention_accuracy", 0.0)
-    best = max(adapters, key=lambda r: r.get("retention_accuracy", 0.0))
-    lines = ["## Reading", ""]
-    if best.get("retention_accuracy", 0.0) < base:
+    scored = [r for r in adapters if not _is_nan(r.get("retention_accuracy"))]
+    best = max(scored, key=lambda r: r["retention_accuracy"]) if scored else None
+    lines = []
+    if best is not None and not _is_nan(base) and best["retention_accuracy"] < base:
         lines += [f"No consolidated adapter beats the no-adapter baseline "
                   f"({base:.3f} all-probe accuracy). The best adapter is "
                   f"{PRETTY.get(best['label'], best['label'])} at "
@@ -293,7 +299,7 @@ def reading_section(rows):
     ours, uni = _row(adapters, "ours"), _row(adapters, "uniform")
     if ours and uni:
         lines += _ours_vs_uniform(ours, uni)
-    return lines
+    return ["## Reading", ""] + lines if lines else []
 
 
 def abstention_section(abst):
@@ -341,7 +347,7 @@ def scores_section(scores):
                       f"the adapter lowers loss on the gold answer and on its distractors alike, "
                       f"having learned the answer vocabulary without the binding.", ""]
     casc = _row(scores, "cascading")
-    if casc is not None:
+    if casc is not None and len(scores) > 1 and not _is_nan(casc.get("mc_accuracy")):
         worse = [r for r in scores if r["label"] != "cascading"
                  and not _is_nan(r.get("mc_accuracy"))
                  and r["mc_accuracy"] < casc.get("mc_accuracy", 0.0)]

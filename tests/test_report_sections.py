@@ -41,3 +41,41 @@ def test_empty_inputs_give_empty_sections():
     assert report.abstention_section([]) == []
     assert report.scores_section([]) == []
     assert report.header_section([], "no/such/run/root") == []
+
+
+NAN = float("nan")
+
+
+def test_oracle_reading_with_a_nan_side_is_not_read_as_clearing():
+    assert report._oracle_reading(_row("oracle", ev=0.6), _row("cascading", ev=NAN))[0].startswith(
+        "**The oracle control cannot be read**")
+    assert report._oracle_reading(_row("oracle", ev=NAN), _row("cascading", ev=0.1))[0].startswith(
+        "**The oracle control cannot be read**")
+
+
+def test_ours_vs_uniform_with_a_nan_side_has_no_winner():
+    for ours, uni in ((NAN, 0.2), (0.2, NAN)):
+        line = report._ours_vs_uniform(_row("ours", ev=ours), _row("uniform", ev=uni))[0]
+        assert "**not comparable**" in line and "ahead" not in line
+
+
+def test_reading_skips_nan_adapters_when_picking_the_best():
+    rows = [_row("cascading", acc=0.5), _row("ours", acc=NAN), _row("uniform", acc=0.4)]
+    text = "\n".join(report.reading_section(rows))
+    assert "The best adapter is (a) uniform replay at 0.400" in text
+
+
+def test_reading_without_anything_to_say_is_empty():
+    rows = [_row("cascading", acc=0.3), _row("reflection", acc=0.4)]
+    assert report.reading_section(rows) == []
+
+
+def test_scores_with_only_cascading_do_not_claim_every_adapter_degrades():
+    casc = {"label": "cascading", "mc_accuracy": 0.5, "evicted_sigma_over_chance": NAN}
+    assert not any("Every adapter" in line for line in report.scores_section([casc]))
+    worse = dict(casc, label="ours", mc_accuracy=0.4)
+    assert any("Every adapter" in line for line in report.scores_section([casc, worse]))
+
+
+def test_adapters_are_the_sleep_runs():
+    assert set(report.ADAPTERS) == set(report.SLEEP_RUNS)
