@@ -61,8 +61,12 @@ Probe-level test (2026-11-10). An exact McNemar test on the pooled discordant co
 `eval/declare_report.py` now reports an exact McNemar test per seed and a paired bootstrap
 interval over probes (hit difference averaged over seeds per probe first) whenever the
 `read.records.jsonl` and `generate.records.jsonl` files sit beside the summaries. Those per-probe
-files were written on Kaggle but not committed, so the per-seed tests and the interval are
-pending until they are downloaded into `results/declare_27b/`.
+files were written on Kaggle but not committed. Seed 2 (2026-11-11, from the latest version of
+the `myrios-c3-qwen38-27b` kernel, summaries byte-identical to the committed ones) is now in
+`results/declare_27b/Qwen3.8-27B_96_s2/`: `read` alone right on 10 probes, `generate` alone on 13,
+exact McNemar p = 0.678; hit difference -0.031, 95% bootstrap CI [-0.135, +0.062]. Seeds 0 and 1
+are only in older kernel versions, which the Kaggle CLI cannot download, so the three-seed
+interval waits for a manual download from the kernel's version history.
 
 ## Kernel speed check
 
