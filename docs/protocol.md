@@ -203,6 +203,40 @@ What the correction does change is the multiple-comparison picture: across four 
 result at p = 0.43 and another at p = 0.99 are plainly not signals, and Holm keeps the two
 real ones (p = 0.0002 and p = 0.0225) significant.
 
+## Primary comparisons and multiplicity
+
+Each experiment has one family of primary comparisons, named here before any further runs.
+Holm-Bonferroni is applied within each family at α = 0.05. All other paired tests in the
+paper, such as content dependence, all-probe accuracy and the arms against full-weight
+`uniform`, are secondary. They are reported with their seed count and without correction, and
+are not used to claim a result.
+
+| Experiment | Family (tests) | Primary comparison |
+|---|---|---|
+| §4.2 routing | 6 | hit rate of `read` against the better attention variant and against `generate`, at 0.5B, 1.5B and 7B, paired over layout seeds |
+| §5.1 consolidation | 1 | fraction of evicted facts recovered, uniform replay against the compaction gate, paired over corpora |
+| §5.2 distillation | 1 | held-out pass rate, `kl_top` against `random` at floor 0.1, paired over seeds |
+
+`python eval/multiplicity.py` recomputes every family from `paper/figures/data.json`. At the
+data of 2026-11-11:
+
+| Comparison | t (dof) | p | Holm p |
+|---|---|---|---|
+| 0.5B `read` vs `attention_late` | 24.88 (2) | 0.0016 | 0.0081 |
+| 0.5B `read` vs `generate` | 16.88 (2) | 0.0035 | 0.0105 |
+| 1.5B `read` vs `attention_late` | 0.30 (2) | 0.79 | 0.79 |
+| 1.5B `read` vs `generate` | 30.66 (2) | 0.0011 | 0.0064 |
+| 7B `read` vs `attention_late` | 12.03 (2) | 0.0068 | 0.0137 |
+| 7B `read` vs `generate` | 24.00 (2) | 0.0017 | 0.0081 |
+| uniform vs compaction | 3.10 (4) | 0.036 | 0.036 |
+| `kl_top` vs `random` | 0.74 (4) | 0.50 | 0.50 |
+
+Within its family, the 7B lead of `read` over `attention_late` survives Holm. The consolidation
+margin is a family of one, so it is uncorrected at p = 0.036 on five corpora. It is the weakest
+primary result, which is why the corpora are being raised from five to ten (data seeds 5 to 9,
+`notebooks/a1_seeds.ipynb`). Bonferroni across all twenty tests in the paper is the stricter
+reading and is still stated in the limitations.
+
 ## Seed stability
 
 Every number in the sweep is one draw of the data. `a0_precondition.ipynb` regenerates
