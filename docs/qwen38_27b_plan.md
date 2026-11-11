@@ -79,11 +79,31 @@ swapped in for the module-level chunk rule in transformers 5.20.2. Both ran on 2
 | 26 tokens | 0.37 s | 0.37 s | 1.0x | 0.0000 | same |
 | 7000 tokens | 39.1 s | 29.2 s | 1.3x | 0.0000 | same |
 
-The kernel runs on a T4 and was called by all 48 layers, but it removes only about a quarter of
-the forward time. The rest is not the DeltaNet rule. The zero log-prob difference is not
-explained: two different kernels in fp16 would normally differ in the last digits, so the
-parity result should be rechecked with raw logits before the kernel is used in a grid run. No
-probe run has used fla, so the committed 27B results are all from the torch fallback.
+**This check compared fla with itself, and the 1.3x is not a speed-up.** (Recheck on
+2026-11-11, `notebooks/c3_fast_kernel_probe.ipynb`, same versions, 2 T4s.) In transformers
+5.20.2, `torch_chunk_gated_delta_rule` is decorated with
+`use_kernel_func_from_hub_with_fallback("chunk_gated_delta_rule", "fla")`, which binds the fla
+kernel at import time whenever fla is installed. The check installed fla first, so its "torch"
+pass also ran fla, hence the exact zero. The 1.3x came from timing the long input cold on the
+first pass: Triton compiles and autotunes for each new shape. The probe unwrapped the decorator
+to reach the real torch function, warmed up every input and took the faster of two forwards:
+
+| Input | pure torch | fla | fla speed | layer-0 DeltaNet max diff | max log-prob diff | top-1 |
+|---|---|---|---|---|---|---|
+| 26 tokens | 0.34 s | 0.40 s | 0.85x | 0.0156 | 0.122 | same |
+| 7000 tokens | 25.0 s | 31.7 s | 0.79x | 0.0078 | 0.067 | same |
+
+On a T4 the fla kernel is about 20% *slower* than the torch rule, and its output does reach the
+logits (the differences are ordinary fp16 kernel noise). On raw tensors (4096 tokens, 16 heads)
+torch takes 31 ms and fla 38 ms, with a max difference of 4.9e-4. Do not install fla for T4 runs.
+The committed 27B results never had fla installed, so they all used the torch rule.
+
+The profile of the 7000-token forward with the torch rule (`m8_profile_torch.txt` in the
+kernel output) answers where the time goes. The nf4 weight matmuls take 16.4 of 27.1 s of CUDA
+time (60%, almost all in the fp16 cuBLAS GEMM after bitsandbytes dequantizes). Elementwise
+multiplies and copies take 4.3 s and the 16 full-attention layers 1.6 s. The DeltaNet rule's own
+triangular solves and batched matmuls take about 2.6 s. A faster DeltaNet kernel cannot remove
+much more than a tenth of the forward.
 
 ## Outcomes
 
@@ -95,8 +115,8 @@ probe run has used fla, so the committed 27B results are all from the torch fall
 
 ## Unknowns
 
-- Where the rest of the forward time goes is unprofiled: candidates are nf4 dequantization,
-  the 16 full-attention layers and the sequential split over two GPUs.
+- Profiled 2026-11-11 (see Kernel speed check): the nf4 weight GEMMs take 60% of a 7000-token
+  forward. The sequential split over two GPUs was not measured separately.
 - The wall-clock budget is unmeasured. The timing stage exists to measure it before the grid.
 - `check_probe_parity` reads the config attention implementation from the top-level config,
   which may differ for a nested vision-language config. A failure there shows up in the
