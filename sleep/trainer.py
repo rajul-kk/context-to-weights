@@ -15,8 +15,8 @@ class SpanDataset(Dataset):
         for ex in examples:
             p_ids = tokenizer(ex.prompt, add_special_tokens=False)["input_ids"]
             t_ids = tokenizer(ex.target + tokenizer.eos_token, add_special_tokens=False)["input_ids"]
-            ids = (p_ids + t_ids)[:max_length]
-            n_target = max(1, len(ids) - len(p_ids))
+            ids = (p_ids + t_ids)[-max_length:]
+            n_target = min(len(t_ids), len(ids))
             labels = [IGNORE] * (len(ids) - n_target) + ids[-n_target:]
             if not ex.kept:
                 labels = [IGNORE] * len(ids)
@@ -84,17 +84,18 @@ def load_or_attach(model, cfg, adapter_dir=None):
     return attach_lora(model, cfg)
 
 
-def per_token_ce(logits, labels):
-    shift_logits = logits[:, :-1].float()
-    shift_labels = labels[:, 1:]
-    losses = nn.functional.cross_entropy(
-        shift_logits.reshape(-1, shift_logits.size(-1)),
-        shift_labels.reshape(-1),
-        reduction="none",
-        ignore_index=IGNORE,
-    )
-    valid = (shift_labels.reshape(-1) != IGNORE)
-    return losses[valid]
+def target_forward(model, batch, output_hidden_states=False):
+    labels = batch["labels"]
+    pos = (labels[:, 1:] != IGNORE).any(0).nonzero().squeeze(-1)
+    out = model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"],
+                logits_to_keep=pos if pos.numel() else 1,
+                output_hidden_states=output_hidden_states)
+    if not pos.numel():
+        return out, out.logits.new_zeros(0, dtype=torch.float32)
+    target = labels[:, pos + 1].reshape(-1)
+    losses = nn.functional.cross_entropy(out.logits.float().reshape(-1, out.logits.size(-1)),
+                                         target, reduction="none", ignore_index=IGNORE)
+    return out, losses[target != IGNORE]
 
 
 @torch.no_grad()
@@ -103,8 +104,7 @@ def validate(model, loader):
     all_ce = []
     for batch in loader:
         batch = _to_device(batch, model)
-        out = model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"])
-        ce = per_token_ce(out.logits, batch["labels"])
+        _, ce = target_forward(model, batch)
         all_ce.extend(ce.tolist())
     model.train()
     if not all_ce:
@@ -160,13 +160,8 @@ def train_sleep_phase(model, tokenizer, cfg, train_examples, val_examples=None,
             if step >= sc["steps"]:
                 break
             batch = _to_device(batch, model)
-            out = model(
-                input_ids=batch["input_ids"],
-                attention_mask=batch["attention_mask"],
-                labels=batch["labels"],
-                output_hidden_states=mask_head is not None,
-            )
-            loss = out.loss if out.loss is not None else torch.zeros((), device=batch["input_ids"].device)
+            out, ce = target_forward(model, batch, output_hidden_states=mask_head is not None)
+            loss = ce.mean() if ce.numel() else out.logits.sum() * 0.0
             aux = torch.zeros((), device=loss.device)
             if mask_head is not None:
                 hidden = out.hidden_states[-1]
