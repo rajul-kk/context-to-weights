@@ -264,6 +264,44 @@ Registered 2026-11-11, before any run of the arm.
   `tests/test_coverage_selection.py`. The CPU smoke is `scripts/run_all.py --methods
   uniform,coverage --max-phases 1` on `configs/cpu_debug.yaml`.
 
+## Registered before running: real-corpus consolidation on LoCoMo (M5)
+
+Registered 2026-11-13, before any run on LoCoMo.
+
+- **Hypothesis.** The §5.1 result, that uniform replay recovers more evicted facts than
+  compaction-supervised consolidation, holds on natural multi-session dialogue.
+- **Corpus.** LoCoMo, the file `locomo10.json` from github.com/snap-research/locomo (CC BY-NC 4.0, not
+  redistributed here; sha256 `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`):
+  10 conversations of 369 to 689 turns. Probes are the QA items whose answer has at least 4
+  characters and appears verbatim (case-insensitive) in some utterance: 517 of 1,986, between 19
+  and 71 per conversation. Adversarial items have no answer; yes/no and one-digit answers are left
+  out because they match almost any context. No cap per conversation
+  (`data/load_locomo.py --verbatim-only --min-answer-chars 4 --max-probes 100000`).
+- **Folds.** Two folds by conversation index parity (`--n-folds 2 --fold k`). The eval fold is
+  consolidated on its own event stream, as in §5.1; the other fold supplies the validation events.
+  Every conversation is evaluated once.
+- **Precondition.** Before any sleep run, `eval/span_report.py` on each fold's eval events with the
+  Qwen2.5-0.5B compactor (the HotpotQA choice; Qwen2.5-1.5B recorded beside it). If the salience
+  lift is at or below 1.0 on both folds, M5 stops with the verdict "gate not cleared": the
+  compaction arm would then have nothing to learn that uniform does not.
+- **Arms.** `compaction` (ours) and `uniform`, target Qwen2.5-0.5B, `configs/kaggle_locomo.yaml`
+  (the HotpotQA settings: context budget 3,072 tokens, model length 2,048). `cascading` with no
+  adapter is the floor.
+- **Design.** Five training seeds (0 to 4) per fold, so ten paired runs. Measure: fraction of
+  evicted probes answered (`evicted_accuracy`), as in §5.1.
+- **Test.** Two-sided paired t over the ten (fold, seed) runs, α = 0.05, a family of one. Secondary,
+  not in the test: a paired bootstrap over probes of the hit difference, averaged over seeds.
+- **Bar.** `uniform` above `compaction` at p < 0.05: the synthetic result replicates. `compaction`
+  above `uniform` at p < 0.05: it is contradicted. Otherwise: no separation. Whatever the arms'
+  difference, if neither arm beats `cascading` on evicted accuracy (paired t over the ten runs,
+  p < 0.05), the report says consolidation recovers nothing beyond the floor on LoCoMo and the
+  comparison is uninformative, as on HotpotQA.
+- **Budget.** Unknown: LoCoMo conversations are several times longer than a synthetic trajectory.
+  The first (fold, seed) is timed and the notebook prints the projection. If it exceeds 15 GPU
+  hours, the run stops after fold 0 and the owner decides.
+- **Notebook.** `notebooks/m5_locomo.ipynb`. U4 (abstention) reuses this corpus and these folds
+  and is registered separately.
+
 ## Seed stability
 
 Every number in the sweep is one draw of the data. `a0_precondition.ipynb` regenerates
