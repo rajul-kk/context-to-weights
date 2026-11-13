@@ -1,0 +1,86 @@
+{
+ "source": "Kaggle rajulkabir/myrios-m5-u4-locomo v1, notebook pinned to c40dfbd; eval/span_report.py on each fold eval events; per-fact keep rates omitted (LoCoMo answer strings, CC BY-NC 4.0)",
+ "gate_cleared": false,
+ "folds": {
+  "0": {
+   "0.5B": {
+    "n_events": 42,
+    "n_spans": 9305,
+    "keep_rate": 0.25147770016120363,
+    "mean_compaction_ratio": 0.6510294736409491,
+    "fact_spans": 478,
+    "fact_keep_rate": 0.12761506276150628,
+    "filler_spans": 8827,
+    "filler_keep_rate": 0.258185113855217,
+    "salience_lift": 0.49427738437727764,
+    "positional_control": {
+     "fact_keep_rate": 0.06485355648535565,
+     "filler_keep_rate": 0.2615837770476946,
+     "salience_lift": 0.2479265236449694
+    },
+    "control_margin_sigma": 3.205140849494649,
+    "chance_margin_sigma": -6.241689492473927,
+    "verdict": "below control"
+   },
+   "1.5B": {
+    "n_events": 47,
+    "n_spans": 9515,
+    "keep_rate": 0.252128218602207,
+    "mean_compaction_ratio": 0.5794214151487231,
+    "fact_spans": 489,
+    "fact_keep_rate": 0.20040899795501022,
+    "filler_spans": 9026,
+    "filler_keep_rate": 0.25493020163970753,
+    "salience_lift": 0.7861328185753681,
+    "positional_control": {
+     "fact_keep_rate": 0.06339468302658487,
+     "filler_keep_rate": 0.26235320186128963,
+     "salience_lift": 0.2416386862322445
+    },
+    "control_margin_sigma": 7.068782548308021,
+    "chance_margin_sigma": -2.6337957977121227,
+    "verdict": "below control"
+   }
+  },
+  "1": {
+   "0.5B": {
+    "n_events": 42,
+    "n_spans": 8995,
+    "keep_rate": 0.25136186770428015,
+    "mean_compaction_ratio": 0.6365902307693069,
+    "fact_spans": 476,
+    "fact_keep_rate": 0.11554621848739496,
+    "filler_spans": 8519,
+    "filler_keep_rate": 0.25895058105411434,
+    "salience_lift": 0.4462095354914405,
+    "positional_control": {
+     "fact_keep_rate": 0.046218487394957986,
+     "filler_keep_rate": 0.26282427514966544,
+     "salience_lift": 0.17585319076268294
+    },
+    "control_margin_sigma": 3.5210424643688807,
+    "chance_margin_sigma": -6.830737889257918,
+    "verdict": "below control"
+   },
+   "1.5B": {
+    "n_events": 46,
+    "n_spans": 9120,
+    "keep_rate": 0.2515350877192982,
+    "mean_compaction_ratio": 0.5801865292873059,
+    "fact_spans": 489,
+    "fact_keep_rate": 0.16359918200409,
+    "filler_spans": 8631,
+    "filler_keep_rate": 0.25651720542231493,
+    "salience_lift": 0.637770794885863,
+    "positional_control": {
+     "fact_keep_rate": 0.04703476482617587,
+     "filler_keep_rate": 0.26312130691692737,
+     "salience_lift": 0.17875695958376217
+    },
+    "control_margin_sigma": 6.00083513177429,
+    "chance_margin_sigma": -4.481626507323386,
+    "verdict": "below control"
+   }
+  }
+ }
+}

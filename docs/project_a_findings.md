@@ -154,6 +154,26 @@ sign as on synthetic. The full-context arm evicts almost nothing (5 probes), so 
 column is not a ceiling. HotpotQA neither replicates nor contradicts the synthetic result; at
 92 evicted probes and a non-zero floor it cannot resolve a gap of the size seen on synthetic.
 
+## LoCoMo (M5): gate not cleared
+
+Registered in `docs/protocol.md` before running: on LoCoMo the compaction arm is trained only if
+the Qwen2.5-0.5B compactor keeps answer spans more often than filler (salience lift above 1.0) on
+at least one fold. It does not, on either fold, and the 1.5B compactor recorded beside it does
+not either. `results/m5_locomo/gate.json`, from `eval/span_report.py` on each fold's eval events.
+
+| fold | compactor | fact keep | filler keep | salience lift | vs chance | positional control lift |
+|---|---|---|---|---|---|---|
+| 0 | 0.5B | 0.128 | 0.258 | **0.49** | −6.24σ | 0.25 |
+| 0 | 1.5B | 0.200 | 0.255 | 0.79 | −2.63σ | 0.24 |
+| 1 | 0.5B | 0.116 | 0.259 | **0.45** | −6.83σ | 0.18 |
+| 1 | 1.5B | 0.164 | 0.257 | 0.64 | −4.48σ | 0.18 |
+
+**The registered verdict is "gate not cleared"**, so no M5 sleep run was made. On conversational
+text the compactor keeps the spans that later answer a question about half as often as the rest:
+significantly below chance, though still above a rule that keeps by position alone. The mask that
+was a strong salience signal on synthetic data (+15.85σ over chance) points the wrong way here, so
+the compaction arm would have nothing to learn that uniform does not.
+
 ## Fixing coverage directly does not fix it
 
 Project B's analogous failure (zero gradient on non-selected tokens) was fixed by a small
@@ -230,6 +250,14 @@ Trained on the train split, evaluated on eval. n = 288, of which 114 evicted and
 not a refuse-everything model. It declines only 10.9% of probes whose answer is still in
 context, and its accuracy on those *rises* from 0.684 to 0.770, though that margin is 1.81σ and
 not individually significant.
+
+**Caveat, found 13 Nov.** Training truncated each prompt from the right at `max_length` (1,024
+here), so any example whose retained context pushed it past the limit lost its whole target and
+trained on a prompt token instead. Evaluation keeps the end of the prompt and is unaffected. This
+run's contexts are not stored locally, so how many examples were cut cannot be checked; the effect
+is that those examples taught nothing about answering or refusing, which can only have weakened
+the reported effect. `sleep/trainer.py` now
+keeps the end, as the scorers do, and U4 retrains with that fix.
 
 This reproduces the direction of arXiv:2608.29934 at 0.5B rather than 7B, with 72.8% instead of
 their 97%. More useful here is the contrast with everything above it, on one signal and one
@@ -313,7 +341,9 @@ pool.
   72.8% cut in hallucination, both measured on one run. A negative and a positive from one
   signal, which is a more complete claim than either alone.
 - **The compaction decision is a strong salience signal** (+15.85σ over chance, +8.40σ over a
-  positional control) that is nonetheless the wrong thing to train on.
+  positional control) that is nonetheless the wrong thing to train on. It does not carry over to
+  conversation: on LoCoMo both compactors keep answer spans below chance (lift 0.45 to 0.79), so
+  M5 stopped at its registered gate.
 - **The elicitation finding**: the decision must be read off the logits, never generated.
 - **Three measurement lessons**, all learned the hard way: a precondition number without a
   control is not a test; a CE reduction is not evidence of acquisition without distractors;
