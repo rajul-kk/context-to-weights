@@ -328,6 +328,33 @@ Registered 2026-11-13, before any abstention run on LoCoMo.
 - **Notebook.** The U4 cells at the end of `notebooks/m5_locomo.ipynb`; they need the M5 cascading
   outputs and run whether or not M5's sleep runs are complete.
 
+## Registered before running: abstention control on synthetic (U4s)
+
+Registered 2026-11-13, after U4 on LoCoMo did not replicate and before any controlled synthetic run.
+
+- **Question.** Was the one synthetic abstention result (hallucination on evicted facts down 72.8 %,
+  one run, no control) the compaction mask carrying information, or a model that learned to refuse
+  at the trained rate? U4 on LoCoMo found the second; this repeats its control on the corpus where
+  the effect was reported.
+- **Corpus.** As the original run: `data/generate_synthetic.py --n-train 48 --n-eval 48 --n-turns 120`
+  at its default seed, `configs/kaggle_synthetic.yaml`, the Qwen2.5-1.5B compactor's cascading
+  contexts. Training on train contexts, evaluation on eval contexts, no validation set.
+- **Arms.** `mask=compaction` against `mask=random` (same number of refusals), target Qwen2.5-0.5B,
+  the config's 80 steps, batch 1 with 8 accumulation steps, plus the no-adapter model once.
+- **Change since the original run.** Training now keeps the end of over-long prompts
+  (`sleep/trainer.py`); the original cut from the right at 1,024 tokens. The compaction arm at
+  seed 0 is therefore a re-run of the original, not a copy of it, and is reported beside it.
+- **Design.** Five seeds (0 to 4), five paired runs. Measures from `eval/abstention.py` as in U4.
+- **Test.** Two-sided paired t over the five runs on `hallucination_rate_evicted`, compaction
+  against random, alpha = 0.05, a family of one. The abstention margin (refusal on evicted minus
+  refusal on retained) is reported with its paired t, descriptively.
+- **Bar.** As U4: the original result holds if compaction is below random at p < 0.05 and its mean
+  retained accuracy is no more than 0.05 below the no-adapter model's. Below random with a larger
+  accuracy loss: it buys abstention with refusals. Otherwise it does not hold, and the 72.8 % is
+  reported only with the control beside it. Five runs detect only a large gap; a null here is
+  weak evidence on its own and is read together with U4.
+- **Notebook.** `notebooks/u4s_synthetic.ipynb`.
+
 ## Seed stability
 
 Every number in the sweep is one draw of the data. `a0_precondition.ipynb` regenerates
