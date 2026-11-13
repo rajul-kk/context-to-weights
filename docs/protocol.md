@@ -264,6 +264,97 @@ Registered 2026-11-11, before any run of the arm.
   `tests/test_coverage_selection.py`. The CPU smoke is `scripts/run_all.py --methods
   uniform,coverage --max-phases 1` on `configs/cpu_debug.yaml`.
 
+## Registered before running: real-corpus consolidation on LoCoMo (M5)
+
+Registered 2026-11-13, before any run on LoCoMo.
+
+- **Hypothesis.** The §5.1 result, that uniform replay recovers more evicted facts than
+  compaction-supervised consolidation, holds on natural multi-session dialogue.
+- **Corpus.** LoCoMo, the file `locomo10.json` from github.com/snap-research/locomo (CC BY-NC 4.0, not
+  redistributed here; sha256 `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`):
+  10 conversations of 369 to 689 turns. Probes are the QA items whose answer has at least 4
+  characters and appears verbatim (case-insensitive) in some utterance: 517 of 1,986, between 19
+  and 71 per conversation. Adversarial items have no answer; yes/no and one-digit answers are left
+  out because they match almost any context. No cap per conversation
+  (`data/load_locomo.py --verbatim-only --min-answer-chars 4 --max-probes 100000`).
+- **Folds.** Two folds by conversation index parity (`--n-folds 2 --fold k`). The eval fold is
+  consolidated on its own event stream, as in §5.1; the other fold supplies the validation events.
+  Every conversation is evaluated once.
+- **Precondition.** Before any sleep run, `eval/span_report.py` on each fold's eval events with the
+  Qwen2.5-0.5B compactor (the HotpotQA choice; Qwen2.5-1.5B recorded beside it). If the salience
+  lift is at or below 1.0 on both folds, M5 stops with the verdict "gate not cleared": the
+  compaction arm would then have nothing to learn that uniform does not.
+- **Arms.** `compaction` (ours) and `uniform`, target Qwen2.5-0.5B, `configs/kaggle_locomo.yaml`
+  (the HotpotQA settings: context budget 3,072 tokens, model length 2,048). `cascading` with no
+  adapter is the floor.
+- **Design.** Five training seeds (0 to 4) per fold, so ten paired runs. Measure: fraction of
+  evicted probes answered (`evicted_accuracy`), as in §5.1.
+- **Test.** Two-sided paired t over the ten (fold, seed) runs, α = 0.05, a family of one. Secondary,
+  not in the test: a paired bootstrap over probes of the hit difference, averaged over seeds.
+- **Bar.** `uniform` above `compaction` at p < 0.05: the synthetic result replicates. `compaction`
+  above `uniform` at p < 0.05: it is contradicted. Otherwise: no separation. Whatever the arms'
+  difference, if neither arm beats `cascading` on evicted accuracy (paired t over the ten runs,
+  p < 0.05), the report says consolidation recovers nothing beyond the floor on LoCoMo and the
+  comparison is uninformative, as on HotpotQA.
+- **Budget.** Unknown: LoCoMo conversations are several times longer than a synthetic trajectory.
+  The first (fold, seed) is timed and the notebook prints the projection. If it exceeds 15 GPU
+  hours, the run stops after fold 0 and the owner decides.
+- **Notebook.** `notebooks/m5_locomo.ipynb`. U4 (abstention) reuses this corpus and these folds
+  and is registered separately.
+
+## Registered before running: abstention on LoCoMo (U4)
+
+Registered 2026-11-13, before any abstention run on LoCoMo.
+
+- **Hypothesis.** The one positive training result (`docs/project_a_findings.md`, a single synthetic run: hallucination
+  on evicted facts down 72.8 %) comes from the compaction mask carrying information about what was
+  lost, not from teaching the model to refuse more often.
+- **Corpus and folds.** As M5: 517 verbatim probes, two folds by conversation parity, the
+  Qwen2.5-0.5B compactor's contexts from the M5 cascading run. Training uses the fold's train
+  contexts; evaluation uses its eval contexts. No validation set, so no checkpoint is chosen on the
+  evaluation conversations.
+- **Arms.** `mask=compaction` (refuse where the answer is not in the retained context) against
+  `mask=random` (refuse on a random set of probes of the same size, `sleep/abstain.py --mask
+  random`), target Qwen2.5-0.5B. No adapter is recorded beside them.
+- **Design.** Five seeds (0 to 4) per fold, ten paired runs. Measures from `eval/abstention.py`:
+  hallucination on evicted probes (`hallucination_rate_evicted`), accuracy on retained probes
+  (`accuracy_retained`) and refusal on retained probes (`abstain_rate_retained`).
+- **Test.** Two-sided paired t over the ten runs on hallucination, compaction against random,
+  α = 0.05, a family of one.
+- **Bar.** The result holds if compaction is below random at p < 0.05 and its mean accuracy on
+  retained probes is no more than 0.05 below the no-adapter model's. Below random but with a larger
+  accuracy loss: it buys abstention with refusals and does not hold. Otherwise it does not
+  replicate on LoCoMo.
+- **Notebook.** The U4 cells at the end of `notebooks/m5_locomo.ipynb`; they need the M5 cascading
+  outputs and run whether or not M5's sleep runs are complete.
+
+## Registered before running: abstention control on synthetic (U4s)
+
+Registered 2026-11-13, after U4 on LoCoMo did not replicate and before any controlled synthetic run.
+
+- **Question.** Was the one synthetic abstention result (hallucination on evicted facts down 72.8 %,
+  one run, no control) the compaction mask carrying information, or a model that learned to refuse
+  at the trained rate? U4 on LoCoMo found the second; this repeats its control on the corpus where
+  the effect was reported.
+- **Corpus.** As the original run: `data/generate_synthetic.py --n-train 48 --n-eval 48 --n-turns 120`
+  at its default seed, `configs/kaggle_synthetic.yaml`, the Qwen2.5-1.5B compactor's cascading
+  contexts. Training on train contexts, evaluation on eval contexts, no validation set.
+- **Arms.** `mask=compaction` against `mask=random` (same number of refusals), target Qwen2.5-0.5B,
+  the config's 80 steps, batch 1 with 8 accumulation steps, plus the no-adapter model once.
+- **Change since the original run.** Training now keeps the end of over-long prompts
+  (`sleep/trainer.py`); the original cut from the right at 1,024 tokens. The compaction arm at
+  seed 0 is therefore a re-run of the original, not a copy of it, and is reported beside it.
+- **Design.** Five seeds (0 to 4), five paired runs. Measures from `eval/abstention.py` as in U4.
+- **Test.** Two-sided paired t over the five runs on `hallucination_rate_evicted`, compaction
+  against random, alpha = 0.05, a family of one. The abstention margin (refusal on evicted minus
+  refusal on retained) is reported with its paired t, descriptively.
+- **Bar.** As U4: the original result holds if compaction is below random at p < 0.05 and its mean
+  retained accuracy is no more than 0.05 below the no-adapter model's. Below random with a larger
+  accuracy loss: it buys abstention with refusals. Otherwise it does not hold, and the 72.8 % is
+  reported only with the control beside it. Five runs detect only a large gap; a null here is
+  weak evidence on its own and is read together with U4.
+- **Notebook.** `notebooks/u4s_synthetic.ipynb`.
+
 ## Seed stability
 
 Every number in the sweep is one draw of the data. `a0_precondition.ipynb` regenerates

@@ -154,6 +154,26 @@ sign as on synthetic. The full-context arm evicts almost nothing (5 probes), so 
 column is not a ceiling. HotpotQA neither replicates nor contradicts the synthetic result; at
 92 evicted probes and a non-zero floor it cannot resolve a gap of the size seen on synthetic.
 
+## LoCoMo (M5): gate not cleared
+
+Registered in `docs/protocol.md` before running: on LoCoMo the compaction arm is trained only if
+the Qwen2.5-0.5B compactor keeps answer spans more often than filler (salience lift above 1.0) on
+at least one fold. It does not, on either fold, and the 1.5B compactor recorded beside it does
+not either. `results/m5_locomo/gate.json`, from `eval/span_report.py` on each fold's eval events.
+
+| fold | compactor | fact keep | filler keep | salience lift | vs chance | positional control lift |
+|---|---|---|---|---|---|---|
+| 0 | 0.5B | 0.128 | 0.258 | **0.49** | −6.24σ | 0.25 |
+| 0 | 1.5B | 0.200 | 0.255 | 0.79 | −2.63σ | 0.24 |
+| 1 | 0.5B | 0.116 | 0.259 | **0.45** | −6.83σ | 0.18 |
+| 1 | 1.5B | 0.164 | 0.257 | 0.64 | −4.48σ | 0.18 |
+
+**The registered verdict is "gate not cleared"**, so no M5 sleep run was made. On conversational
+text the compactor keeps the spans that later answer a question about half as often as the rest:
+significantly below chance, though still above a rule that keeps by position alone. The mask that
+was a strong salience signal on synthetic data (+15.85σ over chance) points the wrong way here, so
+the compaction arm would have nothing to learn that uniform does not.
+
 ## Fixing coverage directly does not fix it
 
 Project B's analogous failure (zero gradient on non-selected tokens) was fixed by a small
@@ -231,6 +251,14 @@ not a refuse-everything model. It declines only 10.9% of probes whose answer is 
 context, and its accuracy on those *rises* from 0.684 to 0.770, though that margin is 1.81σ and
 not individually significant.
 
+**Caveat, found 13 Nov.** Training truncated each prompt from the right at `max_length` (1,024
+here), so any example whose retained context pushed it past the limit lost its whole target and
+trained on a prompt token instead. Evaluation keeps the end of the prompt and is unaffected. This
+run's contexts are not stored locally, so how many examples were cut cannot be checked; the effect
+is that those examples taught nothing about answering or refusing, which can only have weakened
+the reported effect. `sleep/trainer.py` now
+keeps the end, as the scorers do, and U4 retrains with that fix.
+
 This reproduces the direction of arXiv:2608.29934 at 0.5B rather than 7B, with 72.8% instead of
 their 97%. More useful here is the contrast with everything above it, on one signal and one
 run:
@@ -243,6 +271,38 @@ run:
 **The compaction mask tells you what was lost. Knowing what was lost is enough to abstain; it
 is not enough to recover.** The signal is real and useful — just not for the thing this project
 originally proposed to do with it.
+
+*Superseded by U4 below: with a random-mask control on LoCoMo, the abstention half of this
+contrast does not hold.*
+
+## Abstention on LoCoMo (U4): does not replicate
+
+Registered in `docs/protocol.md` before running: the same abstention LoRA trained on the
+compaction mask against a control trained on a random mask of the same size (198 refusals of 256
+training examples in both), Qwen2.5-0.5B, five seeds on each of two folds, ten paired runs. It
+holds only if compaction hallucinates less than random (two-sided paired t, p < 0.05) and loses
+no more than 0.05 retained accuracy against the model with no adapter. `results/u4_locomo/`.
+
+| mean of 10 runs | no adapter | compaction mask | random mask | paired t (comp − rand) |
+|---|---|---|---|---|
+| hallucinates on evicted probes | 0.963 | 0.354 | **0.157** | +2.51, p = 0.033 |
+| accuracy on retained probes | 0.419 | 0.209 | 0.111 | +2.72, p = 0.024 |
+| refuses on retained probes | 0.000 | 0.488 | 0.733 | −2.57, p = 0.030 |
+| refuses on evicted probes | 0.000 | 0.640 | 0.838 | −2.47, p = 0.036 |
+| abstention margin (evicted − retained) | 0.000 | 0.152 | 0.105 | +1.23, p = 0.249 |
+
+**The registered verdict is "does not replicate"**, and it fails on both counts: the compaction
+mask hallucinates *more* than the random control, significantly, and costs 0.21 retained
+accuracy, four times the guard. Neither adapter learns to check its context. Both learn to refuse
+often, the random one more so, and refusing often is what cuts hallucination on this measure.
+The one number that measures selectivity, the abstention margin, is slightly higher for
+compaction but not distinguishable from random. Seeds vary widely (compaction's refusal rate on
+retained probes runs from 0.06 to 0.95), so 256 examples of which 77% are refusals does not pin
+the policy down.
+
+This undercuts the synthetic result above. That run had no random-mask control, so its 72.8% cut
+cannot be told apart from a model that learned to refuse at the trained rate; on LoCoMo, with the
+control, the mask adds nothing.
 
 ## The oracle control is inconclusive: it was undertrained
 
@@ -309,11 +369,15 @@ pool.
   mechanism.
 - **The oracle control is pending a re-run** at a real training budget; the first attempt saw
   5.6% of one epoch and cannot bound anything.
-- **The same free mask supports abstention where it fails at recall**: 0.000 recovered versus a
-  72.8% cut in hallucination, both measured on one run. A negative and a positive from one
-  signal, which is a more complete claim than either alone.
+- **The abstention positive does not survive its control**: 72.8% less hallucination on one
+  synthetic run without a random-mask control, but on LoCoMo (U4, ten paired runs) the compaction
+  mask hallucinates more than a random mask of the same size (0.354 vs 0.157, p = 0.033) and
+  loses 0.21 retained accuracy. Both adapters learned to refuse often, not to check the context.
+  Do not claim the mask supports abstention.
 - **The compaction decision is a strong salience signal** (+15.85σ over chance, +8.40σ over a
-  positional control) that is nonetheless the wrong thing to train on.
+  positional control) that is nonetheless the wrong thing to train on. It does not carry over to
+  conversation: on LoCoMo both compactors keep answer spans below chance (lift 0.45 to 0.79), so
+  M5 stopped at its registered gate.
 - **The elicitation finding**: the decision must be read off the logits, never generated.
 - **Three measurement lessons**, all learned the hard way: a precondition number without a
   control is not a test; a CE reduction is not evidence of acquisition without distractors;

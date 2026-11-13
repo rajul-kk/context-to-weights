@@ -1,4 +1,5 @@
 import argparse
+import random
 import sys
 from pathlib import Path
 
@@ -18,11 +19,23 @@ def survives(context, probe):
     return probe["answer"].lower() in " ".join(context).lower()
 
 
-def build_examples(contexts, tokenizer, abstain_text=ABSTAIN_TEXT):
+def abstain_flags(contexts, mask="compaction", seed=0):
+    flags = [not survives(row["context"], probe) for row in contexts for probe in row["probes"]]
+    if mask == "compaction":
+        return flags
+    if mask == "random":
+        rng = random.Random(seed)
+        chosen = set(rng.sample(range(len(flags)), sum(flags)))
+        return [i in chosen for i in range(len(flags))]
+    raise ValueError(f"unknown mask {mask!r}")
+
+
+def build_examples(contexts, tokenizer, abstain_text=ABSTAIN_TEXT, mask="compaction", seed=0):
     out = []
+    flags = iter(abstain_flags(contexts, mask, seed))
     for row in contexts:
         for probe in row["probes"]:
-            kept = survives(row["context"], probe)
+            kept = not next(flags)
             prompt = chat_text(tokenizer, QA_SYSTEM,
                                build_prompt(row["context"], probe["question"]))
             out.append(
@@ -49,6 +62,7 @@ def main():
     ap.add_argument("--steps", type=int, default=0)
     ap.add_argument("--batch-size", type=int, default=1)
     ap.add_argument("--grad-accum", type=int, default=8)
+    ap.add_argument("--mask", choices=["compaction", "random"], default="compaction")
     ap.add_argument("--set", nargs="*", default=None)
     args = ap.parse_args()
 
@@ -60,8 +74,9 @@ def main():
     cfg["sleep"]["grad_accum"] = args.grad_accum
 
     model, tokenizer = load_backbone(cfg)
-    train = build_examples(read_jsonl(args.contexts), tokenizer)
-    val = build_examples(read_jsonl(args.val_contexts), tokenizer) if args.val_contexts else None
+    train = build_examples(read_jsonl(args.contexts), tokenizer, mask=args.mask, seed=cfg["seed"])
+    val = (build_examples(read_jsonl(args.val_contexts), tokenizer, mask=args.mask, seed=cfg["seed"] + 1)
+           if args.val_contexts else None)
 
     n_abstain = sum(1 for e in train if e.source == "abstain")
     print(f"{len(train)} examples: {n_abstain} abstain, {len(train) - n_abstain} answer")
@@ -83,6 +98,7 @@ def main():
     result["n_abstain"] = n_abstain
     result["n_answer"] = len(train) - n_abstain
     result["abstain_text"] = ABSTAIN_TEXT
+    result["mask"] = args.mask
     result["model"] = cfg["model"]["base"]
     write_json(run_dir / "result.json", result)
     write_jsonl(run_dir / "examples.jsonl", [e.to_dict() for e in train])

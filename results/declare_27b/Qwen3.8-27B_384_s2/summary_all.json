@@ -1,0 +1,106 @@
+[
+  {
+    "label": "generate",
+    "n": 384,
+    "n_regions": 8,
+    "hit_rate": 0.4505208333333333,
+    "random_control": 0.125,
+    "best_constant_control": 0.13541666666666666,
+    "sigma_over_random": 12.820688428339809,
+    "sigma_over_constant": 12.410426398632934,
+    "verdict": "clears control",
+    "gold_distribution": {
+      "0": 52,
+      "1": 50,
+      "2": 47,
+      "3": 46,
+      "4": 39,
+      "5": 47,
+      "6": 52,
+      "7": 51
+    },
+    "unparsed_rate": 0.0,
+    "mean_attended_frac": 0.13275117932013675,
+    "shuffled_hit_rate": 0.4270833333333333,
+    "slot_stable_rate": 0.14322916666666666,
+    "content_dependence": 0.3020833333333333,
+    "modal_choice": 2,
+    "modal_share": 0.17447916666666666,
+    "model": "Qwen/Qwen3.8-27B",
+    "seed": 2,
+    "kv_bits": 0,
+    "kv_scheme": "none",
+    "elicitor_unparsed": 0,
+    "layout_offset": 0,
+    "merged_windows": [
+      [
+        0,
+        96
+      ],
+      [
+        96,
+        96
+      ],
+      [
+        192,
+        96
+      ],
+      [
+        288,
+        96
+      ]
+    ]
+  },
+  {
+    "label": "read",
+    "n": 384,
+    "n_regions": 8,
+    "hit_rate": 0.4609375,
+    "random_control": 0.125,
+    "best_constant_control": 0.13541666666666666,
+    "sigma_over_random": 13.206371700825645,
+    "sigma_over_constant": 12.796871803125628,
+    "verdict": "clears control",
+    "gold_distribution": {
+      "0": 52,
+      "1": 50,
+      "2": 47,
+      "3": 46,
+      "4": 39,
+      "5": 47,
+      "6": 52,
+      "7": 51
+    },
+    "unparsed_rate": 0.0,
+    "mean_attended_frac": 0.13341190742212908,
+    "shuffled_hit_rate": 0.4583333333333333,
+    "slot_stable_rate": 0.13020833333333334,
+    "content_dependence": 0.3333333333333333,
+    "modal_choice": 2,
+    "modal_share": 0.15364583333333334,
+    "model": "Qwen/Qwen3.8-27B",
+    "seed": 2,
+    "kv_bits": 0,
+    "kv_scheme": "none",
+    "elicitor_unparsed": 0,
+    "layout_offset": 0,
+    "merged_windows": [
+      [
+        0,
+        96
+      ],
+      [
+        96,
+        96
+      ],
+      [
+        192,
+        96
+      ],
+      [
+        288,
+        96
+      ]
+    ]
+  }
+]

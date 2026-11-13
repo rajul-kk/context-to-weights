@@ -367,12 +367,16 @@ at 25% (4 of 114) but drops to zero at 50%. These are single runs, and all of th
 short of uniform's 14. Uniform replay's advantage seems to come from covering every span over
 25 phases rather than from any one-off adjustment to the mix.
 
-The same mask works for abstention. Following [12], we trained a LoRA on the same free
-label to refuse when the evidence had been evicted. It abstains on 0.728 of evicted probes,
+The same mask does not survive a control for abstention. Following [12], we trained a LoRA on
+the same free label to refuse when the evidence had been evicted. It abstains on 0.728 of evicted probes,
 against 0.000 for the base model (+17.5σ), which cuts hallucination on those probes by 72.8%.
 It refuses on only 10.9% of probes whose answer is still in context, and it raises accuracy
-on retained probes from 0.684 to 0.770. The compaction mask tells a model what it has lost.
-That is enough to know when to abstain, but not enough to get the facts back.
+on retained probes from 0.684 to 0.770. That single run had no control for refusing at the
+trained rate. On LoCoMo we registered one: the same LoRA trained on a random mask of the same
+size, ten paired runs over two folds. There the compaction mask hallucinates more than the
+random one (0.354 against 0.157, paired t = 2.51, p = 0.033) and loses 0.21 accuracy on retained
+probes. Both adapters learn to refuse often rather than to check the context, so we do not claim
+that the mask supports abstention.
 
 **Natural prose.** On HotpotQA (one seed, 160 probes, 92 of them evicted) the methods do not
 separate. Cascading with no adapter recovers 4 of 92, compaction 3 and uniform 5, a gap of
@@ -509,8 +513,8 @@ reflects what the compactor considers important, and that same property makes it
 training target, since what a compactor keeps for immediate use is not necessarily what the
 weights are missing. A signal can be highly informative about one decision and biased for
 another. This suggests looking for consolidation signals whose errors are uncorrelated with
-coverage, or using free signals for the decisions they were produced for, as the abstention
-result does.
+coverage. Reusing the signal for abstention, the decision closest to what it was produced
+for, did not survive a random-mask control either (§5.1).
 
 For routing, the logit read is a cheap substitute for declaration that needs no training and
 works at scales where declaring does not. It is not a usable router on its own: at roughly
@@ -526,8 +530,8 @@ and above, where declaration works.
   variant of the synthetic generator is a floor case, since facts and filler come from the
   same template bank.
 - **Seeds.** The main comparisons use ten corpora (§5.1), five seeds (the §5.2 gate) or three
-  (§4.2). The remixing ablations, abstention, the step and learning-rate sweeps and HotpotQA
-  are single runs.
+  (§4.2), and the LoCoMo abstention test ten paired runs. The remixing ablations, synthetic
+  abstention, the step and learning-rate sweeps and HotpotQA are single runs.
 - **Scale.** Everything is at or below 7B, and we had to quantise the 7B model to 4 bits. We cannot
   test the 27B+ regime studied in [5], so our results bound the generated declaration from
   below (at a fixed-slot control at 1.5B, under half the logit read's signal at 7B) and do
@@ -570,11 +574,11 @@ either by writing it into their weights or by choosing what to read. Consolidati
 history into its weights raises a privacy concern that retrieval does not: anything in the
 context, including personal or confidential information, can end up stored in the adapter
 and is harder to inspect or delete than a document in a store. Our experiments use synthetic
-conversations, invented APIs and public HotpotQA data, so no personal data was involved, but
-anyone deploying consolidation on real user histories should filter what reaches training.
-On the positive side, the abstention result in §5.1 suggests that the same free signal can
-make a model refuse rather than guess when its evidence has been evicted, which reduces
-hallucination. We do not see a direct route to misuse beyond that of the underlying models.
+conversations, invented APIs and public HotpotQA and LoCoMo data, so no personal data was
+involved, but anyone deploying consolidation on real user histories should filter what reaches
+training. Our abstention adapters cut hallucination mainly by refusing more often, including on
+questions they could answer, so a deployment that measures hallucination alone would overrate
+them. We do not see a direct route to misuse beyond that of the underlying models.
 
 ## References
 

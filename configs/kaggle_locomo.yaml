@@ -1,0 +1,17 @@
+_base_: locomo.yaml
+
+run_root: /kaggle/working/artifacts/runs_locomo
+
+data:
+  dir: artifacts/data/locomo
+
+model:
+  base: Qwen/Qwen2.5-0.5B-Instruct
+  dtype: float16
+
+eval:
+  batch_size: 8
+
+sleep:
+  every_k_events: 4
+  steps: 150

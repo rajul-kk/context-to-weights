@@ -1,0 +1,13 @@
+{
+  "label": "no-adapter",
+  "n": 261,
+  "n_evicted": 207,
+  "n_retained": 54,
+  "abstain_rate_evicted": 0.0,
+  "abstain_rate_retained": 0.0,
+  "accuracy_retained": 0.4074074074074074,
+  "hallucination_rate_evicted": 0.961352657004831,
+  "abstention_margin": 0.0,
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "adapter": null
+}

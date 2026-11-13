@@ -21,19 +21,41 @@ def _sessions(sample):
             yield k, turns
 
 
-def build_trajectory(traj_id, sample, max_probes):
+def utterance_texts(sample):
+    return [(utt.get("text") or utt.get("clean_text") or "").strip()
+            for _, session in _sessions(sample) for utt in session if isinstance(utt, dict)]
+
+
+def eligible_answers(sample, verbatim_only=False, min_answer_chars=1):
+    texts = [t.lower() for t in utterance_texts(sample) if t]
+    out = []
+    for item in sample.get("qa", []) or []:
+        ans = item.get("answer")
+        if ans is None or not str(ans).strip():
+            continue
+        ans = str(ans).strip()
+        if len(ans) < min_answer_chars:
+            continue
+        if verbatim_only and not any(ans.lower() in t for t in texts):
+            continue
+        out.append((str(item["question"]), ans))
+    return out
+
+
+def fold_split(n, n_folds, fold):
+    if not 0 <= fold < n_folds:
+        raise ValueError(f"fold {fold} not in [0, {n_folds})")
+    eval_idx = [i for i in range(n) if i % n_folds == fold]
+    return eval_idx, [i for i in range(n) if i % n_folds != fold]
+
+
+def build_trajectory(traj_id, sample, max_probes, verbatim_only=False, min_answer_chars=1):
     turns = []
     facts = []
     probes = []
     idx = 0
 
-    qa = sample.get("qa", []) or []
-    answers = []
-    for item in qa[:max_probes]:
-        ans = item.get("answer")
-        if ans is None or not str(ans).strip():
-            continue
-        answers.append((str(item["question"]), str(ans)))
+    answers = eligible_answers(sample, verbatim_only, min_answer_chars)[:max_probes]
 
     markers = [a for _, a in answers]
 
@@ -45,7 +67,7 @@ def build_trajectory(traj_id, sample, max_probes):
             if not text:
                 continue
             speaker = (utt.get("speaker") or "speaker").strip()
-            hits = [m for m in markers if m and m in text]
+            hits = [m for m in markers if m and m.lower() in text.lower()]
             tags = ["fact", hits[0]] + hits if hits else ["filler"]
             turns.append(Turn(idx=idx, role="user" if idx % 2 == 0 else "assistant",
                               content=f"{speaker}: {text}", tags=tags))
@@ -70,6 +92,10 @@ def main():
     ap.add_argument("--eval-frac", type=float, default=0.34)
     ap.add_argument("--max-probes", type=int, default=8)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--verbatim-only", action="store_true")
+    ap.add_argument("--min-answer-chars", type=int, default=1)
+    ap.add_argument("--n-folds", type=int, default=0)
+    ap.add_argument("--fold", type=int, default=0)
     args = ap.parse_args()
 
     src = Path(args.input)
@@ -85,17 +111,22 @@ def main():
 
     trajectories = []
     for i, sample in enumerate(samples):
-        traj = build_trajectory(f"locomo-{i:04d}", sample, args.max_probes)
+        traj = build_trajectory(f"locomo-{i:04d}", sample, args.max_probes, args.verbatim_only, args.min_answer_chars)
         if traj.probes and traj.turns:
             trajectories.append(traj)
 
     if not trajectories:
         raise SystemExit("no usable trajectories: no QA answer matched any utterance text")
 
-    rng.shuffle(trajectories)
-    n_eval = max(1, int(len(trajectories) * args.eval_frac))
+    if args.n_folds:
+        eval_idx, train_idx = fold_split(len(trajectories), args.n_folds, args.fold)
+        splits = (("eval", [trajectories[i] for i in eval_idx]), ("train", [trajectories[i] for i in train_idx]))
+    else:
+        rng.shuffle(trajectories)
+        n_eval = max(1, int(len(trajectories) * args.eval_frac))
+        splits = (("eval", trajectories[:n_eval]), ("train", trajectories[n_eval:]))
     out = ensure_dir(args.out)
-    for split, rows in (("eval", trajectories[:n_eval]), ("train", trajectories[n_eval:])):
+    for split, rows in splits:
         write_jsonl(out / f"{split}.jsonl", [t.to_dict() for t in rows])
         turns = sum(t.meta["n_turns"] for t in rows) / max(1, len(rows))
         probes = sum(len(t.probes) for t in rows)

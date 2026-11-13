@@ -1,0 +1,9 @@
+{
+ "n_runs": 10,
+ "halluc_compaction": 0.3538866930171278,
+ "halluc_random": 0.15709266578831796,
+ "t": 2.514486839796462,
+ "p": 0.03306642105741053,
+ "accuracy_retained_drop_vs_no_adapter": 0.2103448275862069,
+ "verdict": "does not replicate"
+}
