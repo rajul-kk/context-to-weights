@@ -302,6 +302,32 @@ Registered 2026-11-13, before any run on LoCoMo.
 - **Notebook.** `notebooks/m5_locomo.ipynb`. U4 (abstention) reuses this corpus and these folds
   and is registered separately.
 
+## Registered before running: abstention on LoCoMo (U4)
+
+Registered 2026-11-13, before any abstention run on LoCoMo.
+
+- **Hypothesis.** The one positive training result (`docs/project_a_findings.md`, a single synthetic run: hallucination
+  on evicted facts down 72.8 %) comes from the compaction mask carrying information about what was
+  lost, not from teaching the model to refuse more often.
+- **Corpus and folds.** As M5: 517 verbatim probes, two folds by conversation parity, the
+  Qwen2.5-0.5B compactor's contexts from the M5 cascading run. Training uses the fold's train
+  contexts; evaluation uses its eval contexts. No validation set, so no checkpoint is chosen on the
+  evaluation conversations.
+- **Arms.** `mask=compaction` (refuse where the answer is not in the retained context) against
+  `mask=random` (refuse on a random set of probes of the same size, `sleep/abstain.py --mask
+  random`), target Qwen2.5-0.5B. No adapter is recorded beside them.
+- **Design.** Five seeds (0 to 4) per fold, ten paired runs. Measures from `eval/abstention.py`:
+  hallucination on evicted probes (`hallucination_rate_evicted`), accuracy on retained probes
+  (`accuracy_retained`) and refusal on retained probes (`abstain_rate_retained`).
+- **Test.** Two-sided paired t over the ten runs on hallucination, compaction against random,
+  α = 0.05, a family of one.
+- **Bar.** The result holds if compaction is below random at p < 0.05 and its mean accuracy on
+  retained probes is no more than 0.05 below the no-adapter model's. Below random but with a larger
+  accuracy loss: it buys abstention with refusals and does not hold. Otherwise it does not
+  replicate on LoCoMo.
+- **Notebook.** The U4 cells at the end of `notebooks/m5_locomo.ipynb`; they need the M5 cascading
+  outputs and run whether or not M5's sleep runs are complete.
+
 ## Seed stability
 
 Every number in the sweep is one draw of the data. `a0_precondition.ipynb` regenerates
