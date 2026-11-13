@@ -43,8 +43,10 @@ replay buffer, and the adapter carries across phases. Pure SFT: no RL, no reward
 
 **Result.** The keep decision is a strong salience signal (+15.85σ), yet uniform replay
 recovers more evicted facts than compaction-supervised consolidation on all ten synthetic
-corpora (0.065 vs 0.022 mean; paired t(9)=3.91). On HotpotQA the arms do not separate. The same mask
-trained for abstention cuts hallucination on evicted facts by 72.8%.
+corpora (0.065 vs 0.022 mean; paired t(9)=3.91). On HotpotQA the arms do not separate. On LoCoMo
+the compactor keeps answer spans below chance, so the registered consolidation run stopped at its
+gate. The same mask trained for abstention cut hallucination by 72.8% on one synthetic run, but on
+LoCoMo it does worse than a random mask of the same size (ten paired runs).
 
 ```bash
 pip install -r requirements.txt
