@@ -96,8 +96,24 @@ python declare/merge_windows.py --out results/declare_27b/Qwen3.8-27B_384_s2 \
 
 The merge refuses windows that leave a gap, overlap, or differ in model, seed or settings, and it
 recomputes the summary from the joined records. On the first window alone, it reproduces the
-committed summary to within float rounding. These runs use the owner's Kaggle GPU budget and
-have not been launched.
+committed summary to within float rounding.
+
+Result (2026-11-13, three sessions on the owner's go-ahead, each with the gold distribution
+matched before cutting its window). Merged into `results/declare_27b/Qwen3.8-27B_384_s2/`, all 384
+layouts of seed 2:
+
+| | `read` | `generate` |
+|---|---|---|
+| hit rate | 0.461 | 0.451 |
+| content dependence | 0.333 | 0.302 |
+| alone right | 50 probes | 46 probes |
+
+Chance is 0.125 and the best constant control 0.135; both modes clear it by more than 12σ.
+Exact McNemar p = 0.760; hit difference (`read` minus `generate`) +0.010, 95% paired bootstrap CI
+[-0.039, +0.060]. On four times the probes of the first window the modes are still tied at 27B:
+the interval excludes the 0.19 `read` lead seen at 7B and a `generate` lead larger than 0.04.
+This is one seed, 4-bit, thinking disabled, and a different model family (Qwen3.8) from the
+0.5B-7B runs (Qwen2.5), so it cannot separate scale from family.
 
 ## Kernel speed check
 

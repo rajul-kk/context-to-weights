@@ -214,6 +214,8 @@ It matches stock SDPA exactly on logprobs and greedy output.
 ## Open
 
 - `read` at 27B+, to see whether it matches or beats the generated declaration [5] reports
-  there. We cannot run it.
+  there. Run at Qwen3.8 27B (4-bit, 384 probes, one seed; `qwen38_27b_plan.md`): the two are
+  tied, `read` 0.461 against `generate` 0.451, difference +0.010 [-0.039, +0.060]. Not run at
+  31B, and not separated from the change of model family.
 - The routing is 3x chance, not deployable unsupervised. A cheap verifier on the chosen
   region would close that, at the cost of the method's simplicity.
