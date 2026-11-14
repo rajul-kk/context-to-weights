@@ -329,7 +329,34 @@ The effect is far smaller than the original 72.8%: a 21% mean cut in hallucinati
 run was at the top of a wide distribution, or owed part of its size to the old truncation.
 Report 72.8% only with this beside it.
 
-## The oracle control is inconclusive: it was undertrained
+## The oracle control at a full budget: the headroom is real (O2)
+
+Registered before running (`docs/protocol.md`, O2), run 14 Nov on the original synthetic corpus,
+seeds 0 to 2, `sleep/oracle.py` at its default of three epochs (4,320 steps, about 13 minutes per
+seed on a T4). Results in `results/o2_oracle/`.
+
+| seed | closed book | all-probe, cascading context | evicted, cascading context |
+|---|---|---|---|
+| 0 | 0.997 | 0.892 | 0.737 |
+| 1 | 0.997 | 0.896 | 0.746 |
+| 2 | 0.990 | 0.878 | 0.728 |
+| mean | **0.994** | 0.889 | **0.737** |
+
+Cascading with no adapter reproduces the original run (all-probe 0.413, evicted 0.000), and the
+compactor reproduces its lift (2.81). The control is valid (closed book 0.994, bar 0.5), and every
+seed's evicted accuracy is far above uniform replay's recorded 0.123, so by the registered rule the
+headroom is real: a 0.5B LoRA can hold about three quarters of the evicted facts and use them beside
+the compacted context.
+
+What it bounds, and what it does not. The oracle gets perfect selection, but also two things the
+consolidation arms do not: training pairs already in question-and-answer form (20 surface forms per
+fact, eval phrasing held out) and 2.2 times their optimiser steps (4,320 against 25 phases of 80).
+So uniform's 0.123 and compaction's 0.000 are not limited by what the adapter can store; the gap to
+0.737 is selection, format and budget together, and this run does not split them. The oracle's
+evicted accuracy is above the full-context arm's all-probe 0.712, because it was trained on these
+exact facts.
+
+### The first oracle run (superseded by O2): it was undertrained
 
 The positive control gets perfect selection (ground-truth facts, no compactor) plus 20
 templated surface forms per fact, with the eval phrasing held out. Trained closed-book.
@@ -357,7 +384,7 @@ any knowledge.
 
 Fixed: the step budget now scales with the dataset (3 epochs by default, 1,440 steps per epoch
 here) and the script warns when the budget covers less than one epoch. A re-run costs about 13
-minutes. Until then the headroom between uniform's 0.123 and the 0.712 ceiling is unmeasured.
+minutes. That re-run is O2, above.
 
 ## The scoring eval is still confounded
 
@@ -392,8 +419,10 @@ pool.
   ranking performs identically to random selection under the same masking (5 seeds, t(4)=0.74).
   The two projects fail for different reasons; report them separately rather than as one
   mechanism.
-- **The oracle control is pending a re-run** at a real training budget; the first attempt saw
-  5.6% of one epoch and cannot bound anything.
+- **The oracle control shows the headroom is real** (O2, three seeds): with perfect selection,
+  question-form training pairs and three epochs, a 0.5B LoRA recovers 0.737 of evicted facts
+  (closed book 0.994), against uniform's 0.123 and compaction's 0.000. The gap is selection,
+  format and budget together; the run does not separate them.
 - **The abstention positive does not survive its controls**: 72.8% less hallucination on one
   uncontrolled synthetic run. With a random-mask control of the same size, on the same corpus
   (U4s, five seeds) the cut is 21% and selective (no retained refusals) but misses significance

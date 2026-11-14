@@ -1,0 +1,17 @@
+{
+  "n": 288,
+  "retention_accuracy": 0.9895833333333334,
+  "mean_prompt_tokens": 48.37152777777778,
+  "token_ce_median": 5.566918844124302e-05,
+  "token_ce_mean": 0.005892922658887164,
+  "probe_ce_median": 6.016898714733543e-05,
+  "probe_ce_mean": 0.00013416327324719844,
+  "n_evicted": 288,
+  "evicted_accuracy": 0.9895833333333334,
+  "evicted_ce_median": 5.566918844124302e-05,
+  "evicted_ce_mean": 0.005892922658887164,
+  "label": "oracle-closedbook",
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "contexts": "/kaggle/working/artifacts/runs_synth/none_context/eval_contexts.jsonl",
+  "adapter": "/kaggle/working/artifacts/runs_synth/oracle_s2/adapter"
+}

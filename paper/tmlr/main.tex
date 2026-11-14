@@ -383,7 +383,12 @@ ours + mask head & 0.323 & 0.009 \\
 \emph{Table 3: consolidation on the first synthetic corpus.}
 
 On the first corpus, uniform replay recovers 14 of the 114 evicted facts (+4.0σ over zero)
-and compaction-gated consolidation recovers none. We then generated four more corpora from
+and compaction-gated consolidation recovers none. Neither is limited by what the adapter can
+hold: a positive control registered in advance, with perfect selection (the ground-truth facts),
+20 question-form surface forms per fact with the evaluation phrasing held out, and three epochs,
+recovers 0.737 of the evicted facts (seeds 0 to 2: 0.737, 0.746, 0.728; closed-book accuracy
+0.994). It also has 2.2 times the consolidation arms' optimiser steps and training pairs already
+in question form, so the gap to it measures selection, format and budget together. We then generated four more corpora from
 scratch with different seeds. After the first five, we ran five more (data seeds 5 to 9) as a
 replication, with the settings and the primary comparison fixed in advance.
 

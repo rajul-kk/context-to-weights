@@ -1,0 +1,17 @@
+{
+  "n": 288,
+  "retention_accuracy": 0.8958333333333334,
+  "mean_prompt_tokens": 1041.8090277777778,
+  "token_ce_median": 3.099393507000059e-05,
+  "token_ce_mean": 0.8626155014773942,
+  "probe_ce_median": 6.487650171038695e-05,
+  "probe_ce_mean": 0.07403946728479555,
+  "n_evicted": 114,
+  "evicted_accuracy": 0.7456140350877193,
+  "evicted_ce_median": 0.00027426297310739756,
+  "evicted_ce_mean": 1.459545787620241,
+  "label": "oracle",
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "contexts": "/kaggle/working/artifacts/runs_synth/cascading/eval_contexts.jsonl",
+  "adapter": "/kaggle/working/artifacts/runs_synth/oracle_s1/adapter"
+}
