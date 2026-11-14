@@ -1,0 +1,13 @@
+{
+  "label": "random",
+  "n": 288,
+  "n_evicted": 114,
+  "n_retained": 174,
+  "abstain_rate_evicted": 0.06140350877192982,
+  "abstain_rate_retained": 0.0,
+  "accuracy_retained": 0.8793103448275862,
+  "hallucination_rate_evicted": 0.9385964912280702,
+  "abstention_margin": 0.06140350877192982,
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "adapter": "/kaggle/working/artifacts/runs_synth/abstain_random_s2/adapter"
+}

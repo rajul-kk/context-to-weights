@@ -355,6 +355,27 @@ Registered 2026-11-13, after U4 on LoCoMo did not replicate and before any contr
   weak evidence on its own and is read together with U4.
 - **Notebook.** `notebooks/u4s_synthetic.ipynb`.
 
+## Registered before running: the oracle control at a full training budget (O2)
+
+Registered 2026-11-14, before the re-run.
+
+- **Question.** How much of the evicted facts can a LoRA hold at all, given perfect selection? The
+  first oracle run trained on 5.6 % of one epoch (closed-book 0.031) and bounds nothing.
+- **Corpus.** The original synthetic corpus (`data/generate_synthetic.py --n-train 48 --n-eval 48
+  --n-turns 120`, default seed; U4s confirmed it reproduces), `configs/kaggle_synthetic.yaml`, the
+  Qwen2.5-1.5B compactor's cascading contexts, target Qwen2.5-0.5B.
+- **Arm.** `sleep/oracle.py` on the eval trajectories, 20 surface forms per fact with the eval phrasing
+  held out, at its fixed default of three epochs. Seeds 0, 1 and 2. Measured with `eval/retention.py`:
+  closed book (no context) and with the cascading contexts. Cascading with no adapter is evaluated
+  once beside it as a reproduction check (0.000 evicted in the original run).
+- **Validity.** The control is valid only if mean closed-book accuracy is at least 0.5: the adapter
+  must hold the facts without context. Below that it failed again and the run is reported as
+  uninformative, with no ceiling claimed.
+- **Readout.** If valid: mean evicted accuracy with cascading context, against the recorded
+  uniform-replay 0.123 and compaction 0.000 on this corpus. The headroom is called real if every seed
+  is above 0.123. Descriptive; no test against the recorded single runs.
+- **Notebook.** `notebooks/o2_oracle.ipynb`.
+
 ## Seed stability
 
 Every number in the sweep is one draw of the data. `a0_precondition.ipynb` regenerates

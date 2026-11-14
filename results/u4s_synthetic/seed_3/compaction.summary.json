@@ -1,0 +1,13 @@
+{
+  "label": "compaction",
+  "n": 288,
+  "n_evicted": 114,
+  "n_retained": 174,
+  "abstain_rate_evicted": 0.02631578947368421,
+  "abstain_rate_retained": 0.0,
+  "accuracy_retained": 0.9080459770114943,
+  "hallucination_rate_evicted": 0.9736842105263158,
+  "abstention_margin": 0.02631578947368421,
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "adapter": "/kaggle/working/artifacts/runs_synth/abstain_compaction_s3/adapter"
+}

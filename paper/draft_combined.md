@@ -372,11 +372,15 @@ the same free label to refuse when the evidence had been evicted. It abstains on
 against 0.000 for the base model (+17.5σ), which cuts hallucination on those probes by 72.8%.
 It refuses on only 10.9% of probes whose answer is still in context, and it raises accuracy
 on retained probes from 0.684 to 0.770. That single run had no control for refusing at the
-trained rate. On LoCoMo we registered one: the same LoRA trained on a random mask of the same
-size, ten paired runs over two folds. There the compaction mask hallucinates more than the
-random one (0.354 against 0.157, paired t = 2.51, p = 0.033) and loses 0.21 accuracy on retained
-probes. Both adapters learn to refuse often rather than to check the context, so we do not claim
-that the mask supports abstention.
+trained rate, so we registered one: the same LoRA trained on a random mask of the same size.
+On the same synthetic corpus (five seeds) the compaction adapter still refuses only where the
+fact was evicted, but the cut in hallucination is 21% rather than 72.8% (0.786 against 0.977
+for random, paired t = −2.65, p = 0.057), short of significance. On LoCoMo (ten paired runs
+over two folds) the compaction mask hallucinates more than the random one (0.354 against
+0.157, paired t = 2.51, p = 0.033) and loses 0.21 accuracy on retained probes; both adapters
+learn to refuse often rather than to check the context. We therefore do not claim that the
+mask supports abstention: the controlled effect is weak on synthetic data and absent on
+conversation.
 
 **Natural prose.** On HotpotQA (one seed, 160 probes, 92 of them evicted) the methods do not
 separate. Cascading with no adapter recovers 4 of 92, compaction 3 and uniform 5, a gap of
@@ -530,8 +534,9 @@ and above, where declaration works.
   variant of the synthetic generator is a floor case, since facts and filler come from the
   same template bank.
 - **Seeds.** The main comparisons use ten corpora (§5.1), five seeds (the §5.2 gate) or three
-  (§4.2), and the LoCoMo abstention test ten paired runs. The remixing ablations, synthetic
-  abstention, the step and learning-rate sweeps and HotpotQA are single runs.
+  (§4.2); the abstention controls use five seeds (synthetic) and ten paired runs (LoCoMo). The
+  remixing ablations, the uncontrolled synthetic abstention run, the step and learning-rate
+  sweeps and HotpotQA are single runs.
 - **Scale.** Everything is at or below 7B, and we had to quantise the 7B model to 4 bits. We cannot
   test the 27B+ regime studied in [5], so our results bound the generated declaration from
   below (at a fixed-slot control at 1.5B, under half the logit read's signal at 7B) and do

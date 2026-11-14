@@ -45,8 +45,9 @@ replay buffer, and the adapter carries across phases. Pure SFT: no RL, no reward
 recovers more evicted facts than compaction-supervised consolidation on all ten synthetic
 corpora (0.065 vs 0.022 mean; paired t(9)=3.91). On HotpotQA the arms do not separate. On LoCoMo
 the compactor keeps answer spans below chance, so the registered consolidation run stopped at its
-gate. The same mask trained for abstention cut hallucination by 72.8% on one synthetic run, but on
-LoCoMo it does worse than a random mask of the same size (ten paired runs).
+gate. The same mask trained for abstention cut hallucination by 72.8% on one synthetic run; against
+a random mask of the same size the cut is 21% on synthetic (five seeds, p = 0.057), and on LoCoMo
+the mask does worse than random (ten paired runs).
 
 ```bash
 pip install -r requirements.txt
