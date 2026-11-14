@@ -383,7 +383,12 @@ ours + mask head & 0.323 & 0.009 \\
 \emph{Table 3: consolidation on the first synthetic corpus.}
 
 On the first corpus, uniform replay recovers 14 of the 114 evicted facts (+4.0σ over zero)
-and compaction-gated consolidation recovers none. We then generated four more corpora from
+and compaction-gated consolidation recovers none. Neither is limited by what the adapter can
+hold: a positive control registered in advance, with perfect selection (the ground-truth facts),
+20 question-form surface forms per fact with the evaluation phrasing held out, and three epochs,
+recovers 0.737 of the evicted facts (seeds 0 to 2: 0.737, 0.746, 0.728; closed-book accuracy
+0.994). It also has 2.2 times the consolidation arms' optimiser steps and training pairs already
+in question form, so the gap to it measures selection, format and budget together. We then generated four more corpora from
 scratch with different seeds. After the first five, we ran five more (data seeds 5 to 9) as a
 replication, with the settings and the primary comparison fixed in advance.
 
@@ -619,8 +624,12 @@ result does.
 For routing, the logit read is a cheap substitute for declaration that needs no training and
 works at scales where declaring does not. It is not a usable router on its own: at roughly
 three times chance, most probes are still sent to the wrong region, and it costs K prompts
-rather than one generated token. The obvious next test is whether it keeps its lead at 27B
-and above, where declaration works.
+rather than one generated token. In one supplementary run at 27B (Qwen3.8, 4-bit, thinking
+disabled, 384 probes, one seed) it loses its lead: \texttt{read} 0.461 against
+\texttt{generate} 0.451, a difference of +0.010 (95\% paired bootstrap CI $[-0.039, +0.060]$,
+exact McNemar $p = 0.76$), against 0.19 at 7B. That run changes model family as well as scale,
+so it does not show where declaration catches up, only that the logit read's advantage does not
+carry over unchanged.
 
 \section{Limitations}
 
@@ -637,16 +646,16 @@ and above, where declaration works.
   (§4.2). The remixing ablations, abstention, the step and learning-rate sweeps and HotpotQA
   are single runs.
 \item
-  \textbf{Scale.} Everything is at or below 7B, and we had to quantise the 7B model to 4 bits. We cannot
-  test the 27B+ regime studied in \citet{ho2026attention}, so our results bound the generated declaration from
-  below (at a fixed-slot control at 1.5B, under half the logit read's signal at 7B) and do
-  not contradict the accuracy reported there. We have not tested the logit read at that
-  scale.
+  \textbf{Scale.} Everything except one routing run is at or below 7B, and we had to quantise the 7B model to
+  4 bits. Our results bound the generated declaration from below (at a fixed-slot control at 1.5B, under half the
+  logit read's signal at 7B) and do not contradict the accuracy reported in \citet{ho2026attention}. The one 27B
+  run (Discussion) is 4-bit, a single seed and another model family; it ties the two modes. We have not tested
+  31B.
 \item
   \textbf{Routing accuracy.} The best router is about three times chance. §4.2 compares ways of
   eliciting a routing decision; it does not produce a usable router.
 \item
-  \textbf{One model family.} Every result is on Qwen2.5.
+  \textbf{One model family.} Every result except the 27B routing run is on Qwen2.5.
 \item
   \textbf{Multiple comparisons.} Each experiment has one named family of primary comparisons,
   corrected with Holm within the family (\texttt{docs/protocol.md}, \texttt{eval/multiplicity.py}). Routing
