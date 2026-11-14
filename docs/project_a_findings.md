@@ -272,8 +272,8 @@ run:
 is not enough to recover.** The signal is real and useful — just not for the thing this project
 originally proposed to do with it.
 
-*Superseded by U4 below: with a random-mask control on LoCoMo, the abstention half of this
-contrast does not hold.*
+*Superseded by U4 and U4s below: with a random-mask control the abstention half of this contrast
+shrinks to a 21% cut that misses significance on synthetic, and reverses on LoCoMo.*
 
 ## Abstention on LoCoMo (U4): does not replicate
 
@@ -300,9 +300,34 @@ compaction but not distinguishable from random. Seeds vary widely (compaction's 
 retained probes runs from 0.06 to 0.95), so 256 examples of which 77% are refusals does not pin
 the policy down.
 
-This undercuts the synthetic result above. That run had no random-mask control, so its 72.8% cut
-cannot be told apart from a model that learned to refuse at the trained rate; on LoCoMo, with the
-control, the mask adds nothing.
+The synthetic result above had no random-mask control, so U4s below repeats the control there.
+
+## Abstention control on synthetic (U4s): a smaller, selective effect that misses the bar
+
+Registered in `docs/protocol.md` before running: the original synthetic corpus and compactor (the
+span report reproduces exactly: lift 2.81, +15.85σ over chance), compaction mask against a random
+mask of the same size (108 refusals of 288 training examples), five seeds, the U4 bar.
+`results/u4s_synthetic/`. Training now keeps the end of over-long prompts (the longest is 1,164
+tokens against a limit of 1,024), so this is not a byte-for-byte rerun of the original.
+
+| mean of 5 runs | no adapter | compaction mask | random mask | paired t (comp − rand) |
+|---|---|---|---|---|
+| hallucinates on evicted probes | 1.000 | **0.786** | 0.977 | −2.65, p = 0.057 |
+| accuracy on retained probes | 0.684 | **0.883** | 0.847 | +4.45, p = 0.011 |
+| refuses on retained probes | 0.000 | 0.000 | 0.000 | — |
+| abstention margin (evicted − retained) | 0.000 | 0.214 | 0.021 | +2.71, p = 0.054 |
+
+**The registered verdict is "does not hold"**: compaction is below random in all five pairs, but
+p = 0.057 misses α = 0.05. The accuracy guard passes easily (retained accuracy rises 0.20, for both
+arms, from training on answers). What differs from LoCoMo is the shape: here neither adapter
+refuses a single retained probe, and the compaction adapter refuses only where the fact was
+evicted, while the random one almost never refuses. So on synthetic the mask does carry
+information, selectively; on LoCoMo it does not.
+
+The effect is far smaller than the original 72.8%: a 21% mean cut in hallucination, from 3% to
+58% across seeds (the seed-0 run, the nearest to the original, cuts 31%). The single uncontrolled
+run was at the top of a wide distribution, or owed part of its size to the old truncation.
+Report 72.8% only with this beside it.
 
 ## The oracle control is inconclusive: it was undertrained
 
@@ -369,11 +394,12 @@ pool.
   mechanism.
 - **The oracle control is pending a re-run** at a real training budget; the first attempt saw
   5.6% of one epoch and cannot bound anything.
-- **The abstention positive does not survive its control**: 72.8% less hallucination on one
-  synthetic run without a random-mask control, but on LoCoMo (U4, ten paired runs) the compaction
-  mask hallucinates more than a random mask of the same size (0.354 vs 0.157, p = 0.033) and
-  loses 0.21 retained accuracy. Both adapters learned to refuse often, not to check the context.
-  Do not claim the mask supports abstention.
+- **The abstention positive does not survive its controls**: 72.8% less hallucination on one
+  uncontrolled synthetic run. With a random-mask control of the same size, on the same corpus
+  (U4s, five seeds) the cut is 21% and selective (no retained refusals) but misses significance
+  (p = 0.057); on LoCoMo (U4, ten runs) the compaction mask hallucinates more than random
+  (0.354 vs 0.157, p = 0.033) and loses 0.21 retained accuracy. At most a weak, corpus-dependent
+  signal; do not claim the mask supports abstention.
 - **The compaction decision is a strong salience signal** (+15.85σ over chance, +8.40σ over a
   positional control) that is nonetheless the wrong thing to train on. It does not carry over to
   conversation: on LoCoMo both compactors keep answer spans below chance (lift 0.45 to 0.79), so

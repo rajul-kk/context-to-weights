@@ -1,0 +1,42 @@
+{
+ "n_runs": 5,
+ "no_adapter": {
+  "label": "no-adapter",
+  "n": 288,
+  "n_evicted": 114,
+  "n_retained": 174,
+  "abstain_rate_evicted": 0.0,
+  "abstain_rate_retained": 0.0,
+  "accuracy_retained": 0.6839080459770115,
+  "hallucination_rate_evicted": 1.0,
+  "abstention_margin": 0.0,
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "adapter": null
+ },
+ "hallucination_rate_evicted": {
+  "compaction": 0.7859649122807018,
+  "random": 0.9771929824561404,
+  "t": -2.6506640878175958,
+  "p": 0.05694229394966581
+ },
+ "accuracy_retained": {
+  "compaction": 0.8827586206896552,
+  "random": 0.8471264367816091,
+  "t": 4.4513405834299675,
+  "p": 0.011235087944059557
+ },
+ "abstain_rate_retained": {
+  "compaction": 0.0,
+  "random": 0.0,
+  "t": NaN,
+  "p": NaN
+ },
+ "abstention_margin": {
+  "compaction": 0.21403508771929824,
+  "random": 0.021052631578947368,
+  "t": 2.7059636050342664,
+  "p": 0.053761327197098564
+ },
+ "accuracy_retained_drop_vs_no_adapter": -0.19885057471264367,
+ "verdict": "does not hold"
+}
