@@ -115,6 +115,30 @@ the interval excludes the 0.19 `read` lead seen at 7B and a `generate` lead larg
 This is one seed, 4-bit, thinking disabled, and a different model family (Qwen3.8) from the
 0.5B-7B runs (Qwen2.5), so it cannot separate scale from family.
 
+Seeds 0 and 1 (2026-11-17, same windows and checks; merged into
+`results/declare_27b/Qwen3.8-27B_384_s0/` and `..._384_s1/`). The per-probe records of the first
+window of seeds 0 and 1 had been committed only as summaries; they were taken from the matching
+Kaggle notebook versions after checking that those versions' summaries equal the committed ones
+byte for byte. All three seeds, 384 layouts each:
+
+| | seed 0 | seed 1 | seed 2 |
+|---|---|---|---|
+| `read` hit rate | 0.461 | 0.461 | 0.461 |
+| `generate` hit rate | 0.448 | 0.438 | 0.451 |
+| `read` content dependence | 0.328 | 0.341 | 0.333 |
+| `generate` content dependence | 0.318 | 0.310 | 0.302 |
+| alone right (`read` / `generate`) | 50 / 45 | 52 / 43 | 50 / 46 |
+| exact McNemar p | 0.682 | 0.412 | 0.760 |
+
+Both modes clear the best constant control (0.135 to 0.154) by 11σ or more on every seed. With
+each probe's hit difference averaged over the three seeds, the difference (`read` minus
+`generate`) is +0.016, 95% paired bootstrap CI [-0.026, +0.057] over the 384 probes
+(`eval/declare_report.py`'s `probe_level`). The seeds reshuffle the layouts of the same probes,
+so they tighten the interval only through the layout noise: `read` gives the same hit on 376 of
+384 probes across seeds and `generate` on 310 to 319. The modes are tied at 27B on all three
+seeds; the interval excludes the 0.19 `read` lead at 7B and a `generate` lead above 0.03. The
+caveats above (4-bit, thinking disabled, another model family) still apply.
+
 ## Kernel speed check
 
 `notebooks/c3_fast_kernel_check.ipynb` loads the model once and times the same inputs with the

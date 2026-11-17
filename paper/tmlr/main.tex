@@ -625,9 +625,9 @@ For routing, the logit read is a cheap substitute for declaration that needs no 
 works at scales where declaring does not. It is not a usable router on its own: at roughly
 three times chance, most probes are still sent to the wrong region, and it costs K prompts
 rather than one generated token. In one supplementary run at 27B (Qwen3.8, 4-bit, thinking
-disabled, 384 probes, one seed) it loses its lead: \texttt{read} 0.461 against
-\texttt{generate} 0.451, a difference of +0.010 (95\% paired bootstrap CI $[-0.039, +0.060]$,
-exact McNemar $p = 0.76$), against 0.19 at 7B. That run changes model family as well as scale,
+disabled, 384 probes, three layout seeds) it loses its lead: \texttt{read} 0.461 against
+\texttt{generate} 0.438 to 0.451, a difference of +0.016 (95\% paired bootstrap CI
+$[-0.026, +0.057]$ over probes; exact McNemar $p$ from 0.41 to 0.76 per seed), against 0.19 at 7B. That run changes model family as well as scale,
 so it does not show where declaration catches up, only that the logit read's advantage does not
 carry over unchanged.
 
@@ -649,7 +649,7 @@ carry over unchanged.
   \textbf{Scale.} Everything except one routing run is at or below 7B, and we had to quantise the 7B model to
   4 bits. Our results bound the generated declaration from below (at a fixed-slot control at 1.5B, under half the
   logit read's signal at 7B) and do not contradict the accuracy reported in \citet{ho2026attention}. The one 27B
-  run (Discussion) is 4-bit, a single seed and another model family; it ties the two modes. We have not tested
+  run (Discussion) is 4-bit and another model family; it ties the two modes on all three layout seeds. We have not tested
   31B.
 \item
   \textbf{Routing accuracy.} The best router is about three times chance. §4.2 compares ways of
